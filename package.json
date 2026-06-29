@@ -1,0 +1,44 @@
+{
+  "name": "aos-harness",
+  "version": "0.9.1",
+  "description": "Agentic Orchestration System — assemble AI agents into deliberation and execution teams",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aos-engineer/aos-harness.git"
+  },
+  "homepage": "https://github.com/aos-engineer/aos-harness",
+  "keywords": [
+    "ai",
+    "agents",
+    "orchestration",
+    "multi-agent",
+    "deliberation",
+    "execution",
+    "llm",
+    "harness"
+  ],
+  "private": true,
+  "workspaces": [
+    "runtime",
+    "cli",
+    "adapters/*"
+  ],
+  "bin": {
+    "aos": "./cli/src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test --cwd runtime",
+    "test:all": "bun test runtime tests adapters/shared adapters/claude-code/tests adapters/codex/tests adapters/gemini/tests",
+    "test:integration": "bun run tests/integration/validate-config.ts",
+    "validate": "bun run cli/src/index.ts validate",
+    "typecheck": "bun x tsc --noEmit --project runtime/tsconfig.json",
+    "lint:yaml-safety": "bun run scripts/check-yaml-safety.ts",
+    "lint": "bun run lint:yaml-safety && bun run typecheck",
+    "prerelease": "bun run lint && bun run test:all",
+    "publish:dry-run": "bun run scripts/publish.ts --dry-run"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

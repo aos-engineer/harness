@@ -1,0 +1,70 @@
+schema: aos/workflow/v1
+id: design-variations-workflow
+name: Design Variations Gallery
+description: "Expand a variation brief, then render a structured HTML bundle containing multiple visual directions for the target."
+
+steps:
+  - id: brief-expansion
+    name: Brief Expansion
+    action: targeted-delegation
+    agents: [artifact-renderer]
+    prompt: |
+      Analyze the target component and requested variation axis.
+
+      Return a structured JSON object with:
+      - `target_summary`
+      - `variation_axis`
+      - `count`
+      - `variations`: an array of variation specs where each entry names the
+        direction, what changes, what stays constant, and the intended mood.
+    output: variation_specs
+    review_gate: true
+
+  - id: render-gallery
+    name: Render Gallery
+    action: targeted-delegation
+    agents: [artifact-renderer]
+    input: [variation_specs]
+    prompt: |
+      Render the approved variation specs as a structured artifact bundle.
+
+      Return JSON with this exact shape:
+      {
+        "title": "Design Variations",
+        "files": [
+          {
+            "path": "variation-01.html",
+            "format": "html-static",
+            "variation_index": 1,
+            "content": "<!doctype html>..."
+          }
+        ]
+      }
+
+      Requirements:
+      - One standalone HTML file per variation
+      - No external dependencies
+      - Each variation clearly reflects its assigned direction
+      - Do not include markdown fences around the JSON
+    output: artifact_gallery
+    review_gate: false
+
+  - id: accessibility-review
+    name: Accessibility Review
+    action: targeted-delegation
+    agents: [sentinel]
+    input: [artifact_gallery]
+    prompt: |
+      Review the rendered variation bundle for:
+      - Contrast issues
+      - Readability issues
+      - Obvious accessibility regressions
+      Return concise findings grouped by variation path.
+    output: a11y_report
+    review_gate: false
+
+gates:
+  - after: brief-expansion
+    type: user-approval
+    prompt: "Do these variation directions cover the design space you want explored?"
+    on_rejection: retry_with_feedback

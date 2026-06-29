@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aos/domain/v1",
+  "title": "AOS Domain Template",
+  "type": "object",
+  "required": ["schema", "id", "name", "description"],
+  "properties": {
+    "schema": { "const": "aos/domain/v1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "lexicon": {
+      "type": "object",
+      "properties": {
+        "metrics": { "type": "array", "items": { "type": "string" } },
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "stages": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "overlays": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "thinking_patterns": { "type": "array", "items": { "type": "string" } },
+          "heuristics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "rule"],
+              "properties": {
+                "name": { "type": "string" },
+                "rule": { "type": "string" }
+              }
+            }
+          },
+          "red_lines": { "type": "array", "items": { "type": "string" } },
+          "temperament": { "type": "array", "items": { "type": "string" } },
+          "evidence_standard": {
+            "type": "object",
+            "properties": {
+              "convinced_by": { "type": "array", "items": { "type": "string" } },
+              "not_convinced_by": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "additional_input_sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["heading", "guidance"],
+        "properties": {
+          "heading": { "type": "string" },
+          "guidance": { "type": "string" },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+    "additional_output_sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["section", "description"],
+        "properties": {
+          "section": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "guardrails": { "type": "array", "items": { "type": "string" } }
+  }
+}

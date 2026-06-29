@@ -1,0 +1,453 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'template-summaries', label: 'Template Summaries' },
+  { id: 'llm-summaries', label: 'LLM Classification' },
+  { id: 'event-reference', label: 'Event Type Reference' },
+  { id: 'platform-integration', label: 'Platform Integration' },
+];
+---
+
+<Docs title="Event Summarization" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Event Summarization</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Template summaries and LLM-needed classification for transcript events</p>
+
+        <!-- Template Summaries -->
+        <section id="template-summaries" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Template Summaries</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The runtime includes an <code>EventSummarizer</code> that classifies transcript events into two groups: events that can be summarized with deterministic templates and events that need language understanding. Template summaries are implemented locally. Batched economy-tier LLM summarization is the intended platform behavior, but the worker/API that performs those LLM calls is not part of the current local harness package.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Eleven event types carry enough information in their own fields to produce a useful summary without an LLM. The runtime can produce these summaries with string templates &mdash; no network call, no latency, no cost.
+          </p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Event type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Template</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>file_changed</code></td>
+                    <td class="px-4 py-3"><code>{"{agentId} {operation} {path}"}</code></td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>token_usage</code></td>
+                    <td class="px-4 py-3"><code>{"{agentId} used {tokensIn}+{tokensOut} tokens (${cost})"}</code></td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>agent_destroyed</code></td>
+                    <td class="px-4 py-3"><code>{"{childAgentId} finished ({reason})"}</code></td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>constraint_check</code></td>
+                    <td class="px-4 py-3"><code>{"Round {round}: {elapsed}min, ${spent} spent"}</code></td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>domain_access</code></td>
+                    <td class="px-4 py-3"><code>{"{agentId} {operation} {path}"}</code></td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>agent_spawn</code></td>
+                    <td class="px-4 py-3">Template applied at write time</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>agent_destroy</code></td>
+                    <td class="px-4 py-3">Template applied at write time</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_start</code></td>
+                    <td class="px-4 py-3">Template applied at write time</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_end</code></td>
+                    <td class="px-4 py-3">Template applied at write time</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_paused</code></td>
+                    <td class="px-4 py-3">Template applied at write time</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>session_resumed</code></td>
+                    <td class="px-4 py-3">Template applied at write time</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            These events are structural signals. A consumer reading the summary does not need the full payload to understand what happened.
+          </p>
+        </section>
+
+        <!-- LLM Summaries -->
+        <section id="llm-summaries" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">LLM Classification</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Ten event types carry free-form content &mdash; agent reasoning, delegations, domain violations, gate decisions &mdash; where a template would either truncate meaning or produce noise. The runtime marks these as needing an LLM. In the current repo, they are classified; they are not automatically summarized by a bundled LLM worker.
+          </p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Event type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Why LLM is needed</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>delegation</code></td>
+                    <td class="px-4 py-3">Contains a full task brief sent to a child agent</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>response</code></td>
+                    <td class="px-4 py-3">Contains an agent's reasoning and conclusion</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>child_delegation</code></td>
+                    <td class="px-4 py-3">Nested delegation with its own brief and context</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>child_response</code></td>
+                    <td class="px-4 py-3">Nested agent's reasoning, may reference prior context</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>domain_violation</code></td>
+                    <td class="px-4 py-3">Requires understanding of why the access was invalid</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>expertise_updated</code></td>
+                    <td class="px-4 py-3">Diff of scratch pad content; context determines meaning</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>gate_reached</code></td>
+                    <td class="px-4 py-3">Describes the state that triggered a workflow gate</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>gate_result</code></td>
+                    <td class="px-4 py-3">Records the evaluator's decision and rationale</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>final_statement</code></td>
+                    <td class="px-4 py-3">Each agent's closing position in the deliberation</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>review_submission</code></td>
+                    <td class="px-4 py-3">A structured review artifact submitted to the harness</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Planned Batching</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The intended platform implementation uses <strong class="text-[var(--color-text)]">10-second collection windows</strong> to minimize API calls:
+          </p>
+          <ol class="space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-decimal list-inside mb-6">
+            <li>Events arrive and are written to the transcript with <code>summary = null</code>.</li>
+            <li>The harness collects all unsummarized LLM-type events for up to 10 seconds.</li>
+            <li>At the end of the window, a single economy-tier LLM call is made with all events in the batch.</li>
+            <li>The LLM returns one summary per event.</li>
+            <li>Summaries are backfilled into the <code>summary</code> column for each event.</li>
+          </ol>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Cost Efficiency</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">A burst of 20 <code>response</code> events during a high-activity round would cost one LLM call, not twenty. That batching behavior should be treated as platform design guidance until the worker is present in the deployed platform.</p>
+          </div>
+        </section>
+
+        <!-- Event Type Reference -->
+        <section id="event-reference" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Event Type Reference</h2>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Core</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>delegation</code></td>
+                    <td class="px-4 py-3">Orchestrator sends a task brief to a perspective agent</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>response</code></td>
+                    <td class="px-4 py-3">A perspective agent returns its analysis or conclusion</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Domain Enforcement</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>domain_access</code></td>
+                    <td class="px-4 py-3">An agent reads or writes a path within its allowed domain</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>domain_violation</code></td>
+                    <td class="px-4 py-3">An agent attempted to access a path outside its domain</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Hierarchical Delegation</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>child_delegation</code></td>
+                    <td class="px-4 py-3">An agent spawns a child and sends it a sub-task brief</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>child_response</code></td>
+                    <td class="px-4 py-3">A child agent returns its result to the parent</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>agent_spawn</code></td>
+                    <td class="px-4 py-3">A child agent handle is created and initialized</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>agent_destroy</code></td>
+                    <td class="px-4 py-3">A child agent handle is torn down after completing its task</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>agent_destroyed</code></td>
+                    <td class="px-4 py-3">Confirmation that a child agent has fully terminated</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Expertise</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr>
+                    <td class="px-4 py-3"><code>expertise_updated</code></td>
+                    <td class="px-4 py-3">An agent writes new content to its scratch pad</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">File Tracking</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr>
+                    <td class="px-4 py-3"><code>file_changed</code></td>
+                    <td class="px-4 py-3">A file in the deliberation directory was created, modified, or deleted</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Cost</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>token_usage</code></td>
+                    <td class="px-4 py-3">Token counts and estimated cost for a single LLM call</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>constraint_check</code></td>
+                    <td class="px-4 py-3">Snapshot of round, elapsed time, and cumulative spend at a check interval</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Session Lifecycle</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_start</code></td>
+                    <td class="px-4 py-3">Session engine initialized, agents ready</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_end</code></td>
+                    <td class="px-4 py-3">Session completed and all agents torn down</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_paused</code></td>
+                    <td class="px-4 py-3">Session checkpointed and suspended</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>session_resumed</code></td>
+                    <td class="px-4 py-3">Session restored from checkpoint and agents re-spawned</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Workflow</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>gate_reached</code></td>
+                    <td class="px-4 py-3">The orchestrator reached a named gate in the workflow definition</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>gate_result</code></td>
+                    <td class="px-4 py-3">The gate evaluator returned a pass, fail, or escalate decision</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>final_statement</code></td>
+                    <td class="px-4 py-3">An agent submitted its closing position</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>review_submission</code></td>
+                    <td class="px-4 py-3">A structured review artifact was submitted to the harness</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Platform Integration -->
+        <section id="platform-integration" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Platform Integration</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Events flow through the following path:</p>
+          <pre><code>{`Engine emits event
+  → onTranscriptEvent callback
+  → POST /api/sessions/:id/events
+  → transcript_events table (summary column populated when available)`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">
+            Template-summarized events can arrive with <code>summary</code> already filled. LLM-classified events should arrive with <code>summary: null</code> and remain pending until an external/platform summarizer backfills them.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The <code>transcript_events</code> table schema includes:</p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Column</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>id</code></td>
+                    <td class="px-4 py-3">Auto-incrementing row identifier</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>session_id</code></td>
+                    <td class="px-4 py-3">Foreign key to the parent session</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>event_type</code></td>
+                    <td class="px-4 py-3">One of the <code>TranscriptEventType</code> values listed above</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>payload</code></td>
+                    <td class="px-4 py-3">Full event payload as JSON</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>summary</code></td>
+                    <td class="px-4 py-3">Human-readable summary string, or null until backfilled</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>created_at</code></td>
+                    <td class="px-4 py-3">Wall-clock time the event was written</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Consumer Guidance</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Consumers that display a session feed should render <code>summary</code> when present and fall back to a compact raw-event preview or loading state while LLM summarization is pending.</p>
+          </div>
+        </section>
+</Docs>

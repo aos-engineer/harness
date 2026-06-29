@@ -1,0 +1,38 @@
+schema: aos/workflow/v1
+id: test-workflow
+name: Test Workflow
+description: "A minimal workflow for testing the workflow runner."
+
+steps:
+  - id: step-one
+    action: gather
+    description: "First step: gather input data"
+    input: []
+    output: gathered-data
+    review_gate: false
+
+  - id: step-two
+    action: process
+    description: "Second step: process the gathered data"
+    input: [step-one]
+    output: processed-data
+    review_gate: true
+
+  - id: step-three
+    action: finalize
+    description: "Third step: finalize the output"
+    input: [step-one, step-two]
+    output: final-output
+    review_gate: true
+
+gates:
+  - after: step-two
+    type: user-approval
+    prompt: "Review the processed data. Approve to continue?"
+    on_rejection: re-run-step
+
+  - after: step-three
+    type: automated-review
+    prompt: "Automated check of the final output."
+    max_iterations: 2
+    on_rejection: re-run-step

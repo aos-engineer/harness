@@ -1,0 +1,83 @@
+schema: aos/profile/v1
+id: design-variations
+name: Design Variations Generator
+description: "Generate multiple visual variations of a target component or surface and package them as a browser-viewable artifact gallery."
+version: 1.0.0
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    - agent: artifact-renderer
+      required: true
+      role_override: "Generate distinct visual variations of the requested target and return them as a structured HTML artifact bundle."
+    - agent: sentinel
+      required: false
+      role_override: "Review rendered variations for contrast, clarity, and obvious accessibility issues."
+    - agent: provocateur
+      required: false
+      structural_advantage: speaks-last
+      role_override: "Challenge whether the variation set actually explores the requested design space."
+
+delegation:
+  default: targeted
+  opening_rounds: 0
+  bias_limit: 3
+  tension_pairs: []
+
+constraints:
+  time:
+    min_minutes: 3
+    max_minutes: 15
+  budget: null
+  rounds:
+    min: 2
+    max: 6
+
+error_handling:
+  agent_timeout_seconds: 120
+  retry_policy:
+    max_retries: 1
+    backoff: linear
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation: null
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Target Component"
+      guidance: "What component, page section, or artifact should be varied? Include URLs, screenshots, or textual description."
+    - heading: "## Variation Axis"
+      guidance: "What should vary: theme, density, hierarchy, tone, layout, or another explicit visual axis."
+    - heading: "## Count"
+      guidance: "How many variations should be generated. Default: 6."
+  context_files: true
+
+output:
+  format: artifact-gallery
+  path_template: "output/artifacts/{{date}}-design-variations-{{session_id}}/"
+  artifacts:
+    - type: html_gallery
+  frontmatter:
+    - date
+    - participants
+    - brief_path
+
+runtime_requirements:
+  serve: false
+  channels: false
+  mempalace: false
+
+expertise:
+  enabled: false
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: none
+
+controls:
+  halt: true
+  wrap: true
+  interject: false
+
+workflow: design-variations-workflow

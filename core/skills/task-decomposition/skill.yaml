@@ -1,0 +1,32 @@
+schema: aos/skill/v1
+id: task-decomposition
+name: Task Decomposition
+description: "Breaks phases and architecture into concrete engineering tasks with effort estimates"
+version: 1.0.0
+
+input:
+  required:
+    - id: phase_plan
+      type: artifact
+      description: "Phase plan with milestones and dependencies"
+    - id: architecture
+      type: artifact
+      description: "Architecture decision record for context"
+  optional:
+    - id: team_context
+      type: text
+      description: "Team size, skills, and capacity constraints"
+
+output:
+  artifacts:
+    - id: task_breakdown
+      format: structured-data
+      description: "Concrete task list with effort estimates, dependencies, and acceptance criteria"
+  structured_result: true
+
+compatible_agents: [operator, strategist]
+
+platform_requirements:
+  requires_code_execution: false
+  requires_file_access: false
+  requires_network: false

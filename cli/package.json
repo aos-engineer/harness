@@ -1,0 +1,73 @@
+{
+  "name": "aos-harness",
+  "version": "0.9.1",
+  "description": "Agentic Orchestration System — assemble AI agents into deliberation and execution teams",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aos-engineer/aos-harness.git"
+  },
+  "homepage": "https://aos.engineer",
+  "keywords": [
+    "ai",
+    "agents",
+    "orchestration",
+    "multi-agent",
+    "deliberation",
+    "execution",
+    "llm",
+    "bun"
+  ],
+  "type": "module",
+  "bin": {
+    "aos": "./src/index.ts"
+  },
+  "engines": {
+    "bun": ">=1.3.11"
+  },
+  "files": [
+    "src/",
+    "core/",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "test": "bun run src/index.ts validate"
+  },
+  "dependencies": {
+    "@aos-harness/adapter-shared": "workspace:*",
+    "@aos-harness/runtime": "workspace:*",
+    "@clack/prompts": "^1.2.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "js-yaml": "^4.1.0",
+    "yaml": "^2.8.3"
+  },
+  "peerDependencies": {
+    "@aos-harness/claude-code-adapter": ">=0.9.1 <1.0.0",
+    "@aos-harness/codex-adapter": ">=0.9.1 <1.0.0",
+    "@aos-harness/gemini-adapter": ">=0.9.1 <1.0.0",
+    "@aos-harness/pi-adapter": ">=0.9.1 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@aos-harness/claude-code-adapter": {
+      "optional": true
+    },
+    "@aos-harness/codex-adapter": {
+      "optional": true
+    },
+    "@aos-harness/gemini-adapter": {
+      "optional": true
+    },
+    "@aos-harness/pi-adapter": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.12",
+    "@types/js-yaml": "^4.0.9",
+    "typescript": "^5.4.0"
+  }
+}

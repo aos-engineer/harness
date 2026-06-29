@@ -1,0 +1,103 @@
+schema: aos/profile/v1
+id: architecture-review
+name: Architecture Review
+description: "Technical architecture evaluation. Assesses system design decisions against feasibility, scalability, and long-term maintainability. A neutral Arbiter orchestrates specialist agents who evaluate the architecture from structural, adversarial, operational, and forward-looking perspectives. Output is a structured report with an architecture assessment, scalability analysis, and migration path."
+version: 1.0.0
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    # Core (always active — these four drive the architecture evaluation)
+    - agent: architect
+      required: true
+    - agent: provocateur
+      required: true
+      structural_advantage: speaks-last
+    - agent: operator
+      required: true
+    - agent: pathfinder
+      required: true
+    # Extended (active by default; can be deactivated)
+    - agent: catalyst
+      required: false
+    - agent: sentinel
+      required: false
+    - agent: steward
+      required: false
+
+delegation:
+  default: broadcast
+  opening_rounds: 1
+  tension_pairs:
+    - [architect, pathfinder]
+    - [operator, provocateur]
+  bias_limit: 5
+
+constraints:
+  time:
+    min_minutes: 2
+    max_minutes: 8
+  budget:
+    min: 1.00
+    max: 8.00
+    currency: USD
+  rounds:
+    min: 2
+    max: 5
+
+error_handling:
+  agent_timeout_seconds: 120
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation:
+  strategy: rolling_average
+  fixed_estimate_tokens: 2000
+  safety_margin: 0.15
+  on_estimate_exceeded: drop_optional
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Architecture"
+      guidance: "Describe the current or proposed architecture — components, data flows, integration points, technology choices."
+    - heading: "## Scale Requirements"
+      guidance: "Current and projected scale — users, requests, data volume, geographic distribution."
+    - heading: "## Constraints"
+      guidance: "Technical, budgetary, team, and timeline constraints that bound the solution space."
+    - heading: "## Key Question"
+      guidance: "The single most important architecture question you want the review to answer. Be specific."
+  context_files: true
+
+output:
+  format: report
+  path_template: "output/reports/{{date}}-{{brief_slug}}-{{session_id}}/report.md"
+  sections:
+    - architecture_assessment
+    - scalability_analysis
+    - technical_debt_risks
+    - recommended_changes
+    - migration_path
+  artifacts:
+    - type: diagram
+  frontmatter:
+    - date
+    - duration
+    - budget_used
+    - participants
+    - brief_path
+    - transcript_path
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+controls:
+  halt: true
+  wrap: true
+  interject: false

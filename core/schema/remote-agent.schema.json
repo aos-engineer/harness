@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aos/remote-agent/v1",
+  "title": "AOS Remote Agent (A2A peer)",
+  "description": "Declares an agent served remotely over the Agent2Agent (A2A) protocol — a cross-boundary AGENT, not a tool. Referenced by an aos/agent/v1 member via its remote_ref. 'A2A on the outside': boundary-crossing agent traffic, never tool/data (that stays MCP). An ADK 2.0 agent exposed via to_a2a() is reached as just another A2A peer.",
+  "type": "object",
+  "required": ["schema", "id", "kind", "agent_card_url"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "aos/remote-agent/v1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "description": { "type": "string" },
+    "kind": { "const": "a2a" },
+    "agent_card_url": {
+      "type": "string",
+      "description": "Base or full URL of the peer's Agent Card (/.well-known/agent-card.json). Validated by MeshEgressPolicy before any request."
+    },
+    "transport": {
+      "enum": ["jsonrpc", "grpc", "rest"],
+      "default": "jsonrpc",
+      "description": "A2A transport. Only jsonrpc is implemented for egress in Phase 3."
+    },
+    "auth_ref": {
+      "type": "string",
+      "description": "Name of an environment variable holding the bearer credential. NEVER the secret itself."
+    },
+    "cost": {
+      "enum": ["metered", "unmetered"],
+      "default": "unmetered",
+      "description": "unmetered (default): remote spend is reported as 0 and flagged, so it never silently corrupts budget gating. metered: trust a self-reported cost contract (opt-in)."
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional capability/skill tags, advisory for routing/discovery."
+    }
+  }
+}

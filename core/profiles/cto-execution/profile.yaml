@@ -1,0 +1,102 @@
+schema: aos/profile/v1
+id: cto-execution
+name: CTO Execution Orchestration
+description: >
+  Receives a feature request or product vision, orchestrates the full
+  product development lifecycle: requirements analysis, architecture
+  design, task breakdown, implementation planning, and quality gates.
+  Produces a complete execution package ready for engineering handoff.
+version: 1.0.0
+
+assembly:
+  orchestrator: cto-orchestrator         # Custom orchestrator (not generic Arbiter)
+  perspectives:
+    - agent: architect
+      required: true
+      role_override: "Produce architecture decision records and system design docs"
+    - agent: strategist
+      required: true
+      role_override: "Sequence the work into phases with dependency mapping"
+    - agent: operator
+      required: true
+      role_override: "Break phases into concrete engineering tasks with effort estimates"
+    - agent: advocate
+      required: true
+      role_override: "Write user stories and acceptance criteria from the user perspective"
+    - agent: sentinel
+      required: true
+      role_override: "Review all outputs for security, reliability, and maintainability risks"
+    - agent: provocateur
+      required: false
+      structural_advantage: speaks-last
+      role_override: "Stress-test the plan. Find the gaps. Challenge the timeline."
+
+delegation:
+  default: targeted                      # CTO delegates to specific agents, not broadcast
+  opening_rounds: 0                      # No broadcast needed. CTO knows who to ask.
+  tension_pairs:
+    - [architect, operator]              # "ideal design" vs "what we can actually build"
+    - [strategist, advocate]             # "optimal sequence" vs "what users need first"
+  bias_limit: 3                          # Tighter than strategic-council. Every agent must contribute.
+
+constraints:
+  time:
+    min_minutes: 5
+    max_minutes: 30                      # Execution planning takes longer than deliberation
+  budget: null                           # Typically subscription mode for this kind of work
+  rounds:
+    min: 4                               # Minimum: requirements, architecture, tasks, review
+    max: 12
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Feature / Vision"
+      guidance: "What are we building? Describe the feature, product change, or initiative."
+    - heading: "## Context"
+      guidance: "Current system state, relevant codebase areas, existing infrastructure."
+    - heading: "## Constraints"
+      guidance: "Timeline, team capacity, tech debt, dependencies, budget."
+    - heading: "## Success Criteria"
+      guidance: "How do we know this is done? What does good look like?"
+  context_files: true                    # Load PRDs, existing specs, codebase docs
+
+output:
+  format: execution-package              # New output format (see Section 7)
+  path_template: "output/executions/{{date}}-{{brief_slug}}-{{session_id}}/"
+  sections:
+    - executive_summary
+    - requirements_analysis
+    - architecture_decision_record
+    - phase_plan
+    - task_breakdown
+    - risk_assessment
+    - stress_test_findings
+    - implementation_checklist
+  artifacts:
+    - type: mermaid_diagram              # Architecture diagram
+    - type: task_list                    # Structured task breakdown (markdown or JSON)
+  frontmatter: [date, duration, participants, brief_path, transcript_path]
+
+workflow: cto-execution-workflow          # Links to workflow definition (Section 5)
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+error_handling:
+  agent_timeout_seconds: 180             # Longer timeout for production work
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation: null                  # Irrelevant when budget: null
+
+controls:
+  halt: true
+  wrap: true
+  interject: false

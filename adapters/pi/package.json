@@ -1,0 +1,52 @@
+{
+  "name": "@aos-harness/pi-adapter",
+  "version": "0.9.1",
+  "description": "AOS Harness adapter for the Pi coding agent runtime.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aos-engineer/aos-harness.git",
+    "directory": "adapters/pi"
+  },
+  "homepage": "https://aos.engineer",
+  "keywords": [
+    "aos-harness",
+    "ai-agents",
+    "pi",
+    "adapter"
+  ],
+  "type": "module",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@aos-harness/adapter-shared": "workspace:*",
+    "@aos-harness/runtime": "workspace:*",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  }
+}

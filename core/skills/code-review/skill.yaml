@@ -1,0 +1,35 @@
+schema: aos/skill/v1
+id: code-review
+name: Code Review
+description: "Reviews code artifacts against quality standards and security best practices"
+version: 1.0.0
+
+input:
+  required:
+    - id: code_artifact
+      type: artifact
+      description: "The code or implementation artifact to review"
+  optional:
+    - id: standards
+      type: text
+      description: "Project-specific coding standards or review criteria"
+    - id: architecture
+      type: artifact
+      description: "Architecture artifact for context on design intent"
+
+output:
+  artifacts:
+    - id: review_report
+      format: markdown
+      description: "Structured review report with issues and recommendations"
+  structured_result: true
+
+compatible_agents: [sentinel, architect, operator]
+
+platform_bindings:
+  claude-code: "superpowers:requesting-code-review"
+
+platform_requirements:
+  requires_code_execution: false
+  requires_file_access: true
+  requires_network: false

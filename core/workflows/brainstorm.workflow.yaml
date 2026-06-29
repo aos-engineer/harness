@@ -1,0 +1,52 @@
+schema: aos/workflow/v1
+id: brainstorm
+name: Structured Brainstorming
+description: "Structured ideation pipeline: explore context, ask clarifying questions, generate options, present a design, and produce a spec."
+
+steps:
+  - id: explore-context
+    action: gather-context
+    description: "Read existing codebase, docs, and prior decisions to build situational awareness"
+    input: []
+    output: context-summary
+    review_gate: false
+
+  - id: ask-questions
+    action: clarify
+    description: "Identify ambiguities and ask clarifying questions before generating options"
+    input: [explore-context]
+    output: clarifications
+    review_gate: false
+
+  - id: generate-options
+    action: ideate
+    description: "Generate multiple design options with trade-off analysis for each"
+    input: [explore-context, ask-questions]
+    output: design-options
+    review_gate: false
+
+  - id: present-design
+    action: present
+    description: "Present the recommended design with rationale and alternatives"
+    input: [generate-options]
+    output: design-recommendation
+    review_gate: true
+
+  - id: write-spec
+    action: write-document
+    description: "Write a detailed specification document based on the approved design"
+    input: [present-design]
+    output: spec-document
+    review_gate: true
+
+gates:
+  - after: present-design
+    type: user-approval
+    prompt: "Review the proposed design. Approve to proceed to spec writing, or reject with feedback."
+    on_rejection: re-run-step
+
+  - after: write-spec
+    type: automated-review
+    prompt: "Review the spec for completeness, consistency, and alignment with the approved design."
+    max_iterations: 3
+    on_rejection: re-run-step

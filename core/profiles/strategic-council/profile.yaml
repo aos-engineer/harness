@@ -1,0 +1,116 @@
+schema: aos/profile/v1
+id: strategic-council
+name: Strategic Council
+description: "Multi-perspective strategic deliberation. Submit a brief describing a strategic problem. A neutral Arbiter orchestrates 11 specialist agents who debate, challenge, and stress-test from opposing perspectives. Output is a structured memo with ranked recommendations, documented dissent, and next actions."
+version: 1.0.0
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    # Core (essential tensions — always active)
+    - agent: catalyst
+      required: true
+    - agent: sentinel
+      required: true
+    - agent: architect
+      required: true
+    - agent: provocateur
+      required: true
+      structural_advantage: speaks-last
+    # Extended (domain depth — active by default, can be deactivated)
+    - agent: navigator
+      required: false
+    - agent: advocate
+      required: false
+    - agent: pathfinder
+      required: false
+    - agent: strategist
+      required: false
+    # Operational (execution grounding)
+    - agent: operator
+      required: false
+    - agent: steward
+      required: false
+    - agent: auditor
+      required: false
+
+delegation:
+  default: broadcast
+  opening_rounds: 1
+  tension_pairs:
+    - [catalyst, sentinel]
+    - [architect, pathfinder]
+    - [advocate, navigator]
+    - [catalyst, pathfinder]
+    - [strategist, operator]
+  bias_limit: 5
+
+constraints:
+  time:
+    min_minutes: 2
+    max_minutes: 10
+  budget:
+    min: 1.00
+    max: 10.00
+    currency: USD
+  rounds:
+    min: 2
+    max: 8
+
+error_handling:
+  agent_timeout_seconds: 3600           # Strategic deliberations can legitimately run 2-60 minutes per agent turn
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation:
+  strategy: rolling_average
+  fixed_estimate_tokens: 2000
+  safety_margin: 0.15
+  on_estimate_exceeded: drop_optional
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Situation"
+      guidance: "What is happening right now? State the facts. No opinion, no spin."
+    - heading: "## Stakes"
+      guidance: "What's at risk? Upside if we get it right, downside if we get it wrong."
+    - heading: "## Constraints"
+      guidance: "Budget, timeline, team capacity, technical, regulatory boundaries."
+    - heading: "## Key Question"
+      guidance: "The single most important question you want the council to answer. Be specific."
+  context_files: true
+
+output:
+  format: memo
+  path_template: "output/memos/{{date}}-{{brief_slug}}-{{session_id}}/memo.md"
+  sections:
+    - ranked_recommendations
+    - agent_stances
+    - dissent_and_tensions
+    - tradeoffs_and_risks
+    - next_actions
+    - deliberation_summary
+  artifacts:
+    - type: diagram
+  frontmatter:
+    - date
+    - duration
+    - budget_used
+    - participants
+    - brief_path
+    - transcript_path
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+controls:
+  halt: true
+  wrap: true
+  interject: false

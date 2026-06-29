@@ -1,0 +1,40 @@
+schema: aos/workflow/v1
+id: review
+name: Code Review
+description: "Systematic code review checking spec compliance, code quality, and correctness with issue tracking."
+
+steps:
+  - id: read-changes
+    action: read-diff
+    description: "Read all changed files and understand the scope of modifications"
+    input: []
+    output: change-summary
+    review_gate: false
+
+  - id: check-spec-compliance
+    action: verify-compliance
+    description: "Verify that changes match the specification requirements"
+    input: [read-changes]
+    output: compliance-report
+    review_gate: false
+
+  - id: check-code-quality
+    action: analyze-quality
+    description: "Check code quality: style, patterns, error handling, edge cases, performance"
+    input: [read-changes]
+    output: quality-report
+    review_gate: false
+
+  - id: report-findings
+    action: write-report
+    description: "Compile all findings into a structured review report with severity levels"
+    input: [check-spec-compliance, check-code-quality]
+    output: review-report
+    review_gate: true
+
+gates:
+  - after: report-findings
+    type: automated-review
+    prompt: "Verify all reported issues have been addressed. Re-review until no blocking issues remain."
+    max_iterations: 3
+    on_rejection: re-run-step

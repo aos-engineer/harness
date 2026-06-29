@@ -1,0 +1,101 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadAllAgents } from '../../lib/content';
+
+const agents = loadAllAgents();
+const categoryLabels: Record<string, string> = { orchestrator: 'Orchestrators', perspective: 'Perspectives', operational: 'Operational' };
+const categoryColors: Record<string, string> = { orchestrator: 'var(--color-orchestrator)', perspective: 'var(--color-perspective)', operational: 'var(--color-operational)' };
+const categoryBadge: Record<string, string> = { orchestrator: 'badge-orchestrator', perspective: 'badge-perspective', operational: 'badge-operational' };
+
+const orchestrators = agents.filter(a => a.category === 'orchestrator');
+const perspectives = agents.filter(a => a.category === 'perspective');
+const operational = agents.filter(a => a.category === 'operational');
+---
+
+<Base title="Agent Roster" description="15 cognitive agents with distinct reasoning biases">
+  <!-- Page Header -->
+  <div class="py-16 pb-12">
+    <div class="mx-auto max-w-[1200px] px-6">
+      <h1 class="text-4xl font-extrabold tracking-tight">{agents.length > 0 ? 'Agent Roster' : 'Agent Roster'}</h1>
+      <p class="text-[17px] text-[var(--color-text-secondary)] leading-relaxed max-w-[640px] mt-3">
+        {agents.length} cognitive agents, each with a distinct objective function, bias, and evidence standard. Assembled into councils by orchestration profiles.
+      </p>
+      <div class="flex items-center gap-2 mt-6 text-sm text-[var(--color-text-muted)]">
+        <span class="font-medium">{categoryLabels.orchestrator} ({orchestrators.length})</span>
+        <span class="text-[var(--color-border)]">|</span>
+        <span class="font-medium">{categoryLabels.perspective} ({perspectives.length})</span>
+        <span class="text-[var(--color-border)]">|</span>
+        <span class="font-medium">{categoryLabels.operational} ({operational.length})</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-[1200px] px-6 pb-20">
+    <!-- Orchestrators — Hero Cards -->
+    <div class="mb-10">
+      <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-4">Orchestrators</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {orchestrators.map(agent => (
+          <a href={`/agents/${agent.id}`} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-0 card-hover no-underline">
+            <div class="flex flex-row">
+              <div class="w-1 shrink-0 rounded-l-xl" style={`background: ${categoryColors.orchestrator}`}></div>
+              <div class="p-5 flex-1">
+                <h3 class="text-[17px] font-semibold text-[var(--color-text)]">{agent.name}</h3>
+                <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-2">{agent.role}</p>
+                <p class="text-[13px] text-[var(--color-text-muted)] mt-2">{agent.cognition.core_bias}</p>
+                <div class="flex items-center gap-2 mt-3">
+                  <span class={`badge ${categoryBadge.orchestrator}`}>orchestrator</span>
+                  <span class="badge badge-optional">{agent.model.tier}</span>
+                </div>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- Perspectives — List Rows -->
+    <div class="mb-10">
+      <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Perspectives</p>
+      <div class="flex flex-col gap-2">
+        {perspectives.map(agent => (
+          <a href={`/agents/${agent.id}`} class="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 card-hover no-underline">
+            <div class="flex items-center gap-3">
+              <span class="dot" style={`background: ${categoryColors.perspective}`}></span>
+              <span class="text-sm font-semibold text-[var(--color-text)]">{agent.name}</span>
+              <span class="text-[13px] text-[var(--color-text-muted)]">({agent.cognition.core_bias})</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
+              <span>Perspective</span>
+              <span>&middot;</span>
+              <span>{agent.model.tier}</span>
+              <span class="text-[var(--color-text-muted)]">&rsaquo;</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- Operational — List Rows -->
+    <div class="mb-10">
+      <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Operational</p>
+      <div class="flex flex-col gap-2">
+        {operational.map(agent => (
+          <a href={`/agents/${agent.id}`} class="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 card-hover no-underline">
+            <div class="flex items-center gap-3">
+              <span class="dot" style={`background: ${categoryColors.operational}`}></span>
+              <span class="text-sm font-semibold text-[var(--color-text)]">{agent.name}</span>
+              <span class="text-[13px] text-[var(--color-text-muted)]">({agent.cognition.core_bias})</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
+              <span>Operational</span>
+              <span>&middot;</span>
+              <span>{agent.model.tier}</span>
+              <span class="text-[var(--color-text-muted)]">&rsaquo;</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </div>
+</Base>

@@ -1,0 +1,39 @@
+{
+  "name": "aos-harness",
+  "version": "0.9.1",
+  "description": "Run AOS Harness deliberation and execution workflows from Codex.",
+  "author": {
+    "name": "AOS Engineer",
+    "url": "https://github.com/aos-engineer/aos-harness"
+  },
+  "homepage": "https://github.com/aos-engineer/aos-harness",
+  "repository": "https://github.com/aos-engineer/aos-harness",
+  "license": "MIT",
+  "keywords": [
+    "aos",
+    "agents",
+    "orchestration"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks.json",
+  "interface": {
+    "displayName": "AOS Harness",
+    "shortDescription": "Run AOS Harness CLI workflows from Codex.",
+    "longDescription": "Local Codex plugin for listing, validating, scaffolding, replaying, and running AOS Harness deliberation and execution workflows through the shared CLI wrapper.",
+    "developerName": "AOS Engineer",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/aos-engineer/aos-harness",
+    "privacyPolicyURL": "https://openai.com/policies/row-privacy-policy/",
+    "termsOfServiceURL": "https://openai.com/policies/row-terms-of-use/",
+    "defaultPrompt": [
+      "List the available AOS profiles, domains, and briefs.",
+      "Run a strategic-council dry-run on a local brief.",
+      "Author a new AOS brief from an idea."
+    ],
+    "brandColor": "#0F766E"
+  }
+}

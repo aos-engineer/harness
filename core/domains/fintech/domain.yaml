@@ -1,0 +1,103 @@
+schema: aos/domain/v1
+id: fintech
+name: Fintech & Financial Services Context
+description: "Domain pack for financial services, payments, lending, and investment platforms. Injects fintech-specific lexicon, compliance standards, and agent overlays that sharpen each perspective's analysis for decisions involving money movement, customer funds, regulatory compliance, and financial product design."
+version: 1.0.0
+
+lexicon:
+  metrics:
+    - "AUM — Assets Under Management: total market value of assets managed on behalf of clients"
+    - "transaction_volume — Number or value of financial transactions processed in a given period"
+    - "default_rate — Percentage of loans or credit facilities that fail to meet repayment obligations"
+    - "approval_rate — Percentage of applications (loan, account, transaction) approved versus total submitted"
+    - "fraud_rate — Incidence of fraudulent transactions as a percentage of total transaction volume or value"
+    - "cost_per_transaction — Fully loaded cost to process a single financial transaction including interchange, processing, and compliance costs"
+    - "net_interest_margin — Difference between interest earned on assets and interest paid on liabilities, expressed as a percentage of average earning assets"
+    - "regulatory_capital_ratio — Ratio of qualifying capital to risk-weighted assets, measuring financial institution solvency"
+  frameworks:
+    - "embedded_finance — Financial services integrated directly into non-financial platforms and customer journeys"
+    - "open_banking — API-driven access to banking data and services enabling third-party innovation"
+    - "defi_integration — Integration of decentralised finance protocols and on-chain settlement into traditional financial products"
+    - "regtech — Technology solutions for regulatory compliance, reporting, and risk management automation"
+    - "core_banking_modernization — Migration from legacy core banking systems to modern, API-first architectures"
+  stages:
+    - "sandbox — Regulatory sandbox or internal testing environment; limited transactions with synthetic or restricted data"
+    - "limited_release — Controlled rollout to a restricted user base with enhanced monitoring and manual oversight"
+    - "regulatory_approval — Formal submission and review by financial regulators (OCC, SEC, CFPB, state regulators)"
+    - "full_deployment — Production launch to the general customer base with standard operational controls"
+    - "scale — Optimising unit economics, expanding geographic or product scope, and pursuing market leadership"
+
+overlays:
+  catalyst:
+    lens_additions:
+      - label: Revenue Per Transaction
+        instruction: "For every opportunity, quantify the revenue impact per transaction or per account. Initiatives that do not have a clear path to improving transaction economics or growing payment volume require explicit justification."
+      - label: Payment Volume Growth
+        instruction: "Assess whether the decision accelerates total payment volume (TPV) growth. In payments businesses, volume is the primary lever — features that do not drive volume must justify their existence through retention or margin improvement."
+    evidence_standard: "Revenue claims must include assumptions on transaction volume, take rate, interchange economics, and customer acquisition timeline."
+
+  sentinel:
+    lens_additions:
+      - label: Fraud Prevention
+        instruction: "Evaluate every customer-facing change for new fraud vectors. Transaction fraud, account takeover, and synthetic identity attacks must be assessed. The cost of fraud includes direct losses, chargebacks, and regulatory penalties."
+      - label: Customer Funds Protection
+        instruction: "Treat customer funds as sacrosanct. Any architecture, process, or vendor change that touches the flow of customer funds must demonstrate that funds are protected at every step, including during failure modes."
+    red_lines:
+      - "Customer funds must never be at risk due to system design choices"
+      - "Fraud risk assessment is mandatory for any change to transaction flows"
+    evidence_standard: "Fraud risk claims must cite transaction monitoring data, chargeback rates, or industry fraud benchmarks. Qualitative fraud assessments alone are insufficient."
+
+  architect:
+    lens_additions:
+      - label: PCI-DSS Compliance Architecture
+        instruction: "Evaluate every system design against PCI-DSS requirements. Cardholder data must be isolated, tokenised where possible, and access strictly controlled. Scope reduction through tokenisation and network segmentation is preferred over scope expansion."
+      - label: Real-Time Transaction Processing
+        instruction: "Assess whether the architecture supports real-time transaction processing at target scale. Latency budgets for payment authorisation (typically <500ms end-to-end) must be explicit. Eventual consistency is unacceptable for balance-critical operations."
+    evidence_standard: "Architecture claims must reference PCI-DSS SAQ type or ROC scope, transaction latency benchmarks, and throughput capacity under peak load."
+
+  provocateur:
+    lens_additions:
+      - label: Fraud Vector Analysis
+        instruction: "For every new product or feature, enumerate the top five fraud attack vectors and demand mitigation plans. Assume adversaries are sophisticated and well-funded. Challenge any team that claims their product is 'low fraud risk' without evidence."
+      - label: Regulatory Enforcement Precedents
+        instruction: "Cite specific enforcement actions (CFPB consent orders, SEC fines, OCC cease-and-desist) for similar products or practices. Regulatory risk is not theoretical — demand concrete precedent analysis."
+    evidence_standard: "Risk projections must cite specific regulatory enforcement actions, industry fraud data, or comparable company incidents."
+
+  steward:
+    lens_additions:
+      - label: Financial Regulatory Compliance
+        instruction: "For every recommendation, map the complete regulatory landscape: PCI-DSS, SOX (if applicable), AML/BSA, KYC/CIP, CFPB regulations, state money transmitter licenses, and securities regulations. Gaps in regulatory mapping are compliance risks."
+      - label: Fiduciary Duty Assessment
+        instruction: "Evaluate whether any recommendation triggers fiduciary obligations. Investment advice, custody of assets, and discretionary management create fiduciary duties that constrain product design and marketing."
+    evidence_standard: "Compliance claims must cite specific regulations (12 CFR 1026, 31 CFR 1010, PCI-DSS Requirement numbers). General compliance assertions without regulatory specificity are insufficient."
+
+  navigator:
+    lens_additions:
+      - label: Fintech Market Positioning
+        instruction: "Assess whether the decision positions the company as infrastructure (picks-and-shovels), platform (marketplace), or product (direct-to-consumer). Each positioning has different competitive dynamics and regulatory exposure."
+      - label: Regulatory Arbitrage Assessment
+        instruction: "Evaluate whether the company's regulatory positioning creates sustainable competitive advantage or temporary arbitrage. Charter vs. partnership models, state-by-state licensing, and regulatory moats must be assessed explicitly."
+    evidence_standard: "Market positioning claims must reference competitive landscape data, regulatory barrier analysis, or customer acquisition channel economics."
+
+  strategist:
+    lens_additions:
+      - label: Payments Wedge Strategy
+        instruction: "Evaluate whether the decision advances a payments wedge strategy — using a narrow, high-frequency payment use case to acquire customers, then expanding into adjacent financial services. Premature diversification before wedge dominance is a common fintech failure mode."
+      - label: Platform vs Product Sequencing
+        instruction: "Assess the sequencing decision between building a financial product (direct revenue) and building a platform (network effects, third-party distribution). Platform economics require scale that most fintech startups do not yet have."
+    evidence_standard: "Strategic claims must map to a coherent multi-year narrative with clear sequencing logic, not just next-quarter revenue targets."
+
+additional_input_sections:
+  - heading: "## Financial Context"
+    guidance: "Transaction volume and value, revenue per transaction, fraud rate and chargeback rate, regulatory status (licenses held, applications pending), and capital position. Include customer funds under management and compliance audit status where applicable."
+
+additional_output_sections:
+  - financial_risk_impact: "Projected impact on transaction economics, fraud exposure, regulatory compliance status, and customer funds safety for each recommended path. State all assumptions on volume, take rate, and loss rates explicitly."
+
+guardrails:
+  - id: regulatory_compliance_status
+    rule: "Regulatory compliance status must be explicitly stated for every recommendation. The applicable regulatory framework (PCI-DSS, AML/BSA, state MTL, securities law) must be identified and compliance gaps flagged."
+  - id: customer_funds_protection
+    rule: "Customer funds protection must be assessed for every recommendation that touches money movement, account balances, or custody. Recommendations without explicit funds-safety analysis are incomplete."
+  - id: fraud_impact_analysis
+    rule: "Fraud impact analysis is required for any customer-facing change. New features, flow changes, and partner integrations must enumerate fraud vectors and quantify potential loss exposure."

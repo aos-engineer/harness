@@ -1,0 +1,222 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadAllAgents } from '../../lib/content';
+
+export function getStaticPaths() {
+  const agents = loadAllAgents();
+  return agents.map(agent => ({
+    params: { id: agent.id },
+    props: { agent },
+  }));
+}
+
+const { agent } = Astro.props;
+
+const categoryBadge: Record<string, string> = { orchestrator: 'badge-orchestrator', perspective: 'badge-perspective', operational: 'badge-operational' };
+
+const riskBadgeColor = (risk: string) => {
+  if (risk === 'high' || risk === 'very-high') return 'background: rgba(239,68,68,0.1); color: #dc2626;';
+  if (risk === 'moderate') return 'background: rgba(245,158,11,0.1); color: #92400e;';
+  return 'background: rgba(52,199,89,0.1); color: #166534;';
+};
+
+const convincedBy = agent.persona.evidence_standard?.convinced_by ?? [];
+const notConvincedBy = agent.persona.evidence_standard?.not_convinced_by ?? [];
+---
+
+<Base title={agent.name} description={agent.cognition.objective_function}>
+  <div class="mx-auto max-w-[1200px] px-6">
+
+    <!-- Breadcrumb -->
+    <div class="text-sm text-[var(--color-text-muted)] pt-6">
+      <a href="/agents" class="text-[var(--color-signal)] no-underline hover:text-[var(--color-signal-hover)]">Agents</a>
+      <span class="mx-2 text-[var(--color-text-muted)]">&rsaquo;</span>
+      <span>{agent.name}</span>
+    </div>
+
+    <!-- Agent Header -->
+    <div class="pt-8 pb-12">
+      <h1 class="text-4xl font-extrabold tracking-tight">{agent.name}</h1>
+      <p class="text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-[720px] mt-3">{agent.role}</p>
+      <div class="flex flex-wrap items-center gap-2 mt-4">
+        <span class={`badge ${categoryBadge[agent.category]}`}>{agent.category}</span>
+        <span class="badge badge-optional">{agent.model.tier}</span>
+        <span class="badge" style={riskBadgeColor(agent.cognition.risk_tolerance)}>{agent.cognition.risk_tolerance} risk</span>
+      </div>
+    </div>
+
+    <!-- Cognition Card -->
+    <section class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-4">
+      <h2 class="text-xl font-bold mb-5">Cognition</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Objective Function</p>
+          <p class="text-[15px] text-[var(--color-text)] mt-1.5">{agent.cognition.objective_function}</p>
+
+          <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mt-5">Core Bias</p>
+          <p class="text-[15px] font-semibold text-[var(--color-text)] mt-1.5">{agent.cognition.core_bias}</p>
+
+          <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mt-5">Risk Tolerance</p>
+          <p class="text-[15px] text-[var(--color-text)] mt-1.5">{agent.cognition.risk_tolerance}</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Time Horizon</p>
+          <div class="grid grid-cols-3 gap-3 mt-1.5">
+            <div>
+              <p class="text-[13px] font-semibold text-[var(--color-text)]">Primary</p>
+              <p class="text-[13px] text-[var(--color-text-secondary)]">{agent.cognition.time_horizon.primary}</p>
+            </div>
+            <div>
+              <p class="text-[13px] font-semibold text-[var(--color-text)]">Secondary</p>
+              <p class="text-[13px] text-[var(--color-text-secondary)]">{agent.cognition.time_horizon.secondary}</p>
+            </div>
+            <div>
+              <p class="text-[13px] font-semibold text-[var(--color-text)]">Peripheral</p>
+              <p class="text-[13px] text-[var(--color-text-secondary)]">{agent.cognition.time_horizon.peripheral}</p>
+            </div>
+          </div>
+
+          <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mt-5">Default Stance</p>
+          <p class="text-[15px] italic text-[var(--color-text-secondary)] mt-1.5">"{agent.cognition.default_stance}"</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Persona Card -->
+    <section class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-4">
+      <h2 class="text-xl font-bold mb-5">Persona</h2>
+
+      <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Temperament</p>
+      <div class="flex flex-wrap gap-2 mt-2">
+        {agent.persona.temperament.map((t: string) => (
+          <span class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md px-3 py-1 text-[13px] text-[var(--color-text-secondary)]">{t}</span>
+        ))}
+      </div>
+
+      <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mt-6">Thinking Patterns</p>
+      <ol class="mt-2 pl-5 list-decimal space-y-2">
+        {agent.persona.thinking_patterns.map((pattern: string) => (
+          <li class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            <span class="text-[var(--color-text-secondary)]">{pattern}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <!-- Heuristics -->
+    <section class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-4">
+      <h2 class="text-xl font-bold mb-5">Heuristics</h2>
+      <div class="divide-y divide-[var(--color-border)]">
+        {agent.persona.heuristics.map((h: { name: string; rule: string }) => (
+          <div class="py-4 first:pt-0 last:pb-0">
+            <p class="text-[15px] font-semibold text-[var(--color-text)]">{h.name}</p>
+            <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-1.5">{h.rule}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Evidence Standard -->
+    <section class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-4">
+      <h2 class="text-xl font-bold mb-5">Evidence Standard</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <p class="text-xs font-medium uppercase tracking-wider text-[var(--color-success)]">Convinced by</p>
+          <ul class="mt-2 space-y-2">
+            {convincedBy.map((item: string) => (
+              <li class="flex items-start gap-2.5">
+                <span class="dot mt-1.5 shrink-0" style="background: var(--color-success)"></span>
+                <span class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p class="text-xs font-medium uppercase tracking-wider text-[var(--color-danger)]">Not convinced by</p>
+          <ul class="mt-2 space-y-2">
+            {notConvincedBy.map((item: string) => (
+              <li class="flex items-start gap-2.5">
+                <span class="dot mt-1.5 shrink-0" style="background: var(--color-danger)"></span>
+                <span class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Red Lines -->
+    <section class="mb-4">
+      <h2 class="text-xl font-bold mb-4">Red Lines</h2>
+      <div class="space-y-3">
+        {agent.persona.red_lines.map((line: string) => (
+          <div class="border-l-4 border-[var(--color-danger)] bg-[var(--color-surface)] border-r border-t border-b border-r-[var(--color-border)] border-t-[var(--color-border)] border-b-[var(--color-border)] rounded-r-lg pl-4 pr-4 py-3">
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">{line}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Tensions -->
+    {agent.tensions.length > 0 && (
+      <section class="mb-4">
+        <h2 class="text-xl font-bold mb-4">Tensions</h2>
+        <div class="space-y-3">
+          {agent.tensions.map((t: { agent: string; dynamic: string }) => (
+            <div class="bg-[var(--color-bg)] rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm font-semibold text-[var(--color-text-muted)]">vs.</span>
+                <a href={`/agents/${t.agent}`} class="text-sm font-semibold text-[var(--color-signal)] no-underline hover:text-[var(--color-signal-hover)]">{t.agent}</a>
+              </div>
+              <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">{t.dynamic}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Capabilities -->
+    {agent.capabilities && (
+      <section class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-4">
+        <h2 class="text-xl font-bold mb-5">Capabilities</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div class="flex items-center gap-2">
+            <span class="dot" style={`background: ${agent.capabilities.can_execute_code ? 'var(--color-success)' : 'var(--color-text-muted)'}`}></span>
+            <span class="text-[13px] text-[var(--color-text-muted)]">can_execute_code</span>
+            <span class="text-sm text-[var(--color-text)]">{agent.capabilities.can_execute_code ? 'Yes' : 'No'}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="dot" style={`background: ${agent.capabilities.can_produce_files ? 'var(--color-success)' : 'var(--color-text-muted)'}`}></span>
+            <span class="text-[13px] text-[var(--color-text-muted)]">can_produce_files</span>
+            <span class="text-sm text-[var(--color-text)]">{agent.capabilities.can_produce_files ? 'Yes' : 'No'}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="dot" style={`background: ${agent.capabilities.can_review_artifacts ? 'var(--color-success)' : 'var(--color-text-muted)'}`}></span>
+            <span class="text-[13px] text-[var(--color-text-muted)]">can_review_artifacts</span>
+            <span class="text-sm text-[var(--color-text)]">{agent.capabilities.can_review_artifacts ? 'Yes' : 'No'}</span>
+          </div>
+        </div>
+        {agent.capabilities.output_types && agent.capabilities.output_types.length > 0 && (
+          <div class="mt-4">
+            <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Output Types</p>
+            <div class="flex flex-wrap gap-2 mt-1.5">
+              {agent.capabilities.output_types.map((t: string) => (
+                <span class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-md px-2.5 py-0.5 text-xs text-[var(--color-text-secondary)]">{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+    )}
+
+    <!-- System Prompt -->
+    {agent.promptExcerpt && (
+      <section class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-20">
+        <h2 class="text-xl font-bold">System Prompt</h2>
+        <p class="text-[13px] text-[var(--color-text-muted)] mt-1">First 15 lines of prompt.md</p>
+        <pre class="mt-4"><code>{agent.promptExcerpt}</code></pre>
+      </section>
+    )}
+
+  </div>
+</Base>

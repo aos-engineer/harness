@@ -1,0 +1,200 @@
+---
+interface SidebarLink {
+  id: string;
+  label: string;
+}
+
+interface Props {
+  title: string;
+  description?: string;
+  sidebarLinks?: SidebarLink[];
+}
+
+const { title, description, sidebarLinks = [] } = Astro.props;
+const currentPath = Astro.url.pathname.endsWith('/')
+  ? Astro.url.pathname
+  : `${Astro.url.pathname}/`;
+const canonicalUrl = new URL(currentPath, Astro.site ?? Astro.url).toString();
+
+const docsGroups = [
+  {
+    title: 'Start here',
+    links: [
+      { title: 'Getting Started', href: '/docs/getting-started/' },
+      { title: 'Creating Agents', href: '/docs/creating-agents/' },
+      { title: 'Creating Profiles', href: '/docs/creating-profiles/' },
+      { title: 'Creating Domains', href: '/docs/creating-domains/' },
+      { title: 'Creating Workflows', href: '/docs/creating-workflows/' },
+      { title: 'Creating Skills', href: '/docs/creating-skills/' },
+    ],
+  },
+  {
+    title: 'Runtime',
+    links: [
+      { title: 'Domain Enforcement', href: '/docs/domain-enforcement/' },
+      { title: 'Hierarchical Delegation', href: '/docs/hierarchical-delegation/' },
+      { title: 'Memory System', href: '/docs/persistent-expertise/' },
+      { title: 'Event Summarization', href: '/docs/event-summarization/' },
+      { title: 'Session Resumption', href: '/docs/session-resumption/' },
+      { title: 'Dev Execution', href: '/docs/dev-execution/' },
+    ],
+  },
+  {
+    title: 'Interop & Mesh',
+    links: [
+      { title: 'Serving over A2A', href: '/docs/serving-over-a2a/' },
+      { title: 'MCP Toolsets', href: '/docs/mcp-toolsets/' },
+      { title: 'Agent Mesh Security', href: '/docs/agent-mesh-security/' },
+    ],
+  },
+];
+
+const topLinks = [
+  { href: '/', label: 'API' },
+  { href: '/agents/', label: 'Agents' },
+  { href: '/profiles/', label: 'Profiles' },
+  { href: 'https://github.com/aos-engineer/aos-harness', label: 'GitHub', external: true },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description ?? title} />
+    <meta name="theme-color" content="#f7f7f8" />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <title>{title} | AOS Docs</title>
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem('aos-theme')
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (stored === 'dark' || (!stored && prefersDark)) {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
+  </head>
+  <body class="docs-shell min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
+    <aside class="docs-rail">
+      <a href="/" class="docs-brand" aria-label="AOS home">
+        <span class="docs-brand-mark">AOS</span><span>.engineer</span>
+      </a>
+
+      <nav class="docs-nav" aria-label="Documentation">
+        {docsGroups.map((group) => (
+          <section class="docs-nav-group">
+            <h2>{group.title}</h2>
+            <ul>
+              {group.links.map((link) => {
+                const active = currentPath === link.href;
+                return (
+                  <li>
+                    <a href={link.href} class:list={{ active }}>
+                      <span>{link.title}</span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </nav>
+    </aside>
+
+    <header class="docs-header">
+      <div class="docs-header-search" aria-hidden="true">
+        <span class="docs-search-icon">/</span>
+        <span>Search docs</span>
+      </div>
+
+      <div class="docs-mobile-brand">
+        <details class="docs-mobile-menu">
+          <summary aria-label="Open documentation navigation">
+            <span></span><span></span><span></span>
+          </summary>
+          <div class="docs-mobile-panel">
+            {docsGroups.map((group) => (
+              <section>
+                <h2>{group.title}</h2>
+                {group.links.map((link) => (
+                  <a href={link.href} class:list={{ active: currentPath === link.href }}>
+                    {link.title}
+                  </a>
+                ))}
+              </section>
+            ))}
+          </div>
+        </details>
+        <a href="/" class="docs-mobile-logo">AOS<span>.engineer</span></a>
+      </div>
+
+      <nav class="docs-top-nav" aria-label="Primary">
+        {topLinks.map((link) => (
+          <a href={link.href} {...(link.external ? { target: '_blank', rel: 'noopener' } : {})}>
+            {link.label}
+          </a>
+        ))}
+      </nav>
+
+      <button class="docs-theme-toggle" type="button" aria-label="Toggle dark mode" data-theme-toggle>
+        <span class="docs-theme-sun"></span>
+        <span class="docs-theme-moon"></span>
+      </button>
+    </header>
+
+    <div class="docs-page">
+      <main class="docs-main">
+        <div class="docs-breadcrumb">
+          <a href="/docs/getting-started/">Docs</a>
+          <span>/</span>
+          <span>{title}</span>
+        </div>
+
+        {sidebarLinks.length > 0 && (
+          <nav class="docs-section-pills" aria-label="On this page">
+            {sidebarLinks.map((link) => (
+              <a href={`#${link.id}`}>{link.label}</a>
+            ))}
+          </nav>
+        )}
+
+        <article class="docs-article">
+          <slot />
+        </article>
+      </main>
+
+      {sidebarLinks.length > 0 && (
+        <aside class="docs-toc" aria-label="On this page">
+          <div>
+            <h2>On this page</h2>
+            <nav>
+              {sidebarLinks.map((link) => (
+                <a href={`#${link.id}`}>{link.label}</a>
+              ))}
+            </nav>
+          </div>
+        </aside>
+      )}
+    </div>
+
+    <script is:inline>
+      document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
+        const root = document.documentElement
+        const next = !root.classList.contains('dark')
+        root.classList.toggle('dark', next)
+        localStorage.setItem('aos-theme', next ? 'dark' : 'light')
+      })
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>

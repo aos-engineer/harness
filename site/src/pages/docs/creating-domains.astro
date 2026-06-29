@@ -1,0 +1,343 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'what-domains-do', label: 'What Domains Do' },
+  { id: 'domain-schema', label: 'Domain Schema' },
+  { id: 'lexicon', label: 'Lexicon' },
+  { id: 'overlays', label: 'Overlays' },
+  { id: 'merge-rules', label: 'Merge Rules' },
+  { id: 'example', label: 'Example' },
+];
+---
+
+<Docs title="Creating Domains" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Creating Domains</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Add industry-specific knowledge overlays to sharpen agent analysis</p>
+
+        <!-- What Domains Do -->
+        <section id="what-domains-do" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">What Domains Do</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Domains are <strong class="text-[var(--color-text)]">knowledge overlays</strong> that enhance agents with industry-specific vocabulary, metrics, frameworks, and reasoning patterns. They do not replace agent definitions &mdash; they extend them.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            When you activate a domain (e.g., <code>--domain saas</code>), the runtime merges domain-specific enhancements into each agent before the session starts. The Catalyst still thinks like the Catalyst, but now it also knows about ARR, churn rate, and CAC payback periods.
+          </p>
+
+          <!-- Overlay diagram -->
+          <div class="flex flex-col md:flex-row items-center gap-4 mb-6">
+            <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 flex-1 w-full">
+              <p class="text-[12px] font-semibold uppercase text-[var(--color-text-muted)] mb-2">Base Catalyst</p>
+              <p class="text-[13px] text-[var(--color-text-secondary)] font-mono leading-relaxed">"Who will pay for this?"<br/>"What is the fastest path to revenue?"</p>
+            </div>
+            <span class="text-2xl text-[var(--color-text-muted)] font-light">+</span>
+            <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 flex-1 w-full">
+              <p class="text-[12px] font-semibold uppercase text-[var(--color-text-muted)] mb-2">SaaS Domain Overlay</p>
+              <p class="text-[13px] text-[var(--color-text-secondary)] font-mono leading-relaxed">"Quantify impact on ARR or MRR"<br/>"Challenge CAC payback &gt; 18 months"</p>
+            </div>
+            <span class="text-2xl text-[var(--color-text-muted)] font-light">=</span>
+            <div class="bg-[var(--color-surface)] border-l-4 border-l-[var(--color-signal)] border border-[var(--color-border)] rounded-lg p-4 flex-1 w-full">
+              <p class="text-[12px] font-semibold uppercase text-[var(--color-text-muted)] mb-2">Enhanced Catalyst</p>
+              <p class="text-[13px] text-[var(--color-text-secondary)] font-mono leading-relaxed">"Who will pay for this?"<br/>"What is the fastest path to revenue?"<br/>"Quantify impact on ARR or MRR"<br/>"Challenge CAC payback &gt; 18 months"</p>
+            </div>
+          </div>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Key Concept</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Domain values are always <strong class="text-[var(--color-text)]">appended</strong>, never replaced. The agent's base thinking patterns, heuristics, evidence standards, and red lines remain intact. The domain adds to them.</p>
+          </div>
+        </section>
+
+        <!-- Domain Schema -->
+        <section id="domain-schema" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Domain Schema</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A complete domain.yaml:</p>
+          <pre><code>{`schema: aos/domain/v1                   # Required. Schema identifier.
+id: saas                                # Unique domain ID.
+name: SaaS Business Context             # Display name.
+description: >                          # What this domain adds.
+  Domain pack for B2B and B2C SaaS
+  businesses. Injects SaaS-specific
+  lexicon, metrics, and agent overlays
+  for subscription-based software.
+version: 1.0.0
+
+lexicon:                                # Industry vocabulary.
+  metrics:
+    - "ARR — Annual Recurring Revenue"
+    - "MRR — Monthly Recurring Revenue"
+    - "NRR — Net Revenue Retention"
+    - "CAC — Customer Acquisition Cost"
+    - "LTV — Lifetime Value"
+    - "churn_rate — % customers or revenue lost per period"
+  frameworks:
+    - "PLG — Product-Led Growth"
+    - "sales_led — Enterprise sales motion"
+    - "land_and_expand — Start narrow, expand over time"
+  stages:
+    - "pre_seed — Pre-PMF, team and hypothesis"
+    - "seed — Early traction, proving PMF"
+    - "series_a — Scaling GTM, $1M-$10M ARR"
+    - "growth — Scaling revenue efficiently"
+    - "scale — Optimizing unit economics at scale"
+
+overlays:                               # Per-agent enhancements.
+  catalyst:
+    thinking_patterns:
+      - "Quantify impact on ARR or MRR for every opportunity"
+      - "Challenge any initiative where CAC payback > 18 months"
+    heuristics:
+      - name: SaaS Revenue Test
+        rule: "Quantify direct impact on ARR or MRR expansion."
+      - name: Payback Obsession
+        rule: "Challenge any initiative where CAC payback > 18 months."
+    evidence_standard:
+      convinced_by:
+        - "Revenue claims with conversion rate, ACV, and time-to-close"
+      not_convinced_by:
+        - "Revenue claims without conversion rate assumptions"
+
+  sentinel:
+    thinking_patterns:
+      - "Treat NRR below 100% as existential"
+      - "Assess whether decisions increase or decrease switching costs"
+    heuristics:
+      - name: NRR Focus
+        rule: "Treat NRR below 100% as existential. Flag churn-accelerating decisions."
+      - name: Switching Costs
+        rule: "Assess impact on customer switching costs."
+
+  architect:
+    thinking_patterns:
+      - "Evaluate against 10x customer base with same team"
+      - "Track ops cost per customer — must decline at scale"
+    heuristics:
+      - name: Multi-Tenant Scale
+        rule: "Evaluate against 10x customers with the same team."
+
+  provocateur:
+    thinking_patterns:
+      - "Challenge growth projections against SaaS benchmarks"
+      - "Model competitor counterfactual for every strategic move"
+    heuristics:
+      - name: SaaS Base Rate Check
+        rule: "Require published benchmark comparison for growth projections."
+
+additional_input_sections:
+  - heading: "## Metrics"
+    guidance: >
+      Current ARR, MRR, NRR, churn rate,
+      CAC, LTV, payback period.
+
+additional_output_sections:
+  - section: financial_impact
+    description: >
+      Projected impact on ARR, churn,
+      and unit economics for each path.
+
+guardrails:
+  - "Revenue projections must state conversion rate, ACV, volume, and time horizon"
+  - "Recommendations with churn risk must include churn impact assessment"
+  - "Initiatives with CAC payback > 24 months require CFO-level justification"`}</code></pre>
+        </section>
+
+        <!-- Lexicon -->
+        <section id="lexicon" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Lexicon</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The <code>lexicon</code> block defines the shared vocabulary that all agents in the session will understand. It has three sub-sections.</p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">metrics</strong> &mdash; Standard measurements and their definitions. Agents reference these consistently when discussing quantitative data.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">frameworks</strong> &mdash; Industry models and strategies. Agents can reference these by name (e.g., "this is a PLG motion") and all participants share the same definition.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">stages</strong> &mdash; Business lifecycle stages. Agents calibrate their advice based on the company's current stage.
+          </p>
+
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Tip</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-3">Use the <code>--domain</code> flag when running a session to activate a domain:</p>
+            <pre class="!mb-3"><code>aos run strategic-council --brief brief.md --domain saas</code></pre>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-3">Multiple domains can be activated simultaneously:</p>
+            <pre class="!mb-0"><code>aos run strategic-council --brief brief.md --domain saas --domain fintech</code></pre>
+          </div>
+        </section>
+
+        <!-- Overlays -->
+        <section id="overlays" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Overlays</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The <code>overlays</code> block defines per-agent enhancements. Each key is an agent ID, and the value contains the fields to merge.</p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-2">Overlay-able fields (any or all can be specified per agent):</p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li><strong class="text-[var(--color-text)]">thinking_patterns</strong> &mdash; Additional questions the agent asks itself</li>
+            <li><strong class="text-[var(--color-text)]">heuristics</strong> &mdash; Additional named decision rules</li>
+            <li><strong class="text-[var(--color-text)]">evidence_standard.convinced_by</strong> &mdash; Additional evidence the agent accepts</li>
+            <li><strong class="text-[var(--color-text)]">evidence_standard.not_convinced_by</strong> &mdash; Additional evidence the agent rejects</li>
+            <li><strong class="text-[var(--color-text)]">red_lines</strong> &mdash; Additional hard limits</li>
+          </ul>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">You only need to define overlays for agents that benefit from domain-specific enhancement. If an agent does not have an overlay entry, it participates unchanged.</p>
+
+          <pre><code>{`overlays:
+  catalyst:
+    thinking_patterns:
+      - "Quantify impact on ARR or MRR for every opportunity"
+    heuristics:
+      - name: SaaS Revenue Test
+        rule: "Quantify direct impact on ARR or MRR expansion."
+    evidence_standard:
+      convinced_by:
+        - "Revenue claims with conversion rate, ACV, and time-to-close"
+      not_convinced_by:
+        - "Revenue claims without conversion rate assumptions"`}</code></pre>
+        </section>
+
+        <!-- Merge Rules -->
+        <section id="merge-rules" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Merge Rules</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">When a domain is activated, the runtime merges overlay values into agent definitions using these rules:</p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Field</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Merge Behavior</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Example</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>thinking_patterns</code></td>
+                    <td class="px-4 py-3">Appended to base list</td>
+                    <td class="px-4 py-3">Base has 3 + domain adds 2 = 5 patterns</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>heuristics</code></td>
+                    <td class="px-4 py-3">Appended to base list</td>
+                    <td class="px-4 py-3">Base has 4 + domain adds 2 = 6 heuristics</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>evidence_standard.convinced_by</code></td>
+                    <td class="px-4 py-3">Appended to base list</td>
+                    <td class="px-4 py-3">Base accepts 3 + domain adds 1 = 4 total</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>evidence_standard.not_convinced_by</code></td>
+                    <td class="px-4 py-3">Appended to base list</td>
+                    <td class="px-4 py-3">Base rejects 3 + domain adds 1 = 4 total</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>red_lines</code></td>
+                    <td class="px-4 py-3">Appended to base list</td>
+                    <td class="px-4 py-3">Base has 3 + domain adds 1 = 4 red lines</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4 mb-6">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Key Rule</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Domain values are <strong class="text-[var(--color-text)]">always appended, never replaced</strong>. This is a core design principle. An agent's base identity is inviolable &mdash; domains enhance, they do not override.</p>
+          </div>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">When multiple domains are active, overlays from all domains are appended in the order the domains are specified. If both <code>saas</code> and <code>fintech</code> domains define thinking_patterns for the Catalyst, the Catalyst gets both sets appended to its base patterns.</p>
+        </section>
+
+        <!-- Example -->
+        <section id="example" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Example: SaaS Domain</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">Walk through creating a SaaS domain pack from scratch.</p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Step 1 &mdash; Create the directory</h3>
+          <pre class="mb-8"><code>mkdir -p core/domains/saas</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Step 2 &mdash; Define the lexicon</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Start with the metrics your agents need to speak fluently:</p>
+          <pre class="mb-8"><code>{`lexicon:
+  metrics:
+    - "ARR — Annual Recurring Revenue: annualized subscription contracts"
+    - "MRR — Monthly Recurring Revenue: monthly subscription revenue"
+    - "NRR — Net Revenue Retention: retained + expanded revenue from existing customers"
+    - "CAC — Customer Acquisition Cost: fully loaded cost to acquire one customer"
+    - "LTV — Lifetime Value: projected total revenue from a customer"
+    - "churn_rate — % of customers or revenue lost per period"
+    - "expansion_revenue — Additional revenue from upsell, cross-sell, seat growth"
+    - "payback_period — Months of gross margin to recover CAC"
+  frameworks:
+    - "PLG — Product-Led Growth: product drives acquisition and expansion"
+    - "sales_led — Enterprise sales motion drives acquisition"
+    - "hybrid_motion — PLG for SMB + sales-led for enterprise"
+    - "land_and_expand — Narrow beachhead, expand over time"
+  stages:
+    - "pre_seed — Pre-PMF; team and hypothesis"
+    - "seed — Early traction; proving PMF with a cohort"
+    - "series_a — Scaling GTM; $1M-$10M ARR"
+    - "growth — Scaling revenue efficiently; building category"
+    - "scale — Optimizing unit economics; preparing for IPO/M&A"`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Step 3 &mdash; Add agent overlays</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Think about what each agent needs to know about SaaS. The Catalyst needs revenue metrics. The Sentinel needs churn and retention signals. The Architect needs scalability heuristics.</p>
+          <pre class="mb-8"><code>{`overlays:
+  catalyst:
+    thinking_patterns:
+      - "For every opportunity, quantify its direct impact on ARR or MRR expansion"
+      - "Challenge any initiative where CAC payback exceeds 18 months"
+    heuristics:
+      - name: SaaS Revenue Test
+        rule: "Quantify direct impact on ARR or MRR expansion for every opportunity."
+      - name: Payback Obsession
+        rule: "Challenge any initiative where CAC payback exceeds 18 months."
+
+  sentinel:
+    thinking_patterns:
+      - "Treat NRR below 100% as an existential signal"
+      - "Assess whether the decision increases or decreases customer switching costs"
+    heuristics:
+      - name: NRR Focus
+        rule: "Treat NRR below 100% as existential. Flag churn-accelerating decisions."
+      - name: Switching Costs
+        rule: "Assess whether the decision increases or decreases switching costs."`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Step 4 &mdash; Add guardrails</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Guardrails are validation rules that apply to the entire session. The runtime flags outputs that violate them.</p>
+          <pre class="mb-8"><code>{`guardrails:
+  - "Revenue projections must state assumptions on conversion rate, ACV, volume, and time horizon"
+  - "Recommendations with material churn risk must include a churn impact assessment"
+  - "Initiatives projecting CAC payback beyond 24 months require CFO-level justification"`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Step 5 &mdash; Validate</h3>
+          <pre class="mb-4"><code>aos validate domain core/domains/saas/domain.yaml</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-2">The validator checks:</p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-8">
+            <li>Schema version is <code>aos/domain/v1</code></li>
+            <li>All required fields present (id, name, lexicon)</li>
+            <li>Overlay agent IDs reference agents that exist</li>
+            <li>Overlay fields use valid merge-able field names</li>
+            <li>Guardrails are non-empty strings</li>
+          </ul>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Step 6 &mdash; Use it</h3>
+          <pre class="mb-4"><code>aos run strategic-council --brief brief.md --domain saas</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Every agent in the session now has SaaS-specific vocabulary, thinking patterns, and heuristics merged into their base definitions. The Catalyst will quantify ARR impact. The Sentinel will flag NRR risks. The Provocateur will demand SaaS benchmark comparisons.</p>
+        </section>
+</Docs>

@@ -1,0 +1,132 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'trust-model', label: 'Trust Model' },
+  { id: 'signed-cards', label: 'Signed Agent Cards' },
+  { id: 'key-discovery', label: 'Key Discovery (JWKS / jku)' },
+  { id: 'egress', label: 'Egress: SSRF Defense' },
+  { id: 'ingress', label: 'Ingress: Abuse Defense' },
+  { id: 'task-ownership', label: 'Task Ownership' },
+  { id: 'defaults', label: 'Secure Defaults' },
+  { id: 'next-steps', label: 'Next Steps' },
+];
+---
+
+<Docs title="Agent Mesh Security" sidebarLinks={sidebarLinks}>
+  <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Agent Mesh Security</h1>
+  <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">When AOS agents call each other and reach external tools, three trust boundaries appear: who you are (identity), where you connect out (egress), and who connects in (ingress). Each is guarded, and the defaults fail closed.</p>
+
+  <section id="trust-model" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Trust Model</h2>
+    </div>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li><strong class="text-[var(--color-text)]">Identity</strong> &mdash; an Agent Card can be JWS-signed so a caller verifies who it is talking to before connecting.</li>
+      <li><strong class="text-[var(--color-text)]">Egress</strong> &mdash; outbound calls (A2A peers, MCP HTTP servers, JWKS fetches) pass an SSRF policy that blocks internal targets.</li>
+      <li><strong class="text-[var(--color-text)]">Ingress</strong> &mdash; inbound A2A is auth-gated and rate/budget/concurrency limited, and tasks are owner-scoped.</li>
+    </ul>
+  </section>
+
+  <section id="signed-cards" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Signed Agent Cards</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">An Agent Card can carry a <strong class="text-[var(--color-text)]">detached JWS signature</strong> over the JCS-canonicalized card. This counters card spoofing: a caller confirms the card was signed by a trusted key before sending it work.</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>Algorithms are allowlisted to <strong class="text-[var(--color-text)]">ES256</strong> (ECDSA P-256) and <strong class="text-[var(--color-text)]">EdDSA</strong> (Ed25519). The <code>none</code> algorithm and RSA are rejected &mdash; closing JWS algorithm-confusion attacks.</li>
+      <li><strong class="text-[var(--color-text)]">Trusted mode</strong> (a trust anchor is supplied) proves identity. <strong class="text-[var(--color-text)]">Integrity mode</strong> (verify against the card's own embedded key) only detects tampering &mdash; it is not identity, and the client surfaces which mode was used.</li>
+      <li>Enable signing with <code>AOS_A2A_SIGNING_KEY</code>; if it is set but unreadable, the server refuses to start rather than serve an unsigned card.</li>
+    </ul>
+  </section>
+
+  <section id="key-discovery" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Key Discovery (JWKS / jku)</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A signing server publishes its <strong class="text-[var(--color-text)]">public</strong> key as a JWKS at <code>/.well-known/jwks.json</code>, and the signature header carries a <code>jku</code> URL pointing at it. This enables key rotation without re-pinning keys out of band.</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>The published JWKS contains <strong class="text-[var(--color-text)]">public material only</strong> &mdash; the private component can never reach the wire.</li>
+      <li>A host <strong class="text-[var(--color-text)]">allowlist</strong> is the trust gate: a card cannot point its <code>jku</code> at an attacker-chosen JWKS.</li>
+      <li>JWKS fetches require <strong class="text-[var(--color-text)]">https</strong> and <strong class="text-[var(--color-text)]">do not follow redirects</strong>, so an open redirect on an allowlisted host cannot pivot discovery to a hostile key.</li>
+      <li>Keys are matched to the signature by <code>kid</code> or RFC&nbsp;7638 thumbprint; the document size is bounded.</li>
+    </ul>
+  </section>
+
+  <section id="egress" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Egress: SSRF Defense</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Agent-initiated egress &mdash; A2A peers, MCP HTTP servers, JWKS fetches &mdash; runs through a strict outbound policy:</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>Blocks private, loopback, link-local, ULA, and CGNAT addresses and internal name suffixes unless explicitly allowlisted.</li>
+      <li>Blocks IPv6 spellings of internal IPv4 &mdash; IPv4-mapped, IPv4-compatible, IPv4-translated, NAT64, and 6to4 &mdash; so <code>[64:ff9b::a9fe:a9fe]</code> can't reach the metadata service.</li>
+      <li><strong class="text-[var(--color-text)]">Every redirect hop is re-validated</strong>, and sensitive headers (<code>Authorization</code>, <code>Cookie</code>, &hellip;) are stripped on cross-origin hops.</li>
+      <li>A resolve-time guard rejects hostnames that resolve to private addresses (a DNS-rebinding defense), and response bodies are read with a hard byte cap.</li>
+      <li>Plain <code>http</code> is allowed only to loopback or allowlisted hosts; <code>https</code> is preferred everywhere.</li>
+    </ul>
+  </section>
+
+  <section id="ingress" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Ingress: Abuse Defense</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The inbound <code>message/send</code> path runs a real AOS pass, so it is gated before any work begins:</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li><strong class="text-[var(--color-text)]">Out-of-band auth</strong> &mdash; a bearer token (constant-time compared) is required on a publicly bound endpoint.</li>
+      <li><strong class="text-[var(--color-text)]">Three limits</strong> &mdash; max concurrency, requests per window, and a cost budget per window. A rejected request returns a retry hint and creates no task.</li>
+      <li><strong class="text-[var(--color-text)]">Per-caller fair-share</strong> &mdash; with a trusted caller header, each caller gets its own bucket behind a global backstop; caller buckets are memory-bounded against a spoofed-key flood.</li>
+      <li>Inbound bodies are capped (Content-Length and actual bytes), and internal exceptions are logged server-side while the caller receives only a generic message.</li>
+    </ul>
+  </section>
+
+  <section id="task-ownership" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Task Ownership</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The task store records the caller that created each task. <code>tasks/get</code>, <code>tasks/cancel</code>, and task continuation are owner-scoped &mdash; a caller can only act on its own tasks, and an id belonging to another caller reads as &ldquo;not found.&rdquo; This closes the cross-caller access (IDOR) that a shared task store would otherwise allow. Terminal tasks are evicted on a TTL so the store stays bounded without dropping live work under load.</p>
+  </section>
+
+  <section id="defaults" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Secure Defaults</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-[14px] text-left border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
+            <th class="py-2 pr-4 font-semibold">Surface</th>
+            <th class="py-2 font-semibold">Default</th>
+          </tr>
+        </thead>
+        <tbody class="text-[var(--color-text-secondary)]">
+          <tr class="border-b border-[var(--color-border)]"><td class="py-2 pr-4">Bind interface</td><td class="py-2">loopback (<code>127.0.0.1</code>)</td></tr>
+          <tr class="border-b border-[var(--color-border)]"><td class="py-2 pr-4">Public bind without token</td><td class="py-2">refused (fail closed)</td></tr>
+          <tr class="border-b border-[var(--color-border)]"><td class="py-2 pr-4">Ingress limits</td><td class="py-2">on (4 concurrent / 60 rpm / 60 budget)</td></tr>
+          <tr class="border-b border-[var(--color-border)]"><td class="py-2 pr-4">JWS algorithms</td><td class="py-2">ES256 + EdDSA only; <code>none</code> rejected</td></tr>
+          <tr class="border-b border-[var(--color-border)]"><td class="py-2 pr-4">jku fetch</td><td class="py-2">https-only, no redirects, host-allowlisted</td></tr>
+          <tr class="border-b border-[var(--color-border)]"><td class="py-2 pr-4">Egress to private hosts</td><td class="py-2">blocked unless allowlisted</td></tr>
+          <tr><td class="py-2 pr-4">Signing misconfig</td><td class="py-2">fail closed (no unsigned fallback)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="next-steps" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Next Steps</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <a href="/docs/serving-over-a2a" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+        <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">Serving over A2A</h3>
+        <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Stand up an A2A endpoint with these guarantees built in.</p>
+        <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+      </a>
+      <a href="/docs/mcp-toolsets" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+        <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">MCP Toolsets</h3>
+        <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">How external MCP servers inherit the same egress safety.</p>
+        <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+      </a>
+    </div>
+  </section>
+</Docs>

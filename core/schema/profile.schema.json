@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aos/profile/v1",
+  "title": "AOS Orchestration Profile",
+  "type": "object",
+  "required": ["schema", "id", "name", "assembly", "constraints", "input", "output"],
+  "properties": {
+    "schema": { "const": "aos/profile/v1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "version": { "type": "string" },
+    "workflow": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Reference to a workflow ID (aos/workflow/v1). When set, the engine drives the session through the workflow's steps instead of free-form orchestrator delegation."
+    },
+    "assembly": {
+      "type": "object",
+      "required": ["orchestrator", "perspectives"],
+      "properties": {
+        "orchestrator": { "type": "string" },
+        "perspectives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["agent", "required"],
+            "properties": {
+              "agent": { "type": "string" },
+              "required": { "type": "boolean" },
+              "structural_advantage": { "enum": ["speaks-last"] },
+              "role_override": {
+                "type": ["string", "null"],
+                "default": null,
+                "description": "Profile-level instruction that overrides the agent's default output mode. Injected into the agent's system prompt via the {{role_override}} template variable."
+              }
+            }
+          }
+        }
+      }
+    },
+    "delegation": {
+      "type": "object",
+      "properties": {
+        "default": { "enum": ["broadcast", "round-robin", "targeted"] },
+        "opening_rounds": { "type": "integer", "minimum": 0 },
+        "tension_pairs": {
+          "type": "array",
+          "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }
+        },
+        "bias_limit": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": ["time", "rounds"],
+      "properties": {
+        "time": {
+          "type": "object",
+          "required": ["min_minutes", "max_minutes"],
+          "properties": {
+            "min_minutes": { "type": "number", "minimum": 0 },
+            "max_minutes": { "type": "number", "minimum": 0 }
+          }
+        },
+        "budget": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["min", "max", "currency"],
+              "properties": {
+                "min": { "type": "number", "minimum": 0 },
+                "max": { "type": "number", "minimum": 0 },
+                "currency": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "rounds": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": ["format", "required_sections"],
+      "properties": {
+        "format": { "enum": ["brief", "question", "document", "freeform"] },
+        "required_sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["heading", "guidance"],
+            "properties": {
+              "heading": { "type": "string" },
+              "guidance": { "type": "string" }
+            }
+          }
+        },
+        "context_files": { "type": "boolean" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["format", "path_template"],
+      "properties": {
+        "format": { "enum": ["memo", "report", "checklist", "execution-package", "freeform", "artifact-gallery"] },
+        "path_template": { "type": "string" },
+        "sections": { "type": "array", "items": { "type": "string" } },
+        "artifacts": { "type": "array", "items": { "type": "object" } },
+        "frontmatter": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "runtime_requirements": {
+      "type": "object",
+      "properties": {
+        "serve": { "type": "boolean", "default": false },
+        "channels": { "type": "boolean", "default": false },
+        "mempalace": { "type": "boolean", "default": false },
+        "a2a_serve": { "type": "boolean", "default": false, "description": "Phase 4: expose this assembly as an A2A agent (Agent Card + Task endpoint on the Paperclip seam). Default OFF." }
+      },
+      "additionalProperties": false
+    },
+    "error_handling": {
+      "type": "object",
+      "properties": {
+        "agent_timeout_seconds": { "type": "integer", "minimum": 1 },
+        "retry_policy": {
+          "type": "object",
+          "properties": {
+            "max_retries": { "type": "integer", "minimum": 0 },
+            "backoff": { "enum": ["exponential", "linear"] }
+          }
+        },
+        "on_agent_failure": { "enum": ["skip", "abort_round", "abort_session"] },
+        "on_orchestrator_failure": { "const": "save_transcript_and_exit" },
+        "partial_results": { "const": "include_with_status_flag" }
+      }
+    },
+    "budget_estimation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "strategy": { "enum": ["rolling_average", "fixed_estimate"] },
+            "fixed_estimate_tokens": { "type": "integer", "minimum": 0 },
+            "safety_margin": { "type": "number", "minimum": 0, "maximum": 1 },
+            "on_estimate_exceeded": { "enum": ["drop_optional", "warn_arbiter", "block_round"] }
+          }
+        }
+      ]
+    },
+    "expertise": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "path_template": { "type": "string" },
+        "mode": { "enum": ["per-agent", "shared", "none"] }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "properties": {
+        "halt": { "type": "boolean" },
+        "wrap": { "type": "boolean" },
+        "interject": { "type": "boolean" }
+      }
+    }
+  }
+}

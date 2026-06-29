@@ -1,0 +1,102 @@
+schema: aos/domain/v1
+id: platform-engineering
+name: Platform Engineering Context
+description: "Domain pack for internal developer platforms, infrastructure, and SRE practices. Injects platform-engineering-specific lexicon, reliability standards, and agent overlays that sharpen each perspective's analysis for decisions involving developer experience, infrastructure investment, and operational excellence."
+version: 1.0.0
+
+lexicon:
+  metrics:
+    - "deployment_frequency — How often code is deployed to production; a key DORA metric"
+    - "lead_time_for_changes — Elapsed time from code commit to running in production; a key DORA metric"
+    - "MTTR — Mean Time to Recovery: average time to restore service after a production incident"
+    - "change_failure_rate — Percentage of deployments that result in degraded service or require rollback; a key DORA metric"
+    - "developer_satisfaction — Survey-based measure of developer experience with internal tools and platform"
+    - "platform_adoption_rate — Percentage of teams actively using the internal platform versus self-managed alternatives"
+    - "infrastructure_cost_per_developer — Total infrastructure spend divided by number of active developers; measures platform cost efficiency"
+  frameworks:
+    - "platform_as_product — Treating the internal developer platform as a product with users (developers), roadmaps, and satisfaction metrics"
+    - "golden_path — Opinionated, well-supported default paths for common development workflows that reduce cognitive load"
+    - "self_service_infrastructure — Infrastructure provisioning that developers can perform without filing tickets or waiting for a platform team"
+    - "GitOps — Declarative infrastructure and application management where Git is the single source of truth for desired state"
+    - "SRE_practices — Site Reliability Engineering discipline: error budgets, SLOs, toil reduction, and blameless postmortems"
+  stages:
+    - "proof_of_concept — Experimental validation of a platform capability with a single team; no SLA commitment"
+    - "alpha — Internal testing with volunteer teams; known limitations documented; feedback loop active"
+    - "beta — Broader adoption with early-adopter teams; SLOs defined but not yet enforced; migration path exists"
+    - "generally_available — Full production support; SLAs enforced; documentation complete; on-call coverage in place"
+    - "sunset — Capability is deprecated; migration deadline set; active support winding down"
+
+overlays:
+  catalyst:
+    lens_additions:
+      - label: Developer Velocity Impact
+        instruction: "For every initiative, quantify the impact on developer velocity — measured by deployment frequency and lead time for changes. Platform investments that cannot demonstrate measurable velocity improvement within 6 months require explicit justification."
+      - label: Time-to-First-Deployment
+        instruction: "Assess whether the decision reduces the time for a new developer or team to make their first production deployment. This is the activation metric for developer platforms — every friction point in the first-deployment journey is a barrier to adoption."
+    evidence_standard: "Velocity claims must include baseline DORA metrics and projected improvement with timeline. Anecdotal productivity claims are insufficient."
+
+  sentinel:
+    lens_additions:
+      - label: Platform Reliability
+        instruction: "The internal platform is a single point of failure for all product teams. Evaluate every change against its impact on platform availability. Platform outages have a blast radius proportional to adoption — a 99.9% platform serving 100 teams means 43 minutes of company-wide downtime per month."
+      - label: SLA Protection
+        instruction: "Assess whether the decision maintains or degrades existing SLA commitments. SLA regression is never acceptable without explicit negotiation with affected teams and leadership approval. Change failure rate must trend downward."
+    red_lines:
+      - "Platform changes must never degrade existing SLAs without explicit approval from affected teams"
+      - "Production access controls must not be bypassed for convenience"
+    evidence_standard: "Reliability claims must cite current SLO achievement data, incident frequency, and change failure rate trends. Projected reliability without baseline data is not credible."
+
+  architect:
+    lens_additions:
+      - label: Platform Architecture
+        instruction: "Evaluate platform architecture decisions for extensibility, multi-tenancy, and isolation. The platform must support diverse workloads without requiring bespoke infrastructure per team. Shared components must have well-defined APIs and blast radius containment."
+      - label: Blast Radius Analysis
+        instruction: "For every infrastructure change, map the blast radius: which teams, services, and customer-facing products are affected if this change fails? Require explicit rollback plans and canary deployment strategies proportional to blast radius."
+    evidence_standard: "Architecture claims must include dependency maps, failure mode analysis, and blast radius quantification. Hand-waving about 'minimal impact' without evidence is flagged."
+
+  provocateur:
+    lens_additions:
+      - label: Platform Adoption Failure Modes
+        instruction: "Challenge adoption projections against the base rate of internal platform failures. Most internal platforms fail to achieve >60% voluntary adoption. Demand evidence of developer demand beyond leadership mandate. Mandated adoption without developer buy-in creates shadow IT."
+      - label: Golden Path Escape Analysis
+        instruction: "For every golden path design, enumerate the top five reasons teams will need to escape from it. If escape hatches are not well-designed, teams will abandon the platform entirely rather than fight it. Challenge any golden path that assumes 100% coverage."
+    evidence_standard: "Adoption projections must cite current usage data, developer survey results, or comparable internal platform adoption benchmarks."
+
+  operator:
+    lens_additions:
+      - label: Toil Reduction
+        instruction: "Quantify the toil eliminated by the platform investment. Toil is repetitive, automatable, tactical work that scales linearly with service count. If the platform does not measurably reduce toil, it is adding complexity without value."
+      - label: Incident Response and On-Call Burden
+        instruction: "Assess the impact on incident response processes and on-call burden. Platform changes that increase the on-call surface area or page frequency must justify the added operational load. The goal is fewer pages, not more dashboards."
+    evidence_standard: "Toil claims must reference time-tracking data or incident frequency metrics. Projected toil reduction must state assumptions about current toil baseline."
+
+  advocate:
+    lens_additions:
+      - label: Developer Experience
+        instruction: "Evaluate every decision through the lens of developer experience (DevEx). Cognitive load is the primary enemy — every additional tool, configuration file, or manual step degrades the developer experience. Measure by time-to-productivity for new developers."
+      - label: Documentation Quality
+        instruction: "Assess whether the decision includes adequate documentation investment. Undocumented platform capabilities have near-zero adoption. Documentation must be maintained alongside code — stale docs are worse than no docs."
+    evidence_standard: "Developer experience claims must reference developer survey data, onboarding time measurements, or support ticket volume. Assertions about 'improved DX' without metrics are flagged."
+
+  pathfinder:
+    lens_additions:
+      - label: Platform-as-Product Vision
+        instruction: "Evaluate whether the decision advances the platform-as-product vision. The platform team should be making bets on capabilities that will be valuable 12-24 months from now, not just responding to the loudest current request. Demand a platform roadmap that leads, not follows."
+      - label: Self-Service Infrastructure Bets
+        instruction: "Assess investment in self-service capabilities that eliminate the platform team as a bottleneck. Every capability that requires a platform team member in the loop is a scaling constraint. Prioritise investments that reduce the ratio of platform engineers to supported developers."
+    evidence_standard: "Vision claims must connect to measurable outcomes (adoption rate, developer-to-platform-engineer ratio, self-service percentage) within a defined time horizon."
+
+additional_input_sections:
+  - heading: "## Platform Context"
+    guidance: "Current DORA metrics (deployment frequency, lead time, MTTR, change failure rate), platform adoption rate, number of supported teams and services, infrastructure cost per developer, and recent incident history. Include developer satisfaction survey results where available."
+
+additional_output_sections:
+  - platform_impact: "Projected impact on DORA metrics, platform adoption, developer experience, and infrastructure cost efficiency for each recommended path. State all assumptions on adoption timeline and toil reduction explicitly."
+
+guardrails:
+  - id: blast_radius_assessment
+    rule: "Blast radius must be assessed for every infrastructure change. The set of affected teams, services, and customer-facing products must be enumerated, and rollback plans must be proportional to the blast radius."
+  - id: developer_experience_impact
+    rule: "Developer experience impact must be evaluated for every platform decision. Changes that increase cognitive load, add manual steps, or degrade time-to-productivity must justify the tradeoff explicitly."
+  - id: sla_implications
+    rule: "SLA implications must be documented for every platform change. Impact on existing SLO targets and the blast radius of potential failures must be stated. Changes that risk SLA regression require affected-team approval."

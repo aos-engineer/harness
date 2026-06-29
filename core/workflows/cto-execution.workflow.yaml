@@ -1,0 +1,126 @@
+schema: aos/workflow/v1
+id: cto-execution-workflow
+name: CTO Feature Execution
+description: >
+  Full product development lifecycle from feature request to engineering handoff.
+  Each phase produces artifacts that feed the next phase.
+
+steps:
+  - id: understand
+    name: Requirements Analysis
+    action: targeted-delegation
+    agents: [advocate, strategist]
+    prompt: |
+      Analyze this feature request. Advocate: write user stories with acceptance
+      criteria. Strategist: identify the core problem being solved and how this
+      fits into the product roadmap.
+    output: requirements_analysis
+    review_gate: true
+
+  - id: design
+    name: Architecture & Design
+    action: targeted-delegation
+    agents: [architect]
+    input: [requirements_analysis]
+    prompt: |
+      Based on the requirements analysis, produce an architecture decision record:
+      - System design (components, data flow, integration points)
+      - Technology choices with rationale
+      - Migration strategy if modifying existing systems
+      - Mermaid diagram of the architecture
+    output: architecture_decision_record
+    review_gate: true
+
+  - id: challenge
+    name: Architecture Review
+    action: tension-pair
+    agents: [architect, operator]
+    input: [architecture_decision_record]
+    prompt: |
+      Operator: review this architecture for buildability. What's missing?
+      What's going to be harder than it looks? What dependencies are hidden?
+      Architect: defend or revise based on Operator's concerns.
+    output: revised_architecture
+    review_gate: false                   # Auto-proceeds. Tension is the review.
+
+  - id: plan
+    name: Phase Planning
+    action: targeted-delegation
+    agents: [strategist, operator]
+    input: [revised_architecture, requirements_analysis]
+    prompt: |
+      Break this into execution phases. Strategist: define 2-4 phases with
+      clear milestones and dependencies. Operator: validate against team
+      capacity, add effort estimates, flag risks.
+    output: phase_plan
+    review_gate: true
+
+  - id: tasks
+    name: Task Breakdown
+    action: targeted-delegation
+    agents: [operator]
+    input: [phase_plan, revised_architecture]
+    prompt: |
+      For each phase, produce a concrete task breakdown:
+      - Task name, description, effort estimate (S/M/L/XL)
+      - Dependencies between tasks
+      - Suggested assignee role (frontend, backend, infra, etc.)
+      - Acceptance criteria per task
+    output: task_breakdown
+    review_gate: false
+
+  - id: security-review
+    name: Security & Risk Review
+    action: targeted-delegation
+    agents: [sentinel]
+    input: [revised_architecture, task_breakdown]
+    prompt: |
+      Review the architecture and task plan for:
+      - Security vulnerabilities and attack surface changes
+      - Data privacy implications
+      - Reliability and failure mode risks
+      - Compliance or governance concerns
+      Flag anything that needs a task added to the breakdown.
+    output: risk_assessment
+    review_gate: false
+
+  - id: stress-test
+    name: Final Stress Test
+    action: targeted-delegation
+    agents: [provocateur]
+    input: [requirements_analysis, revised_architecture, phase_plan, task_breakdown, risk_assessment]
+    structural_advantage: speaks-last
+    prompt: |
+      You have the full execution plan. Stress-test it:
+      - What's the weakest assumption?
+      - Where will this plan fail first?
+      - What did everyone agree on too easily?
+      - Is the timeline realistic or optimistic?
+    output: stress_test_findings
+    review_gate: false
+
+  - id: synthesize
+    name: Execution Package Assembly
+    action: orchestrator-synthesis
+    input: [requirements_analysis, revised_architecture, phase_plan, task_breakdown, risk_assessment, stress_test_findings]
+    prompt: |
+      Assemble the final execution package. Incorporate stress test findings.
+      Adjust the plan if the Provocateur found real gaps. Produce the final
+      deliverable with all sections.
+    output: execution_package
+
+gates:
+  - after: understand
+    type: user-approval
+    prompt: "Do these requirements capture what you're building? Any corrections?"
+    on_rejection: retry_with_feedback
+
+  - after: design
+    type: user-approval
+    prompt: "Does this architecture direction look right? Any constraints I missed?"
+    on_rejection: retry_with_feedback
+
+  - after: plan
+    type: user-approval
+    prompt: "Does this phasing make sense for your team and timeline?"
+    on_rejection: retry_with_feedback

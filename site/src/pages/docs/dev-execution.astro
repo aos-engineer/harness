@@ -1,0 +1,313 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'how-it-works', label: 'How It Works' },
+  { id: 'usage', label: 'Usage' },
+  { id: 'writing-a-brief', label: 'Writing a Brief' },
+  { id: 'engineering-lead', label: 'The Engineering Lead' },
+  { id: 'what-you-get', label: 'What You Get' },
+  { id: 'configuration', label: 'Configuration' },
+  { id: 'limitations', label: 'Limitations' },
+];
+---
+
+<Docs title="Dev Execution" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Dev Execution</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">From feature brief to working code in a single session</p>
+
+        <!-- How It Works -->
+        <section id="how-it-works" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">How It Works</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Dev Execution runs nine steps across two phases. User approval gates appear at four points: after requirements analysis, after architecture, after the phase plan, and after the full implementation report.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-4">Planning Phase</h3>
+          <div class="flex flex-col gap-3 mb-8">
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-signal)] text-white text-[12px] font-bold shrink-0 mt-0.5">1</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Requirements Analysis</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Advocate and Strategist read the brief. Advocate extracts user stories and acceptance criteria. Strategist frames the business problem and maps it to the codebase.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-signal)] text-white text-[12px] font-bold shrink-0 mt-0.5">2</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Architecture</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Architect produces an architecture decision record covering component boundaries, data flow, and technology choices.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-signal)] text-white text-[12px] font-bold shrink-0 mt-0.5">3</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Architecture Review</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Sentinel and Provocateur challenge the ADR independently. Gaps, risks, and missed dependencies are surfaced and resolved before any plan is written.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-signal)] text-white text-[12px] font-bold shrink-0 mt-0.5">4</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Phase Plan</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Strategist and Operator break the work into delivery phases, each with a scope and success condition.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-signal)] text-white text-[12px] font-bold shrink-0 mt-0.5">5</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Task Breakdown</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Operator decomposes each phase into discrete, assignable tasks with domain labels and dependency order.</p>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-4">Implementation Phase</h3>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-accent)] text-white text-[12px] font-bold shrink-0 mt-0.5">6</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Engineering Lead Spawns Workers</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">The engineering-lead agent reads the task breakdown and spawns domain-scoped worker agents, one per task cluster. Workers are assigned only the files and tools relevant to their scope.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-accent)] text-white text-[12px] font-bold shrink-0 mt-0.5">7</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Worker Implementation</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Each worker executes its assigned tasks and writes code to the working directory. Workers run in dependency order; independent clusters run in parallel.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-accent)] text-white text-[12px] font-bold shrink-0 mt-0.5">8</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Sentinel Code Review</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Sentinel reviews all changed files against the requirements and the architecture decision record. Flagged issues are returned to the responsible worker for revision.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-accent)] text-white text-[12px] font-bold shrink-0 mt-0.5">9</span>
+              <div>
+                <p class="text-[15px] text-[var(--color-text)] font-semibold">Test Verification and Synthesis</p>
+                <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-0.5">Tests run against the written code. The orchestrator assembles a final implementation report covering what was built, what was changed, and what test results look like.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Usage -->
+        <section id="usage" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Usage</h2>
+          </div>
+          <pre class="mb-4"><code>{`aos run dev-execution --brief feature.md --domain saas`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            The <code>--brief</code> flag takes a path to a Markdown file following the brief format described below. The <code>--domain</code> flag applies a domain knowledge pack to all agents for the duration of the session.
+          </p>
+        </section>
+
+        <!-- Writing a Brief -->
+        <section id="writing-a-brief" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Writing a Brief</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            The dev-execution workflow requires four sections in the brief. Missing sections will fail validation before the session starts.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>## Feature / Change</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Describe what you are building. Be specific about the user-facing behavior or system behavior you want. Do not describe implementation &mdash; that is the agent team's job.
+          </p>
+          <pre class="mb-8"><code>{`## Feature / Change
+
+Add rate limiting to the public API. Each API key should be limited to 1000
+requests per hour. Requests that exceed the limit should return HTTP 429 with
+a Retry-After header.`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>## Context</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Describe the current state of the codebase relevant to this change. List the files, modules, or services that will be affected. If there is existing behavior the change must preserve, note it here.
+          </p>
+          <pre class="mb-8"><code>{`## Context
+
+The public API lives in \`src/api/\`. Auth middleware is in \`src/middleware/auth.ts\`.
+We use Redis for session storage (client in \`src/lib/redis.ts\`). No rate limiting
+exists today. The API currently returns 401 for auth failures and 400 for
+malformed requests -- the new 429 should follow the same error response shape.`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>## Constraints</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            List hard constraints the implementation must respect. This includes timeline, technical debt limits, dependencies on other work, infrastructure boundaries, and any libraries or patterns that are off-limits.
+          </p>
+          <pre class="mb-8"><code>{`## Constraints
+
+- Must not introduce new infrastructure dependencies (Redis is already available)
+- Must not break existing integration tests in \`tests/integration/api/\`
+- Rate limit state must survive a service restart (use Redis, not in-memory)
+- No new npm packages -- use the existing \`ioredis\` client`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>## Success Criteria</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Define what done looks like. Include the specific tests that should pass, the behaviors that should be observable, and any non-functional requirements that must be met.
+          </p>
+          <pre><code>{`## Success Criteria
+
+- \`tests/integration/api/rate-limit.test.ts\` passes (will be created as part of this work)
+- Existing integration tests continue to pass
+- A request that exceeds the rate limit receives HTTP 429 with a valid Retry-After header
+- Rate limit resets after the window expires
+- API key rate limit counts are isolated (one key's usage does not affect another's)`}</code></pre>
+        </section>
+
+        <!-- The Engineering Lead -->
+        <section id="engineering-lead" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">The Engineering Lead</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The <code>engineering-lead</code> agent is the coordinator for the implementation phase. It does not write code directly.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            When the planning phase completes, the engineering lead receives the task breakdown produced by the Operator. It reads the dependency graph, groups tasks into domain-scoped clusters (frontend, backend, data, infrastructure, etc.), and spawns a worker agent for each cluster. Each worker is initialized with:
+          </p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li>The tasks assigned to its cluster</li>
+            <li>Domain-scoped file and tool permissions (from domain enforcement)</li>
+            <li>The relevant artifacts from the planning phase (ADR, requirements, phase plan)</li>
+          </ul>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The engineering lead tracks completion across workers. When a dependency exists between clusters, it holds the dependent worker until the upstream cluster reports done. When independent clusters are ready simultaneously, it dispatches them in parallel.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Once all workers report completion, the engineering lead collects their outputs and passes a consolidated change summary to Sentinel for code review.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            The engineering lead never touches source files directly. Its role is coordination, dependency sequencing, and result collection.
+          </p>
+        </section>
+
+        <!-- What You Get -->
+        <section id="what-you-get" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">What You Get</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            When the session completes, dev execution produces:
+          </p>
+          <div class="flex flex-col gap-4 mb-6">
+            <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
+              <p class="text-[14px] font-semibold text-[var(--color-text)] mb-1">Implementation Report</p>
+              <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">A structured summary of what was built, what files were changed, which tasks were completed, and which (if any) were skipped or deferred.</p>
+            </div>
+            <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
+              <p class="text-[14px] font-semibold text-[var(--color-text)] mb-1">Code Changes in Your Working Directory</p>
+              <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">All files written or modified by worker agents are present in your project. The harness does not stage or commit them.</p>
+            </div>
+            <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
+              <p class="text-[14px] font-semibold text-[var(--color-text)] mb-1">Test Results</p>
+              <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">Output from the test run triggered at the end of the implementation phase, including pass/fail counts and any failures.</p>
+            </div>
+            <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
+              <p class="text-[14px] font-semibold text-[var(--color-text)] mb-1">Synthesis</p>
+              <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">The orchestrator's final assessment of how well the implementation satisfies the brief's success criteria, with notes on anything that diverged from the plan.</p>
+            </div>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            Code is written to your working directory. You decide when to review it, when to run additional checks, and when to commit.
+          </p>
+        </section>
+
+        <!-- Configuration -->
+        <section id="configuration" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Configuration</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Dev execution uses the <code>dev-execution</code> profile. Default constraints:
+          </p>
+          <div class="overflow-x-auto mb-6">
+            <table class="w-full text-[14px] border-collapse">
+              <thead>
+                <tr class="border-b border-[var(--color-border)]">
+                  <th class="text-left py-2 pr-6 font-semibold text-[var(--color-text)]">Setting</th>
+                  <th class="text-left py-2 pr-6 font-semibold text-[var(--color-text)]">Default</th>
+                  <th class="text-left py-2 font-semibold text-[var(--color-text)]">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-[var(--color-border)]">
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">Max duration</td>
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">240 minutes</td>
+                  <td class="py-2.5 text-[var(--color-text-secondary)]">Gate wait time counts against this limit</td>
+                </tr>
+                <tr class="border-b border-[var(--color-border)]">
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">Max rounds</td>
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">30</td>
+                  <td class="py-2.5 text-[var(--color-text-secondary)]">Applies to each deliberation phase</td>
+                </tr>
+                <tr class="border-b border-[var(--color-border)]">
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">Max test retries</td>
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">2</td>
+                  <td class="py-2.5 text-[var(--color-text-secondary)]">Per test suite, not per individual test</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">Gate wait</td>
+                  <td class="py-2.5 pr-6 text-[var(--color-text-secondary)]">Unlimited</td>
+                  <td class="py-2.5 text-[var(--color-text-secondary)]">No timeout on user approval gates</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            To customize these limits, create a derived profile that extends <code>dev-execution</code> and override the <code>constraints</code> block:
+          </p>
+          <pre class="mb-4"><code>{`# core/profiles/my-dev-execution/profile.yaml
+extends: dev-execution
+constraints:
+  max_duration_minutes: 120
+  max_rounds: 20`}</code></pre>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">See Also</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+              See <a href="/docs/creating-profiles" class="text-[var(--color-signal)] no-underline hover:underline">Creating Profiles</a> for the full profile schema.
+            </p>
+          </div>
+        </section>
+
+        <!-- Limitations -->
+        <section id="limitations" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Limitations</h2>
+          </div>
+          <div class="flex flex-col gap-4">
+            <div class="flex items-start gap-3">
+              <span class="text-[var(--color-text-muted)] text-lg leading-none mt-0.5 shrink-0">&mdash;</span>
+              <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+                <strong class="text-[var(--color-text)]">No automatic git commits.</strong> The harness writes files to your working directory and stops. Staging and committing are your responsibility.
+              </p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-[var(--color-text-muted)] text-lg leading-none mt-0.5 shrink-0">&mdash;</span>
+              <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+                <strong class="text-[var(--color-text)]">Max 2 test retries.</strong> If tests fail after two worker revision cycles, the session halts and surfaces the failures in the implementation report. Manual intervention is required.
+              </p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-[var(--color-text-muted)] text-lg leading-none mt-0.5 shrink-0">&mdash;</span>
+              <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+                <strong class="text-[var(--color-text)]">Gate wait counts against session time.</strong> The 240-minute limit includes time spent waiting at approval gates. Long review pauses can exhaust the session budget before implementation completes.
+              </p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="text-[var(--color-text-muted)] text-lg leading-none mt-0.5 shrink-0">&mdash;</span>
+              <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+                <strong class="text-[var(--color-text)]">Single repo only.</strong> Dev execution operates on a single working directory. Cross-repository changes are not supported.
+              </p>
+            </div>
+          </div>
+        </section>
+</Docs>

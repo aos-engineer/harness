@@ -1,0 +1,42 @@
+{
+  "name": "@aos-harness/adapter-shared",
+  "version": "0.9.1",
+  "description": "Shared base classes and utilities for AOS Harness platform adapters.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aos-engineer/aos-harness.git",
+    "directory": "adapters/shared"
+  },
+  "homepage": "https://aos.engineer",
+  "keywords": [
+    "aos-harness",
+    "ai-agents",
+    "adapter",
+    "shared"
+  ],
+  "type": "module",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@aos-harness/runtime": "workspace:*",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  }
+}

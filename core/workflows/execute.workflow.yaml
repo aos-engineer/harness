@@ -1,0 +1,53 @@
+schema: aos/workflow/v1
+id: execute
+name: Plan Execution
+description: "Execute an implementation plan task-by-task with testing, self-review, and periodic review checkpoints."
+
+steps:
+  - id: read-plan
+    action: read-document
+    description: "Read the implementation plan and identify the next task to execute"
+    input: []
+    output: current-task
+    review_gate: false
+
+  - id: implement-task
+    action: write-code
+    description: "Implement the current task according to the plan specification"
+    input: [read-plan]
+    output: implementation
+    review_gate: false
+
+  - id: run-tests
+    action: run-tests
+    description: "Run test suite to verify the implementation is correct"
+    input: [implement-task]
+    output: test-results
+    review_gate: false
+
+  - id: self-review
+    action: self-review
+    description: "Review own code for quality, correctness, and spec compliance"
+    input: [implement-task, run-tests]
+    output: review-notes
+    review_gate: false
+
+  - id: commit
+    action: commit-changes
+    description: "Commit the verified implementation with a descriptive message"
+    input: [self-review]
+    output: commit-ref
+    review_gate: true
+
+  - id: next-task
+    action: advance
+    description: "Move to the next task in the plan or signal completion"
+    input: [commit]
+    output: next-task-ref
+    review_gate: false
+
+gates:
+  - after: commit
+    type: user-approval
+    prompt: "Review checkpoint: inspect the committed changes. Approve to continue to the next task, or reject with feedback."
+    on_rejection: re-run-step

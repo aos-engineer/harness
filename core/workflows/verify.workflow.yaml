@@ -1,0 +1,46 @@
+schema: aos/workflow/v1
+id: verify
+name: Evidence-Based Verification
+description: "Collect evidence that work is truly complete: tests pass, coverage meets thresholds, requirements are met, before claiming done."
+
+steps:
+  - id: run-tests
+    action: run-tests
+    description: "Run the full test suite and capture results"
+    input: []
+    output: test-results
+    review_gate: false
+
+  - id: check-coverage
+    action: analyze-coverage
+    description: "Check test coverage against configured thresholds"
+    input: [run-tests]
+    output: coverage-report
+    review_gate: false
+
+  - id: verify-requirements
+    action: verify-compliance
+    description: "Cross-reference implementation against each requirement in the spec"
+    input: [run-tests, check-coverage]
+    output: requirements-checklist
+    review_gate: false
+
+  - id: collect-evidence
+    action: collect-artifacts
+    description: "Collect all evidence artifacts: test output, coverage data, requirement mapping"
+    input: [run-tests, check-coverage, verify-requirements]
+    output: evidence-bundle
+    review_gate: true
+
+  - id: report
+    action: write-report
+    description: "Produce a verification report summarizing all evidence and completion status"
+    input: [collect-evidence]
+    output: verification-report
+    review_gate: false
+
+gates:
+  - after: collect-evidence
+    type: user-approval
+    prompt: "Review the collected evidence. Is there sufficient proof that the work is complete and correct?"
+    on_rejection: re-run-step

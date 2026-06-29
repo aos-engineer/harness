@@ -1,0 +1,51 @@
+schema: aos/workflow/v1
+id: execution-workflow
+name: Test Execution Workflow
+description: "Fixture for testing execution profile workflow features"
+
+steps:
+  - id: requirements
+    name: Requirements Analysis
+    action: targeted-delegation
+    agents: [advocate, strategist]
+    prompt: "Analyze requirements"
+    input: []
+    output: requirements_analysis
+    review_gate: true
+
+  - id: design
+    name: Architecture Design
+    action: targeted-delegation
+    agents: [architect]
+    prompt: "Design the architecture"
+    input: [requirements_analysis]
+    output: architecture_decision
+    review_gate: true
+
+  - id: review
+    name: Architecture Review
+    action: tension-pair
+    agents: [architect, operator]
+    prompt: "Review architecture for buildability"
+    input: [architecture_decision]
+    output: revised_architecture
+    review_gate: false
+
+  - id: synthesize
+    name: Final Assembly
+    action: orchestrator-synthesis
+    prompt: "Assemble the execution package"
+    input: [requirements_analysis, revised_architecture]
+    output: execution_package
+    review_gate: false
+
+gates:
+  - after: requirements
+    type: user-approval
+    prompt: "Do these requirements look right?"
+    on_rejection: retry_with_feedback
+
+  - after: design
+    type: user-approval
+    prompt: "Does this architecture look right?"
+    on_rejection: retry_with_feedback

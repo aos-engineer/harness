@@ -1,0 +1,101 @@
+schema: aos/profile/v1
+id: security-review
+name: Security Review
+description: "Security assessment and remediation planning. Analyzes systems, identifies vulnerabilities, and produces a prioritized remediation plan. A neutral Arbiter orchestrates specialist agents who probe attack surfaces, evaluate defences, and stress-test assumptions. Output is a structured report with a risk matrix, remediation priorities, and immediate actions."
+version: 1.0.0
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    # Core (always active — these four drive the security analysis)
+    - agent: architect
+      required: true
+    - agent: sentinel
+      required: true
+    - agent: provocateur
+      required: true
+      structural_advantage: speaks-last
+    - agent: steward
+      required: true
+    # Extended (active by default; can be deactivated)
+    - agent: operator
+      required: false
+    - agent: navigator
+      required: false
+
+delegation:
+  default: broadcast
+  opening_rounds: 1
+  tension_pairs:
+    - [architect, provocateur]
+    - [sentinel, operator]
+  bias_limit: 5
+
+constraints:
+  time:
+    min_minutes: 2
+    max_minutes: 8
+  budget:
+    min: 1.00
+    max: 8.00
+    currency: USD
+  rounds:
+    min: 2
+    max: 6
+
+error_handling:
+  agent_timeout_seconds: 120
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation:
+  strategy: rolling_average
+  fixed_estimate_tokens: 2000
+  safety_margin: 0.15
+  on_estimate_exceeded: drop_optional
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## System Description"
+      guidance: "Describe the system under review — architecture, components, data flows, trust boundaries."
+    - heading: "## Known Threats"
+      guidance: "List known or suspected threats, recent incidents, or areas of concern."
+    - heading: "## Compliance Requirements"
+      guidance: "Regulatory frameworks, industry standards, or internal policies that apply (e.g., SOC 2, GDPR, PCI-DSS)."
+    - heading: "## Key Question"
+      guidance: "The single most important security question you want the review to answer. Be specific."
+  context_files: true
+
+output:
+  format: report
+  path_template: "output/reports/{{date}}-{{brief_slug}}-{{session_id}}/report.md"
+  sections:
+    - vulnerability_assessment
+    - risk_matrix
+    - remediation_priorities
+    - compliance_gaps
+    - immediate_actions
+  artifacts:
+    - type: diagram
+  frontmatter:
+    - date
+    - duration
+    - budget_used
+    - participants
+    - brief_path
+    - transcript_path
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+controls:
+  halt: true
+  wrap: true
+  interject: false

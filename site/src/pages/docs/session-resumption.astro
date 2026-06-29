@@ -1,0 +1,268 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'checkpoints', label: 'How Checkpoints Work' },
+  { id: 'conversation-tails', label: 'Per-Agent Conversation Tails' },
+  { id: 'pause-resume-flow', label: 'Pause and Planned Resume Flow' },
+  { id: 'constraints', label: 'Planned Resume Constraints' },
+  { id: 'limitations', label: 'Limitations' },
+];
+---
+
+<Docs title="Session Checkpointing" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Session Checkpointing</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Pause checkpoints with conversation tails; full automatic resume is planned</p>
+
+        <!-- How Checkpoints Work -->
+        <section id="checkpoints" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">How Checkpoints Work</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The runtime currently implements session pause/checkpoint creation. A checkpoint captures constraint state, active agent handles, and per-agent conversation tails so a later resume implementation has the data it needs to reconstruct context.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Full automatic resume is still a roadmap item. This page separates what exists today from the intended restore flow so operators do not mistake checkpoint support for complete pause/resume orchestration.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            When the engine pauses a session, it serializes a <code>SessionCheckpoint</code> that captures the current state needed for a future restore path.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">SessionCheckpoint</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Field</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>sessionId</code></td>
+                    <td class="px-4 py-3">string</td>
+                    <td class="px-4 py-3">Identifier of the paused session</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>constraintState</code></td>
+                    <td class="px-4 py-3">object</td>
+                    <td class="px-4 py-3">Budget spent, rounds completed, and time elapsed at pause time</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>activeAgents</code></td>
+                    <td class="px-4 py-3">AgentCheckpoint[]</td>
+                    <td class="px-4 py-3">One checkpoint record per agent that was running</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>roundsCompleted</code></td>
+                    <td class="px-4 py-3">number</td>
+                    <td class="px-4 py-3">Total deliberation rounds completed before pause</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>pendingDelegations</code></td>
+                    <td class="px-4 py-3">object[]</td>
+                    <td class="px-4 py-3">Delegations that were in flight at pause time</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>transcriptReplayDepth</code></td>
+                    <td class="px-4 py-3">number</td>
+                    <td class="px-4 py-3">How many tail events to replay per agent on resume</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>createdAt</code></td>
+                    <td class="px-4 py-3">string</td>
+                    <td class="px-4 py-3">ISO timestamp of when the checkpoint was written</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">AgentCheckpoint</h3>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Field</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Type</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>agentId</code></td>
+                    <td class="px-4 py-3">string</td>
+                    <td class="px-4 py-3">The agent's unique identifier</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>parentAgentId</code></td>
+                    <td class="px-4 py-3">string | undefined</td>
+                    <td class="px-4 py-3">Set for child agents in a hierarchical delegation tree</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>depth</code></td>
+                    <td class="px-4 py-3">number</td>
+                    <td class="px-4 py-3">Nesting depth (0 for top-level perspective agents)</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>conversationTail</code></td>
+                    <td class="px-4 py-3">TranscriptEvent[]</td>
+                    <td class="px-4 py-3">The last N transcript events where this agent was involved</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>expertiseSnapshot</code></td>
+                    <td class="px-4 py-3">string | undefined</td>
+                    <td class="px-4 py-3">Full contents of the agent's scratch pad at pause time</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Note</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">The checkpoint is stored as a JSON blob associated with the session record. Only one checkpoint exists per session at a time &mdash; pausing again overwrites the previous checkpoint.</p>
+          </div>
+        </section>
+
+        <!-- Per-Agent Conversation Tails -->
+        <section id="conversation-tails" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Per-Agent Conversation Tails</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Each agent receives its own <strong class="text-[var(--color-text)]">filtered slice</strong> of the transcript, not a copy of the full session history. The tail contains the last N events where the agent was meaningfully involved.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">An event is included in an agent's tail if any of the following are true:</p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li>The event's <code>agentId</code> matches this agent</li>
+            <li>The event's <code>childAgentId</code> matches this agent</li>
+            <li>The event is a delegation whose target is this agent</li>
+          </ul>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The default tail depth is <strong class="text-[var(--color-text)]">50 events</strong>. This is configurable via <code>transcriptReplayDepth</code> in the execution profile. Shorter tails reduce prompt size and cost on resume; longer tails preserve more deliberation nuance.
+          </p>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Context Isolation</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">The filtering ensures agents do not receive unrelated content from other agents' delegations or file operations. A cost analyst agent waking up after a pause sees its own reasoning history, not the legal agent's domain access log.</p>
+          </div>
+        </section>
+
+        <!-- Pause and Resume Flow -->
+        <section id="pause-resume-flow" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Pause and Planned Resume Flow</h2>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Pausing</h3>
+          <ol class="space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-decimal list-inside mb-8">
+            <li><code>Engine.pauseSession()</code> is called &mdash; either by the harness when a constraint is hit, by a gate result, or by an explicit API call.</li>
+            <li>The engine captures current constraint state (budget spent, rounds completed, elapsed time) and collects handles for all active agents.</li>
+            <li>Per-agent conversation tails are extracted by filtering the full transcript for each agent's involvement.</li>
+            <li>Each agent's expertise scratch pad is read and stored in the corresponding <code>AgentCheckpoint</code>.</li>
+            <li>The <code>SessionCheckpoint</code> is serialized and written to the session store.</li>
+            <li>A <code>session_paused</code> transcript event is emitted with the checkpoint timestamp.</li>
+            <li>All agent processes are torn down cleanly.</li>
+          </ol>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Planned Resuming</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The following flow describes the target resume behavior. It is not currently exposed as a complete CLI/API workflow.
+          </p>
+          <ol class="space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-decimal list-inside mb-4">
+            <li>The resume command or API call loads the <code>SessionCheckpoint</code> for the given session ID.</li>
+            <li>Agents listed in <code>activeAgents</code> are re-spawned using the same agent definitions and model configuration as the original session.</li>
+            <li>Expertise scratch pads are reloaded from <code>expertiseSnapshot</code> so each agent's memory is current.</li>
+            <li>Each agent's <code>conversationTail</code> is replayed into its context as a structured prompt section:</li>
+          </ol>
+          <pre><code>{`## Session Context (Resumed)
+
+This session was paused and has now resumed. Below is a summary of recent activity
+you were involved in before the pause.
+
+[Filtered transcript tail for this agent]`}</code></pre>
+          <ol start={5} class="space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-decimal list-inside mt-4">
+            <li>The orchestrator resumes from the round where the session left off, using <code>roundsCompleted</code> from the checkpoint.</li>
+            <li>A <code>session_resumed</code> transcript event is emitted.</li>
+          </ol>
+        </section>
+
+        <!-- Constraint Behavior on Resume -->
+        <section id="constraints" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Planned Resume Constraint Behavior</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            When full resume support lands, constraint handling should differ across the three tracked dimensions:
+          </p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Constraint</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Behavior on resume</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3">Time elapsed</td>
+                    <td class="px-4 py-3">Resets to zero &mdash; the clock starts fresh from the moment of resume</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3">Budget spent</td>
+                    <td class="px-4 py-3">Continues from checkpoint value &mdash; cumulative spend is preserved</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3">Rounds</td>
+                    <td class="px-4 py-3">Continues from checkpoint value &mdash; no rounds are credited for free</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Design Rationale</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">A session paused at $4.80 of a $5.00 budget would resume with only $0.20 remaining, but a session paused after 45 minutes of a 60-minute limit would get a fresh 60-minute working window. Time limits are intended to bound individual working sessions, not total calendar time.</p>
+          </div>
+        </section>
+
+        <!-- Limitations -->
+        <section id="limitations" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Limitations</h2>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-2">Automatic resume is not complete.</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            The runtime can create checkpoints; it does not yet provide an end-to-end CLI/API resume flow that re-spawns every agent and continues orchestration.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-2">Agent context window is not preserved.</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Only the conversation tail can be replayed. The full internal context the LLM held at pause time &mdash; intermediate reasoning chains, cached attention &mdash; is gone. A future replay prompt can reconstruct working context, but very long chains of reasoning within a single round may not fully survive a pause.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-2">Long sessions may lose nuance.</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            The tail depth is a fixed window. A session with 200 rounds of dense deliberation will have its early reasoning compressed to whatever fits in the tail. For sessions expected to run long, increase <code>transcriptReplayDepth</code> in the execution profile.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-2">Replay depth is configurable per profile.</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Set <code>transcriptReplayDepth</code> in the execution profile's constraint block:
+          </p>
+          <pre><code>{`constraints:
+  transcriptReplayDepth: 100  # default: 50`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            Higher values improve resume fidelity at the cost of larger prompts and higher token spend on the first resumed round.
+          </p>
+        </section>
+</Docs>

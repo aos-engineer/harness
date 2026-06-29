@@ -1,0 +1,281 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'hierarchy-model', label: 'Hierarchy Model' },
+  { id: 'enabling-delegation', label: 'Enabling Delegation' },
+  { id: 'delegation-tools', label: 'Delegation Tools' },
+  { id: 'depth-limits', label: 'Depth Limits' },
+  { id: 'domain-inheritance', label: 'Domain Inheritance' },
+  { id: 'profile-config', label: 'Profile Configuration' },
+  { id: 'example', label: 'Example' },
+  { id: 'lifecycle', label: 'Agent Lifecycle' },
+];
+---
+
+<Docs title="Hierarchical Delegation" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Hierarchical Delegation</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Spawn and manage sub-agents in Lead-Worker delegation chains</p>
+
+        <!-- Hierarchy Model -->
+        <section id="hierarchy-model" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Hierarchy Model</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Agents can spawn and manage sub-agents, creating multi-level delegation chains. An orchestrator delegates to a lead, who spawns specialized workers. <strong class="text-[var(--color-text)]">All communication flows through the parent</strong> &mdash; no direct agent-to-agent messaging.
+          </p>
+          <pre><code>{`Profile (assembly)
+  └── Orchestrator (depth 0)
+        ├── Lead Agent (depth 1) — can spawn workers
+        │     ├── Worker (depth 2)
+        │     └── Worker (depth 2)
+        └── Perspective Agent (depth 1) — standard, no spawning`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            Depth is measured from the orchestrator. Workers at depth 2 are grandchildren of the orchestrator and cannot spawn further unless the profile's <code>max_delegation_depth</code> is raised.
+          </p>
+        </section>
+
+        <!-- Enabling Delegation -->
+        <section id="enabling-delegation" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Enabling Delegation</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Add a <code>delegation</code> block to <code>agent.yaml</code> to turn an agent into a lead that can spawn children:
+          </p>
+          <pre><code>{`delegation:
+  can_spawn: true
+  max_children: 3               # Max concurrent sub-agents
+  child_model_tier: economy     # Default model for spawned workers
+  child_timeout_seconds: 120    # Per-child timeout
+  delegation_style: delegate-only
+  # delegate-only: only spawnSubAgent/messageChild tools available.
+  #   Agent routes work but never executes directly.
+  # delegate-and-execute: retains normal tools AND can spawn children.
+  #   For agents that do light work but offload heavy tasks.`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            An agent without a <code>delegation</code> block is a standard agent. It receives tasks from its parent and produces output &mdash; it cannot spawn sub-agents.
+          </p>
+        </section>
+
+        <!-- Delegation Tools -->
+        <section id="delegation-tools" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Delegation Tools</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            The harness injects delegation tools into agents that have <code>can_spawn: true</code>. These tools are not available to standard agents.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>spawnSubAgent(config)</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Spawns a new child agent scoped to the calling agent's session. The <code>config</code> object accepts:
+          </p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Field</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Required</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>name</code></td>
+                    <td class="px-4 py-3">Yes</td>
+                    <td class="px-4 py-3">Display name for the child agent</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>role</code></td>
+                    <td class="px-4 py-3">Yes</td>
+                    <td class="px-4 py-3">One-sentence description of the child's task</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>systemPrompt</code></td>
+                    <td class="px-4 py-3">No</td>
+                    <td class="px-4 py-3">Override system prompt; falls back to the harness default</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>modelTier</code></td>
+                    <td class="px-4 py-3">No</td>
+                    <td class="px-4 py-3"><code>economy</code> | <code>standard</code> | <code>premium</code>; defaults to <code>child_model_tier</code></td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>domainRules</code></td>
+                    <td class="px-4 py-3">No</td>
+                    <td class="px-4 py-3">Additional domain constraints; ANDed with parent's rules</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>timeout</code></td>
+                    <td class="px-4 py-3">No</td>
+                    <td class="px-4 py-3">Per-spawn timeout in seconds; defaults to <code>child_timeout_seconds</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-3">On success, returns:</p>
+          <pre class="mb-4"><code>{`{ "success": true, "childAgentId": "agent-abc123" }`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-3">On failure, returns a structured error:</p>
+          <pre class="mb-4"><code>{`{
+  "success": false,
+  "error": "depth_limit_exceeded",
+  "currentDepth": 2,
+  "maxDepth": 2,
+  "suggestion": "execute_directly"
+}`}</code></pre>
+          <pre class="mb-4"><code>{`{
+  "success": false,
+  "error": "max_children_exceeded",
+  "activeChildren": 3,
+  "maxChildren": 3
+}`}</code></pre>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4 mb-8">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Fallback Behavior</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">When <code>depth_limit_exceeded</code> is returned, the agent should fall back to executing the task directly rather than spawning.</p>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>messageChild(childAgentId, message)</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Sends a message to a child agent and blocks until the child responds. From the parent's perspective, this is synchronous.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-3">Returns:</p>
+          <pre class="mb-4"><code>{`{ "response": "...", "cost": { "tokens": 1240, "usd": 0.0018 } }`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-3">On failure:</p>
+          <pre class="mb-4"><code>{`{ "success": false, "error": "child_not_found" }`}</code></pre>
+          <pre class="mb-4"><code>{`{ "success": false, "error": "child_timeout", "childAgentId": "agent-abc123" }`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            A child can only be messaged by its direct parent. Sibling agents and grandparent agents cannot address a child directly.
+          </p>
+        </section>
+
+        <!-- Depth Limits -->
+        <section id="depth-limits" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Depth Limits</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Delegation depth is configurable per profile via <code>delegation.max_delegation_depth</code> (default: <code>2</code>).
+          </p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Depth</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Agent Type</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3">0</td>
+                    <td class="px-4 py-3">Orchestrator</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3">1</td>
+                    <td class="px-4 py-3">Lead agents (children of orchestrator)</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3">2</td>
+                    <td class="px-4 py-3">Workers (grandchildren of orchestrator)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            When an agent at the maximum depth calls <code>spawnSubAgent</code>, the harness returns <code>depth_limit_exceeded</code> immediately without spawning. The agent must handle this error and fall back to direct execution.
+          </p>
+        </section>
+
+        <!-- Domain Inheritance -->
+        <section id="domain-inheritance" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Domain Inheritance</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Children inherit their parent's domain rules as a ceiling. Permissions are <strong class="text-[var(--color-text)]">ANDed</strong> &mdash; a child can only have equal or narrower access than its parent.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Example: a parent agent has write access to <code>src/**</code>. A child is spawned with a <code>domainRules</code> config that requests <code>src/** delete</code>. The <code>delete</code> permission is denied because the parent's ceiling only allows <code>write</code>.
+          </p>
+          <pre class="mb-4"><code>{`Parent domain: src/** → write
+Child requests: src/** → delete
+Effective child domain: src/** → write  (delete denied)`}</code></pre>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Security Model</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">This prevents privilege escalation through spawning. A compromised or misbehaving child cannot exceed the permissions its parent was granted.</p>
+          </div>
+        </section>
+
+        <!-- Profile Configuration -->
+        <section id="profile-config" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Profile Configuration</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Enable hierarchical delegation and set the depth ceiling in <code>profile.yaml</code>:
+          </p>
+          <pre><code>{`delegation:
+  default: targeted
+  max_delegation_depth: 2        # Controls how deep spawning can go
+  # ... other delegation fields`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            The <code>max_delegation_depth</code> field is new in harness v1. Omitting it defaults to <code>2</code>.
+          </p>
+        </section>
+
+        <!-- Example -->
+        <section id="example" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Example: Engineering Team</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            A CTO orchestrator delegates broad engineering tasks to an Engineering Lead, which breaks work into parallel streams handled by specialized workers.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Hierarchy</h3>
+          <pre class="mb-8"><code>{`CTO Orchestrator (depth 0, delegate-and-execute)
+  └── Engineering Lead (depth 1, delegate-only, max_children: 3)
+        ├── Backend Dev (depth 2, economy)
+        ├── Frontend Dev (depth 2, economy)
+        └── QA (depth 2, economy)`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Engineering Lead <code>agent.yaml</code> delegation block</h3>
+          <pre class="mb-6"><code>{`delegation:
+  can_spawn: true
+  max_children: 3
+  child_model_tier: economy
+  child_timeout_seconds: 120
+  delegation_style: delegate-only`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            The CTO Orchestrator uses <code>delegate-and-execute</code> because it does light synthesis work (writing the final summary) in addition to routing tasks. The Engineering Lead uses <code>delegate-only</code> because its only job is decomposing and distributing work &mdash; it never produces output directly.
+          </p>
+        </section>
+
+        <!-- Lifecycle -->
+        <section id="lifecycle" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Agent Lifecycle</h2>
+          </div>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li>Children are destroyed automatically when their parent's session ends.</li>
+            <li>A parent can explicitly destroy a child at any time via <code>destroyChildAgent(childAgentId)</code>.</li>
+            <li>A child can only be messaged by its direct parent &mdash; not by siblings, grandparents, or the orchestrator directly.</li>
+            <li>If a parent is destroyed before its children finish, all descendants are destroyed in depth-first order.</li>
+          </ul>
+        </section>
+</Docs>

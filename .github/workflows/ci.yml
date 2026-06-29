@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          cd runtime && bun install
+          cd ../cli && bun install
+          cd ../adapters/pi && bun install
+          cd ../../adapters/claude-code && bun install
+
+      - name: Run tests
+        run: cd runtime && bun test
+
+      - name: Run yaml-safety lint
+        run: bun run lint:yaml-safety
+
+      - name: TypeScript type check
+        run: cd runtime && bun run typecheck
+
+  validate-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install runtime dependencies
+        run: cd runtime && bun install
+
+      - name: Validate all configs
+        run: |
+          cd runtime && bun -e "
+          import { loadAgent } from './src/config-loader';
+          import { loadProfile } from './src/config-loader';
+          import { loadDomain } from './src/config-loader';
+          import { readdirSync } from 'node:fs';
+          import { join } from 'node:path';
+
+          const core = join(import.meta.dir, '..', 'core');
+
+          // Validate all agents
+          for (const type of ['orchestrators', 'perspectives', 'operational']) {
+            const dir = join(core, 'agents', type);
+            for (const name of readdirSync(dir)) {
+              loadAgent(join(dir, name));
+              console.log('  Agent OK:', name);
+            }
+          }
+
+          // Validate all profiles
+          const profilesDir = join(core, 'profiles');
+          for (const name of readdirSync(profilesDir)) {
+            loadProfile(join(profilesDir, name));
+            console.log('  Profile OK:', name);
+          }
+
+          // Validate all domains
+          const domainsDir = join(core, 'domains');
+          for (const name of readdirSync(domainsDir)) {
+            loadDomain(join(domainsDir, name));
+            console.log('  Domain OK:', name);
+          }
+
+          console.log('All configs valid!');
+          "

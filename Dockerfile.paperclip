@@ -1,0 +1,47 @@
+# AOS-Harness Paperclip worker — the "/paperclip/wake" seam.
+#
+# Long-running Bun process that responds to Paperclip wakes and runs ONE
+# Council+Crew pass per wake. The claude-code adapter shells out to the `claude`
+# CLI, so the image bundles it; auth is via ANTHROPIC_API_KEY injected at
+# runtime (NEVER baked into the image). No secrets are present at build time.
+
+FROM oven/bun:1.3.11 AS base
+WORKDIR /app
+
+# System deps: node + npm (the claude CLI is a Node program) and curl (healthcheck).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl ca-certificates nodejs npm \
+  && rm -rf /var/lib/apt/lists/*
+
+# Claude Code CLI for the claude-code adapter (runtime auth via ANTHROPIC_API_KEY).
+RUN npm install -g @anthropic-ai/claude-code \
+  && claude --version
+
+# ── Dependency layer (cache on manifests; lockfile is unchanged by this seam) ──
+COPY package.json bun.lock ./
+COPY runtime/package.json runtime/package.json
+COPY cli/package.json cli/package.json
+COPY adapters/shared/package.json adapters/shared/package.json
+COPY adapters/claude-code/package.json adapters/claude-code/package.json
+COPY adapters/codex/package.json adapters/codex/package.json
+COPY adapters/gemini/package.json adapters/gemini/package.json
+COPY adapters/pi/package.json adapters/pi/package.json
+RUN bun install --frozen-lockfile
+
+# ── App source ────────────────────────────────────────────────────────────────
+COPY runtime/ runtime/
+COPY adapters/ adapters/
+COPY cli/ cli/
+COPY core/ core/
+
+ENV PORT=8080
+ENV AOS_HARNESS_ROOT=/app
+EXPOSE 8080
+
+# Required at runtime (injected by the deploy platform's secret store; not set here):
+#   PAPERCLIP_API_BASE, PAPERCLIP_API_KEY, PAPERCLIP_WAKE_TOKEN, ANTHROPIC_API_KEY
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS "http://localhost:${PORT}/healthz" || exit 1
+
+CMD ["bun", "run", "cli/src/paperclip/server.ts"]

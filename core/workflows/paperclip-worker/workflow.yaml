@@ -1,0 +1,48 @@
+schema: aos/workflow/v1
+id: paperclip-worker-workflow
+name: Paperclip Worker Pass
+description: >
+  Gate-free, one-shot workflow for the Paperclip seam. Operates on the issue
+  supplied in the brief. The architect proposes an approach, the sentinel flags
+  risks, and the orchestrator assembles a review-ready work product. Generic by
+  design — replace the steps to fit your own domain.
+
+steps:
+  - id: analyze
+    name: Analyze the task
+    action: targeted-delegation
+    agents: [architect]
+    input: []
+    prompt: |
+      Read the issue under "## Task" and "## Definition of Done" in the brief.
+      Outline a concrete, correct approach to satisfy the definition of done:
+        1. The key steps or components.
+        2. Any assumptions you are making (state them explicitly).
+      Be specific and practical. Do not pad.
+    output: analysis
+
+  - id: assess-risks
+    name: Assess risks
+    action: targeted-delegation
+    agents: [sentinel]
+    input: [analysis]
+    prompt: |
+      Given the task and the proposed approach above, list the material risks,
+      edge cases, and failure modes, each with a one-line mitigation. If a risk
+      is unverifiable, say so rather than guessing.
+    output: risks
+
+  - id: assemble
+    name: Assemble the work product
+    action: orchestrator-synthesis
+    input: [analysis, risks]
+    prompt: |
+      Assemble a clear, review-ready work product from the analysis and risks:
+        1. Summary of the task and the recommended approach.
+        2. Concrete plan / deliverable.
+        3. Open risks and mitigations.
+      Leave the result for a human to review. Do not mark the issue done and do
+      not publish.
+    output: work_product
+
+gates: []

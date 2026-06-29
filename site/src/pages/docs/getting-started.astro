@@ -1,0 +1,343 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'prerequisites', label: 'Prerequisites' },
+  { id: 'install-cli', label: 'Install the CLI' },
+  { id: 'connect-runtime', label: 'Connect a Runtime' },
+  { id: 'optional-host-installs', label: 'Optional Host Installs' },
+  { id: 'initialize', label: 'Initialize' },
+  { id: 'model-selection', label: 'Model Selection' },
+  { id: 'auth-troubleshooting', label: 'Auth Troubleshooting' },
+  { id: 'verify-setup', label: 'Verify Setup' },
+  { id: 'first-deliberation', label: 'Run Your First Deliberation' },
+  { id: 'execution-profile', label: 'Run an Execution Profile' },
+  { id: 'observability', label: 'Outputs and Observability' },
+  { id: 'write-a-brief', label: 'Write a Brief' },
+  { id: 'next-steps', label: 'Next Steps' },
+];
+---
+
+<Docs title="Getting Started" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Getting Started</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Install AOS, connect it to the AI runtime you already use, initialize your project, and run your first session.</p>
+
+        <!-- Prerequisites -->
+        <section id="prerequisites" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Prerequisites</h2>
+          </div>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-start gap-3">
+              <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-success)] text-white text-[12px] font-bold mt-0.5 shrink-0">&#10003;</span>
+              <span class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed"><strong class="text-[var(--color-text)]">Bun v1.0+</strong> installed &mdash; <a href="https://bun.sh" class="text-[var(--color-signal)]">bun.sh</a></span>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-success)] text-white text-[12px] font-bold mt-0.5 shrink-0">&#10003;</span>
+              <span class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed"><strong class="text-[var(--color-text)]">A terminal</strong> &mdash; macOS, Linux, or WSL on Windows</span>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-success)] text-white text-[12px] font-bold mt-0.5 shrink-0">&#10003;</span>
+              <span class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed"><strong class="text-[var(--color-text)]">A supported vendor CLI</strong> already installed and authenticated: <code>claude</code>, <code>codex</code>, <code>gemini</code>, or <code>pi</code></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Install the CLI -->
+        <section id="install-cli" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Install the CLI</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Install the CLI globally or into the current project:</p>
+          <pre><code># global
+bun add -g aos-harness
+# or
+npm i -g aos-harness
+
+# project-local
+bun add aos-harness
+# or
+npm install aos-harness</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">AOS does not replace your AI CLI. It orchestrates on top of it.</p>
+        </section>
+
+        <!-- Connect a Runtime -->
+        <section id="connect-runtime" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Connect a Runtime</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Install the adapter package that matches the vendor CLI you already use:</p>
+          <pre><code># global
+bun add -g @aos-harness/claude-code-adapter
+bun add -g @aos-harness/codex-adapter
+bun add -g @aos-harness/gemini-adapter
+bun add -g @aos-harness/pi-adapter
+
+# project-local
+bun add @aos-harness/codex-adapter
+# or
+npm install @aos-harness/codex-adapter</code></pre>
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Tip</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Keep adapter and CLI versions pinned together. Adapters are published separately from <code>aos-harness</code>, but they ship lockstep.</p>
+          </div>
+        </section>
+
+        <!-- Optional host installs -->
+        <section id="optional-host-installs" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Optional Host Installs</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The adapter is the runtime boundary. You can optionally add host-native install surfaces on top of it:</p>
+          <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+            <li><strong class="text-[var(--color-text)]">Codex</strong> &mdash; install the local plugin bundle under <code>plugins/aos-harness/</code></li>
+            <li><strong class="text-[var(--color-text)]">Claude Code</strong> &mdash; install the project command pack from <code>plugins/aos-harness/claude-code/</code></li>
+            <li><strong class="text-[var(--color-text)]">Pi</strong> &mdash; <code>aos init --adapter pi</code> writes a project shim (<code>.pi/extensions/aos-harness.ts</code>) so <code>/aos-run</code> works when you open <code>pi</code> in the project</li>
+          </ul>
+          <pre><code># Codex local plugin metadata
+plugins/aos-harness/.codex-plugin/plugin.json
+
+# Claude Code command-pack installer
+bash plugins/aos-harness/claude-code/install.sh
+
+# Pi: make /aos-run available in every AOS project
+aos setup-pi --global</code></pre>
+        </section>
+
+        <!-- Initialize -->
+        <section id="initialize" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Initialize</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Initialize AOS inside the project you want to work on:</p>
+          <pre><code># global install
+cd your-project
+aos init
+
+# project-local install
+bunx aos init
+# or
+npx aos init</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">The init flow scans environment readiness and writes:</p>
+          <pre><code>.aos/config.yaml
+.aos/memory.yaml
+.aos/scan.json</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">Existing v2 configs that do not yet contain <code>adapter_defaults</code> are backfilled automatically on <code>aos run</code>.</p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">Useful variants:</p>
+          <pre><code>aos init --apply
+aos init --non-interactive
+aos init --non-interactive --adapter codex</code></pre>
+        </section>
+
+        <section id="model-selection" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Model Selection</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">AOS now resolves models per adapter instead of treating every runtime the same:</p>
+          <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+            <li><strong class="text-[var(--color-text)]">Pi</strong> keeps explicit tier models by default.</li>
+            <li><strong class="text-[var(--color-text)]">Codex, Claude Code, and Gemini</strong> defer to the vendor CLI default model unless you pin one explicitly.</li>
+            <li>Adapter-scoped settings live in <code>.aos/config.yaml</code> under <code>adapter_defaults</code>.</li>
+            <li>Legacy <code>.aos/adapter.yaml</code> still works for adapter-specific overrides.</li>
+          </ul>
+          <pre><code>adapter_defaults:
+  codex:
+    use_vendor_default_model: true
+  pi:
+    use_vendor_default_model: false
+    models:
+      economy: anthropic/claude-haiku-4-5
+      standard: anthropic/claude-sonnet-4-6
+      premium: anthropic/claude-opus-4-7</code></pre>
+        </section>
+
+        <section id="auth-troubleshooting" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Auth Troubleshooting</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">AOS now surfaces runtime auth failures more directly:</p>
+          <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+            <li><strong class="text-[var(--color-text)]">Claude Code</strong> readiness uses <code>claude auth status --json</code>.</li>
+            <li>If Claude is running through <code>ANTHROPIC_API_KEY</code>, AOS will tell you in the readiness hint.</li>
+            <li>If Claude runs fail with <code>Invalid API key</code>, unset or refresh <code>ANTHROPIC_API_KEY</code>, or switch back to <code>claude login</code>.</li>
+            <li><strong class="text-[var(--color-text)]">Gemini</strong> account-level 403 failures are now surfaced directly instead of appearing as stale argument errors.</li>
+          </ul>
+        </section>
+
+        <!-- Verify setup -->
+        <section id="verify-setup" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Verify Setup</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Before you run a session, verify both config and discovered assets:</p>
+          <pre><code>aos validate
+aos list</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">The init flow checks vendor CLI readiness, adapter-package readiness, and writes a machine-readable report to <code>.aos/scan.json</code>.</p>
+        </section>
+
+        <!-- Run Your First Deliberation -->
+        <section id="first-deliberation" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Run Your First Deliberation</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Run the built-in Strategic Council with the sample brief:</p>
+          <pre><code>aos run strategic-council --brief core/briefs/sample-product-decision/brief.md</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            This assembles 11 specialist agents &mdash; Catalyst, Sentinel, Architect, Provocateur, Navigator, Advocate, Pathfinder, Strategist, Operator, Steward, and Auditor &mdash; under a neutral Arbiter. The agents debate your brief from opposing perspectives. Tension pairs (Catalyst vs. Sentinel, Architect vs. Pathfinder) create productive conflict.
+          </p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">The Arbiter synthesizes the discussion into a structured memo with:</p>
+          <ul class="mt-2 mb-4 space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+            <li>Ranked recommendations</li>
+            <li>Agent stances and dissent</li>
+            <li>Trade-offs and risks</li>
+            <li>Concrete next actions</li>
+          </ul>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Output is written under <code>output/</code>, and the transcript is appended under <code>.aos/sessions/&lt;session-id&gt;/transcript.jsonl</code>.</p>
+        </section>
+
+        <!-- Run an Execution Profile -->
+        <section id="execution-profile" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Run an Execution Profile</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Execution profiles go beyond deliberation &mdash; they produce implementation-ready artifacts:</p>
+          <pre><code>aos run cto-execution --brief core/briefs/sample-cto-execution/brief.md</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">The CTO Execution profile uses a structured 8-step workflow with review gates and artifact assembly:</p>
+          <ol class="space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-decimal list-inside">
+            <li><strong class="text-[var(--color-text)]">Requirements Analysis</strong> &mdash; Advocate and Strategist extract requirements from your brief</li>
+            <li><strong class="text-[var(--color-text)]">Architecture Design</strong> &mdash; Architect produces an architecture decision record</li>
+            <li><strong class="text-[var(--color-text)]">Challenge and Review</strong> &mdash; operators and reviewers push back on weak spots</li>
+            <li><strong class="text-[var(--color-text)]">Phase Planning</strong> &mdash; Strategist and Operator sequence the work</li>
+            <li><strong class="text-[var(--color-text)]">Task Breakdown</strong> &mdash; Operator turns the plan into execution-ready tasks</li>
+            <li><strong class="text-[var(--color-text)]">Security Review</strong> &mdash; Sentinel checks for trust, abuse, and system risk</li>
+            <li><strong class="text-[var(--color-text)]">Stress Test</strong> &mdash; Provocateur challenges assumptions and the timeline</li>
+            <li><strong class="text-[var(--color-text)]">Final Assembly</strong> &mdash; the orchestrator produces the execution package</li>
+          </ol>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">Output is rendered from the workflow result into the profile's configured output path template, typically under:</p>
+          <pre><code>output/executions/&lt;date&gt;-&lt;brief&gt;-&lt;session&gt;/
+  executive-summary.md
+  architecture-decision-record.md
+  task-breakdown.md
+  risk-assessment.md
+  implementation-checklist.md</code></pre>
+        </section>
+
+        <!-- Outputs and Observability -->
+        <section id="observability" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Outputs and Observability</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">All session types write a local transcript. When you provide a platform endpoint, sessions also stream transcript events live:</p>
+          <pre class="mb-4"><code>aos run strategic-council \
+  --brief core/briefs/sample-product-decision/brief.md \
+  --platform-url http://localhost:3001</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">This is useful for replay, observability, and downstream tooling:</p>
+          <pre><code>aos replay .aos/sessions/&lt;session-id&gt;/transcript.jsonl</code></pre>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Also Available</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+              For end-to-end implementation, see <a href="/docs/dev-execution" class="text-[var(--color-signal)] no-underline hover:underline">Dev Execution</a>, which extends execution mode into domain-scoped code-writing worker agents.
+            </p>
+          </div>
+        </section>
+
+        <!-- Write a Brief -->
+        <section id="write-a-brief" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Write a Brief</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A brief is the input document that frames the problem for the agents. The required sections depend on the profile type.</p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4"><strong class="text-[var(--color-text)]">Deliberation brief</strong> (for strategic-council):</p>
+          <pre><code>## Situation
+We are a B2B SaaS platform with 2,400 customers and $8M ARR.
+Our largest competitor just raised $50M and announced a free tier.
+
+## Stakes
+If we respond poorly, we risk losing 15-20% of our SMB segment.
+If we respond well, we can capture switchers from their disrupted user base.
+
+## Constraints
+- $200K budget for competitive response
+- 3-person product team, no new hires until Q3
+- Cannot break existing API contracts
+
+## Key Question
+Should we launch a free tier to match, or double down on our
+premium positioning and invest in switching-cost features?</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4"><strong class="text-[var(--color-text)]">Execution brief</strong> (for cto-execution):</p>
+          <pre><code>## Feature / Vision
+Build a real-time collaborative editing system for our
+document workspace product.
+
+## Context
+Current architecture is a monolithic Rails app with PostgreSQL.
+Documents are stored as Markdown blobs. No WebSocket infrastructure exists.
+Team has experience with Redis but not with CRDTs or OT.
+
+## Constraints
+- Ship MVP in 8 weeks with 2 backend + 1 frontend engineers
+- Must support up to 50 concurrent editors per document
+- Cannot migrate existing document storage format
+
+## Success Criteria
+- Users can see each other's cursors and edits in real time
+- No data loss on concurrent edits
+- Latency under 200ms for edit propagation
+- Graceful degradation when a user loses connection</code></pre>
+        </section>
+
+        <!-- Next Steps -->
+        <section id="next-steps" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Next Steps</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="/docs/creating-agents" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Creating Agents</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Learn how to define custom agent personas with cognition, heuristics, and tensions.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+            <a href="/docs/creating-profiles" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Creating Profiles</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Assemble agents into deliberation councils or execution teams.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+            <a href="/docs/creating-domains" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Creating Domains</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Add industry-specific knowledge overlays to sharpen agent analysis.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+            <a href="/docs/creating-workflows" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Creating Workflows</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Define step-based execution plans with review gates and artifact flow.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+            <a href="/docs/creating-skills" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Creating Skills</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Reusable capability bundles with platform-specific bindings for agent invocation.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+            <a href="/docs/dev-execution" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Dev Execution</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">From feature brief to working code in a single session, with hierarchical agent delegation.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+            <a href="/docs/serving-over-a2a" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5 group-hover:text-[var(--color-text)]">Serving over A2A</h3>
+              <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Expose your assembly as an Agent2Agent endpoint other agents can call &mdash; secured by default.</p>
+              <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+            </a>
+          </div>
+        </section>
+</Docs>

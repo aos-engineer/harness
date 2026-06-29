@@ -1,0 +1,32 @@
+schema: aos/skill/v1
+id: security-scan
+name: Security Scan
+description: "Scans architecture and code for security vulnerabilities, compliance gaps, and risk factors"
+version: 1.0.0
+
+input:
+  required:
+    - id: target_artifact
+      type: artifact
+      description: "The architecture or code artifact to scan"
+  optional:
+    - id: compliance_requirements
+      type: text
+      description: "Specific compliance frameworks to check against (SOC2, HIPAA, etc.)"
+
+output:
+  artifacts:
+    - id: security_report
+      format: markdown
+      description: "Security assessment with vulnerabilities, severity ratings, and remediation"
+  structured_result: true
+
+compatible_agents: [sentinel, steward]
+
+platform_bindings:
+  claude-code: "scan"
+
+platform_requirements:
+  requires_code_execution: false
+  requires_file_access: true
+  requires_network: false

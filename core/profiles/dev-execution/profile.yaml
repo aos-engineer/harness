@@ -1,0 +1,104 @@
+schema: aos/profile/v1
+id: dev-execution
+name: Dev Execution
+description: >
+  End-to-end development workflow: from feature brief to implemented,
+  tested, reviewed code. Combines CTO-level planning deliberation with
+  agent-driven code implementation via hierarchical delegation.
+version: 1.0.0
+
+assembly:
+  orchestrator: cto-orchestrator
+  perspectives:
+    - agent: architect
+      required: true
+      role_override: "Analyze the codebase and produce architecture decisions grounded in existing code"
+    - agent: strategist
+      required: true
+      role_override: "Sequence the work into phases considering the existing codebase"
+    - agent: operator
+      required: true
+      role_override: "Break phases into concrete tasks with file-level scope and effort estimates"
+    - agent: advocate
+      required: true
+      role_override: "Write user stories and acceptance criteria from the user perspective"
+    - agent: sentinel
+      required: true
+      role_override: "Review all code changes for security, reliability, and quality"
+    - agent: engineering-lead
+      required: true
+      role_override: "Orchestrate implementation by distributing tasks to scoped coding workers"
+    - agent: provocateur
+      required: false
+      structural_advantage: speaks-last
+      role_override: "Stress-test the plan before implementation begins"
+
+delegation:
+  default: targeted
+  opening_rounds: 0
+  max_delegation_depth: 2
+  tension_pairs:
+    - [architect, operator]
+    - [strategist, advocate]
+  bias_limit: 3
+
+constraints:
+  time:
+    min_minutes: 10
+    max_minutes: 240
+  budget: null
+  rounds:
+    min: 6
+    max: 30
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Feature / Change"
+      guidance: "What are we building or changing? Describe the feature, bug fix, or refactor."
+    - heading: "## Context"
+      guidance: "Current codebase state, relevant files/modules, existing infrastructure."
+    - heading: "## Constraints"
+      guidance: "Timeline, tech debt, dependencies, test requirements."
+    - heading: "## Success Criteria"
+      guidance: "How do we know this is done? What does good look like? What tests should pass?"
+  context_files: true
+
+output:
+  format: execution-package
+  path_template: "output/dev-executions/{{date}}-{{brief_slug}}-{{session_id}}/"
+  sections:
+    - requirements_analysis
+    - architecture_decision_record
+    - phase_plan
+    - task_breakdown
+    - implementation_report
+    - code_review_findings
+    - test_results
+    - synthesis
+  artifacts:
+    - type: mermaid_diagram
+    - type: task_list
+    - type: implementation_diff
+  frontmatter: [date, duration, participants, brief_path, transcript_path]
+
+workflow: dev-execution-workflow
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+error_handling:
+  agent_timeout_seconds: 300
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+controls:
+  halt: true
+  wrap: true
+  interject: true

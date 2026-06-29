@@ -1,0 +1,160 @@
+schema: aos/domain/v1
+id: saas
+name: SaaS Business Context
+description: "Domain pack for B2B and B2C SaaS businesses. Injects SaaS-specific lexicon, metrics standards, and agent overlays that sharpen each perspective's analysis for subscription-based software decisions."
+version: 1.0.0
+
+lexicon:
+  metrics:
+    - "ARR — Annual Recurring Revenue: annualised value of subscription contracts"
+    - "MRR — Monthly Recurring Revenue: monthly subscription revenue"
+    - "NRR — Net Revenue Retention: revenue retained and expanded from existing customers (expansion minus churn and contraction), expressed as a percentage"
+    - "CAC — Customer Acquisition Cost: fully loaded cost to acquire one new customer"
+    - "LTV — Lifetime Value: projected total revenue from a customer over their lifetime"
+    - "churn_rate — Percentage of customers or revenue lost in a given period"
+    - "expansion_revenue — Additional revenue from existing customers via upsell, cross-sell, or seat growth"
+    - "payback_period — Months of gross margin required to recover CAC"
+  frameworks:
+    - "PLG — Product-Led Growth: product drives acquisition, activation, and expansion without a traditional sales motion"
+    - "sales_led — Enterprise sales motion drives acquisition; product supports but does not lead"
+    - "hybrid_motion — Combination of PLG for SMB/mid-market and sales-led for enterprise"
+    - "land_and_expand — Start with a narrow beachhead, expand seats or usage over time"
+  stages:
+    - "pre_seed — Pre-product-market fit; primarily team and hypothesis"
+    - "seed — Early traction; proving PMF with a cohort"
+    - "series_a — Scaling a repeatable go-to-market; $1M–$10M ARR typical range"
+    - "growth — Scaling revenue efficiently; building category leadership"
+    - "scale — Optimising unit economics at scale; preparing for public markets or M&A"
+
+overlays:
+  catalyst:
+    thinking_patterns:
+      - "For every opportunity, quantify its direct impact on ARR or MRR expansion. If the path to revenue is indirect or >18 months, require explicit justification before advocating."
+      - "Challenge any initiative where CAC payback exceeds 18 months. Demand a clear path to sub-12-month payback at scale."
+    heuristics:
+      - name: SaaS Revenue Test
+        rule: "Quantify direct impact on ARR or MRR expansion for every opportunity."
+      - name: Payback Obsession
+        rule: "Challenge any initiative where CAC payback exceeds 18 months."
+    evidence_standard:
+      convinced_by:
+        - "Revenue impact claims that include assumptions on conversion rate, ACV, and time-to-close"
+        - "CAC payback projections with clear unit economics"
+      not_convinced_by:
+        - "Revenue claims without conversion rate or ACV assumptions"
+        - "Growth projections disconnected from current metrics"
+
+  sentinel:
+    thinking_patterns:
+      - "Treat NRR below 100% as an existential signal. Any decision that risks accelerating churn must be flagged as high severity, even if short-term ARR looks positive."
+      - "Assess whether the decision increases or decreases customer switching costs. Commoditisation of core value is a sentinel-level risk."
+    heuristics:
+      - name: NRR Focus
+        rule: "Treat NRR below 100% as existential. Flag any decision that risks accelerating churn."
+      - name: Switching Costs
+        rule: "Assess whether the decision increases or decreases customer switching costs."
+    evidence_standard:
+      convinced_by:
+        - "Churn impact quantified with cohort data or historical trends"
+        - "NRR projections grounded in retention curve analysis"
+      not_convinced_by:
+        - "Qualitative churn risk assessment alone"
+        - "Assertions about customer stickiness without switching cost analysis"
+
+  architect:
+    thinking_patterns:
+      - "Evaluate every architectural decision against the cost of serving 10x the current customer base with the same team. Multi-tenancy, shared infrastructure, and automation are the primary levers."
+      - "Track and challenge growth in operational cost per customer. If ops burden per customer is not declining as you scale, the architecture is not working."
+    heuristics:
+      - name: Multi-Tenant Scale
+        rule: "Evaluate architectural decisions against 10x customer base with the same team."
+      - name: Ops Burden Per Customer
+        rule: "Ops cost per customer must decline as you scale."
+    evidence_standard:
+      convinced_by:
+        - "Scalability claims referencing current ops cost per customer and projected trajectory"
+        - "Architecture proposals with concrete multi-tenancy and automation metrics"
+      not_convinced_by:
+        - "Scalability claims without ops cost per customer data"
+        - "Architecture proposals that assume linear team growth with customer growth"
+
+  provocateur:
+    thinking_patterns:
+      - "Challenge every growth projection against published SaaS benchmarks (e.g. Bessemer Cloud Index, OpenView benchmarks). Most SaaS companies that project exceptional growth underdeliver. Require the base rate before accepting the bull case."
+      - "For every strategic move, ask: what does the best-funded competitor do in response? Model the counterfactual explicitly."
+    heuristics:
+      - name: SaaS Base Rate Check
+        rule: "Challenge growth projections against published SaaS benchmarks. Require base rates."
+      - name: Competitor Counterfactual
+        rule: "For every strategic move, model what the best-funded competitor does in response."
+    evidence_standard:
+      convinced_by:
+        - "Projections citing comparable company benchmarks"
+        - "Growth claims with explicit base rate comparison"
+      not_convinced_by:
+        - "Projections without comparable company benchmarks"
+        - "Growth claims that assume no competitive response"
+
+  navigator:
+    thinking_patterns:
+      - "Assess whether the decision strengthens or weakens the company's claim to a defensible category. Category leaders command pricing power and lower CAC; category followers compete on price."
+      - "Evaluate CAC by channel. Demand evidence that the dominant acquisition channel is scalable and that channel concentration risk is understood."
+    heuristics:
+      - name: SaaS Category Positioning
+        rule: "Assess whether decisions strengthen or weaken defensible category position."
+      - name: Distribution Channel Efficiency
+        rule: "Evaluate CAC by channel and demand evidence of scalability."
+    evidence_standard:
+      convinced_by:
+        - "Positioning claims grounded in customer perception data or competitive win/loss analysis"
+        - "CAC by channel with scalability evidence"
+      not_convinced_by:
+        - "Positioning claims without customer or competitive evidence"
+        - "Channel strategy without CAC breakdown"
+
+  advocate:
+    thinking_patterns:
+      - "Time-to-value is the most important activation metric in SaaS. Identify whether the decision reduces or increases the number of steps between signup and first meaningful outcome."
+      - "Define and track the activation event — the moment a user has experienced core value. Decisions that move users toward activation faster are high priority."
+    heuristics:
+      - name: SaaS Onboarding Friction
+        rule: "Identify whether the decision reduces or increases steps to first meaningful outcome."
+      - name: Activation Metrics
+        rule: "Track the activation event and prioritize decisions that accelerate it."
+    evidence_standard:
+      convinced_by:
+        - "Customer impact claims referencing activation rates, time-to-value data, or direct customer evidence"
+        - "Onboarding friction analysis with measurable step counts"
+      not_convinced_by:
+        - "Customer impact claims without activation or time-to-value data"
+        - "UX opinions without user research or metrics"
+
+  strategist:
+    thinking_patterns:
+      - "Evaluate whether the decision advances or disrupts the wedge-to-platform journey. The wedge must be narrow enough to win; the platform must be credible enough to retain."
+      - "Assess the long-term pricing power implications. Decisions that commoditise the core offering or train customers to expect discounts erode strategic position."
+    heuristics:
+      - name: SaaS Wedge-to-Platform Sequencing
+        rule: "Evaluate whether decisions advance the wedge-to-platform journey."
+      - name: Pricing Power Trajectory
+        rule: "Assess long-term pricing power implications of every decision."
+    evidence_standard:
+      convinced_by:
+        - "Strategic sequencing claims mapping to a coherent multi-year narrative"
+        - "Pricing power analysis with competitive moat evidence"
+      not_convinced_by:
+        - "Strategic claims based only on next-quarter logic"
+        - "Pricing decisions without long-term competitive analysis"
+
+additional_input_sections:
+  - heading: "## Metrics"
+    guidance: "Current ARR and MRR, month-over-month growth rate, NRR, churn rate, CAC, LTV, and payback period. Include 3-month trend where available."
+
+additional_output_sections:
+  - section: financial_impact
+    description: "Projected impact on ARR, churn rate, and unit economics (CAC, LTV, payback period) for each recommended path. State all assumptions explicitly."
+
+guardrails:
+  - "Revenue projections must explicitly state assumptions on conversion rate, ACV, volume, and time horizon. Unsupported projections are flagged and must be challenged."
+  - "Any recommendation that carries material customer or revenue churn risk must include a churn impact assessment. Recommendations without this assessment are incomplete."
+  - "Initiatives projecting CAC payback beyond 24 months require CFO-level justification and must be flagged in the memo."

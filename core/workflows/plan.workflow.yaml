@@ -1,0 +1,46 @@
+schema: aos/workflow/v1
+id: plan
+name: Implementation Planning
+description: "Convert a specification into a concrete implementation plan with file structure, task breakdown, and sequencing."
+
+steps:
+  - id: read-spec
+    action: read-document
+    description: "Read and analyze the specification document to understand requirements"
+    input: []
+    output: spec-analysis
+    review_gate: false
+
+  - id: map-file-structure
+    action: analyze-structure
+    description: "Map out the file and directory structure needed to implement the spec"
+    input: [read-spec]
+    output: file-map
+    review_gate: false
+
+  - id: define-tasks
+    action: decompose
+    description: "Break the implementation into ordered tasks with dependencies and effort estimates"
+    input: [read-spec, map-file-structure]
+    output: task-list
+    review_gate: false
+
+  - id: write-plan
+    action: write-document
+    description: "Write the full implementation plan document with tasks, ordering, and acceptance criteria"
+    input: [define-tasks, map-file-structure]
+    output: plan-document
+    review_gate: true
+
+  - id: review-plan
+    action: self-review
+    description: "Self-review the plan for completeness, feasibility, and spec coverage"
+    input: [write-plan, read-spec]
+    output: plan-review
+    review_gate: false
+
+gates:
+  - after: write-plan
+    type: user-approval
+    prompt: "Review the implementation plan. Approve to finalize, or reject with feedback on what to change."
+    on_rejection: re-run-step

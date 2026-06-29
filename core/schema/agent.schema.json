@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aos/agent/v1",
+  "title": "AOS Agent Definition",
+  "type": "object",
+  "required": ["schema", "id", "name", "role", "cognition", "persona", "model"],
+  "properties": {
+    "schema": { "const": "aos/agent/v1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "name": { "type": "string" },
+    "role": { "type": "string" },
+    "cognition": {
+      "type": "object",
+      "required": ["objective_function", "time_horizon", "core_bias", "risk_tolerance", "default_stance"],
+      "properties": {
+        "objective_function": { "type": "string" },
+        "time_horizon": {
+          "type": "object",
+          "required": ["primary", "secondary", "peripheral"],
+          "properties": {
+            "primary": { "type": "string" },
+            "secondary": { "type": "string" },
+            "peripheral": { "type": "string" }
+          }
+        },
+        "core_bias": { "type": "string" },
+        "risk_tolerance": { "enum": ["very-low", "low", "moderate", "high", "very-high"] },
+        "default_stance": { "type": "string" }
+      }
+    },
+    "persona": {
+      "type": "object",
+      "required": ["temperament", "thinking_patterns", "heuristics", "evidence_standard", "red_lines"],
+      "properties": {
+        "temperament": { "type": "array", "items": { "type": "string" } },
+        "thinking_patterns": { "type": "array", "items": { "type": "string" } },
+        "heuristics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "rule"],
+            "properties": {
+              "name": { "type": "string" },
+              "rule": { "type": "string" }
+            }
+          }
+        },
+        "evidence_standard": {
+          "type": "object",
+          "required": ["convinced_by", "not_convinced_by"],
+          "properties": {
+            "convinced_by": { "type": "array", "items": { "type": "string" } },
+            "not_convinced_by": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "red_lines": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "tensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent", "dynamic"],
+        "properties": {
+          "agent": { "type": "string" },
+          "dynamic": { "type": "string" }
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["structure"],
+      "properties": {
+        "structure": { "type": "string" }
+      }
+    },
+    "tools": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "skills": { "type": "array", "items": { "type": "string" } },
+    "mcp_servers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Phase 1: ids of MCP servers (from aos/mcp/v1 registries) this agent is intended to use. Currently DECLARATIVE — not yet an enforced isolation boundary (a bound skill resolves against the session's started servers regardless). 'MCP on the inside' — tools/data only, never a delegation target."
+    },
+    "expertise": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "mode", "use_when"],
+        "properties": {
+          "path": { "type": "string" },
+          "mode": { "enum": ["read-only", "read-write"] },
+          "use_when": { "type": "string" }
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["tier", "thinking"],
+      "properties": {
+        "tier": { "enum": ["economy", "standard", "premium"] },
+        "thinking": { "enum": ["off", "on", "extended"] }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Declares what this agent can do beyond responding with text. Used by the engine and orchestrator to validate delegation targets and match agents to workflow steps.",
+      "properties": {
+        "can_execute_code": {
+          "type": "boolean",
+          "default": false,
+          "description": "Can this agent run code via platform tools (executeCode adapter method)?"
+        },
+        "can_produce_files": {
+          "type": "boolean",
+          "default": false,
+          "description": "Can this agent create or modify files via platform tools (createArtifact adapter method)?"
+        },
+        "can_review_artifacts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Can this agent review another agent's output and provide structured feedback?"
+        },
+        "can_serve_artifacts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Can this agent produce artifact output intended for preview-serving workflows?"
+        },
+        "available_skills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Skill IDs this agent can invoke via the invokeSkill adapter method. Empty array means no skills available."
+        },
+        "output_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["text", "markdown", "code", "diagram", "structured-data", "html"]
+          },
+          "default": ["text", "markdown"],
+          "description": "What artifact formats this agent can produce."
+        }
+      },
+      "additionalProperties": false
+    },
+    "domain": {
+      "type": "object",
+      "description": "Structural file/tool permission boundaries enforced at the L4 adapter layer.",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "read", "write", "delete"],
+            "properties": {
+              "path": { "type": "string", "description": "Glob pattern for file path matching" },
+              "read": { "type": "boolean" },
+              "write": { "type": "boolean" },
+              "delete": { "type": "boolean" }
+            }
+          }
+        },
+        "tool_allowlist": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tools this agent is allowed to use. If omitted, all tools allowed."
+        },
+        "tool_denylist": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tools explicitly blocked. Takes precedence over allowlist."
+        },
+        "bash_restrictions": {
+          "type": "object",
+          "properties": {
+            "blocked_tokens": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["tokens"],
+                "properties": {
+                  "tokens": { "type": "array", "items": { "type": "string" } },
+                  "aliases": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "blocked_patterns": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["rules"]
+    },
+    "delegation": {
+      "type": "object",
+      "description": "Controls whether this agent can spawn and manage sub-agents.",
+      "required": ["can_spawn", "max_children", "child_model_tier", "child_timeout_seconds", "delegation_style"],
+      "properties": {
+        "can_spawn": { "type": "boolean" },
+        "max_children": { "type": "integer", "minimum": 0 },
+        "child_model_tier": { "enum": ["economy", "standard", "premium"] },
+        "child_timeout_seconds": { "type": "integer", "minimum": 1 },
+        "delegation_style": { "enum": ["delegate-only", "delegate-and-execute"] }
+      }
+    }
+  }
+}

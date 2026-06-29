@@ -1,0 +1,177 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'AOS Harness — Agentic Orchestration System for multi-agent AI workflows' } = Astro.props;
+
+const currentPath = Astro.url.pathname.endsWith('/')
+  ? Astro.url.pathname
+  : `${Astro.url.pathname}/`;
+const canonicalUrl = new URL(currentPath, Astro.site ?? Astro.url).toString();
+
+const navGroups = [
+  {
+    title: 'Explore',
+    links: [
+      { href: '/', label: 'Overview' },
+      { href: '/agents/', label: 'Agents' },
+      { href: '/profiles/', label: 'Profiles' },
+      { href: '/skills/', label: 'Skills' },
+      { href: '/domains/', label: 'Domains' },
+    ],
+  },
+  {
+    title: 'Documentation',
+    links: [
+      { href: '/docs/getting-started/', label: 'Getting Started' },
+      { href: '/docs/dev-execution/', label: 'Dev Execution' },
+      { href: '/docs/domain-enforcement/', label: 'Domain Enforcement' },
+    ],
+  },
+];
+
+const topLinks = [
+  { href: '/docs/getting-started/', label: 'Docs' },
+  { href: '/agents/', label: 'Agents' },
+  { href: '/profiles/', label: 'Profiles' },
+  { href: 'https://github.com/aos-engineer/aos-harness', label: 'GitHub', external: true },
+];
+
+function isActive(href: string) {
+  if (href === '/') {
+    return currentPath === '/';
+  }
+  return currentPath.startsWith(href);
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f7f7f8" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:title" content={`${title} | AOS.engineer`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <title>{title} | AOS.engineer</title>
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem('aos-theme')
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (stored === 'dark' || (!stored && prefersDark)) {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
+  </head>
+  <body class="site-shell min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
+    <aside class="docs-rail">
+      <a href="/" class="docs-brand" aria-label="AOS home">
+        <span class="docs-brand-mark">AOS</span><span>.engineer</span>
+      </a>
+
+      <nav class="docs-nav" aria-label="Site">
+        {navGroups.map((group) => (
+          <section class="docs-nav-group">
+            <h2>{group.title}</h2>
+            <ul>
+              {group.links.map((link) => (
+                <li>
+                  <a href={link.href} class:list={{ active: isActive(link.href) }}>
+                    <span>{link.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </nav>
+    </aside>
+
+    <header class="docs-header">
+      <div class="docs-header-search" aria-hidden="true">
+        <span class="docs-search-icon">/</span>
+        <span>Agentic orchestration system</span>
+      </div>
+
+      <div class="docs-mobile-brand">
+        <details class="docs-mobile-menu">
+          <summary aria-label="Open site navigation">
+            <span></span><span></span><span></span>
+          </summary>
+          <div class="docs-mobile-panel">
+            {navGroups.map((group) => (
+              <section>
+                <h2>{group.title}</h2>
+                {group.links.map((link) => (
+                  <a href={link.href} class:list={{ active: isActive(link.href) }}>
+                    {link.label}
+                  </a>
+                ))}
+              </section>
+            ))}
+          </div>
+        </details>
+        <a href="/" class="docs-mobile-logo">AOS<span>.engineer</span></a>
+      </div>
+
+      <nav class="docs-top-nav" aria-label="Primary">
+        {topLinks.map((link) => (
+          <a
+            href={link.href}
+            class:list={{ active: !link.external && isActive(link.href) }}
+            {...(link.external ? { target: '_blank', rel: 'noopener' } : {})}
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
+
+      <button class="docs-theme-toggle" type="button" aria-label="Toggle dark mode" data-theme-toggle>
+        <span class="docs-theme-sun"></span>
+        <span class="docs-theme-moon"></span>
+      </button>
+    </header>
+
+    <main class="site-main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <span class="font-semibold text-[var(--color-text)]">AOS Harness</span>
+        <span>Agentic Orchestration System</span>
+      </div>
+      <nav aria-label="Footer">
+        <a href="/docs/getting-started/">Docs</a>
+        <a href="https://github.com/aos-engineer/aos-harness" target="_blank" rel="noopener">GitHub</a>
+        <span>MIT License</span>
+      </nav>
+    </footer>
+
+    <script is:inline>
+      document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
+        const root = document.documentElement
+        const next = !root.classList.contains('dark')
+        root.classList.toggle('dark', next)
+        localStorage.setItem('aos-theme', next ? 'dark' : 'light')
+      })
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>

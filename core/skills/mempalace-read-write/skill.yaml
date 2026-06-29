@@ -1,0 +1,33 @@
+schema: aos/skill/v1
+id: mempalace-read-write
+name: MemPalace Read + Write
+description: Search, inspect, and add drawers to MemPalace
+version: 1.0.0
+
+input:
+  required: []
+  optional: []
+
+output:
+  structured_result: true
+
+compatible_agents:
+  - operator
+  - steward
+  - auditor
+
+platform_bindings:
+  claude-code: null
+  pi: mempalace-mcp
+
+platform_requirements:
+  requires_network: false
+  requires_tools:
+    - mempalace_search
+    - mempalace_list_wings
+    - mempalace_list_rooms
+    - mempalace_get_taxonomy
+    - mempalace_status
+    - mempalace_check_duplicate
+    - mempalace_add_drawer
+    - mempalace_delete_drawer

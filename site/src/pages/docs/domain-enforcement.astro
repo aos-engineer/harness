@@ -1,0 +1,249 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'domain-rules', label: 'Adding Domain Rules' },
+  { id: 'path-matching', label: 'Path Matching Algorithm' },
+  { id: 'tool-access', label: 'Tool Access Control' },
+  { id: 'bash-restrictions', label: 'Bash Restrictions' },
+  { id: 'profile-overrides', label: 'Profile-Level Overrides' },
+  { id: 'domain-inheritance', label: 'Domain Inheritance' },
+  { id: 'troubleshooting', label: 'Troubleshooting' },
+];
+---
+
+<Docs title="Domain Enforcement" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Domain Enforcement</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Structural file and tool permission boundaries per agent</p>
+
+        <!-- Adding Domain Rules -->
+        <section id="domain-rules" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Adding Domain Rules</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Domain enforcement provides structural, code-enforced file and tool permission boundaries per agent. These are not advisory prompts or instructions written into a system prompt &mdash; they are <strong class="text-[var(--color-text)]">real constraints evaluated at the adapter layer</strong> that block tool calls before execution ever begins. An agent cannot read, write, or delete a file outside its allowed paths, and cannot invoke a tool that is not permitted for its role.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Add a <code>domain</code> field to <code>agent.yaml</code> to declare what the agent is allowed to touch:
+          </p>
+          <pre><code>{`domain:
+  rules:
+    - path: "src/api/**"        # Glob pattern matched against the requested file path
+      read: true
+      write: true
+      delete: false
+    - path: "src/config/**"
+      read: true
+      write: false              # Config is read-only for this agent
+      delete: false
+    - path: "**/*.env*"
+      read: false               # Environment files completely blocked
+      write: false
+      delete: false
+  tool_allowlist:               # Only these tools are available to this agent
+    - read
+    - write
+    - edit
+    - grep
+    - glob
+  tool_denylist:                # Blocked even if the tool appears in the allowlist
+    - bash
+  bash_restrictions:            # If bash IS allowed, these command patterns are blocked
+    blocked_tokens:
+      - tokens: ["rm", "recursive"]
+        aliases: { recursive: ["-r", "-R", "--recursive"] }
+      - tokens: ["git", "push"]
+      - tokens: ["git", "reset"]
+    blocked_patterns: ["curl.*-X DELETE"]`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            Rules are evaluated in specificity order (see <a href="#path-matching" class="text-[var(--color-signal)] no-underline hover:underline">Path Matching Algorithm</a> below). Each rule grants or denies <code>read</code>, <code>write</code>, and <code>delete</code> independently. A path that matches no rule is denied by default.
+          </p>
+        </section>
+
+        <!-- Path Matching Algorithm -->
+        <section id="path-matching" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Path Matching Algorithm</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            Rules are matched using glob patterns. When a file operation is requested, every rule whose pattern matches the target path is collected. The winner is determined by <strong class="text-[var(--color-text)]">specificity</strong> &mdash; the number of literal path segments in the pattern (segments without wildcards).
+          </p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li><code>apps/web/**</code> has specificity 2 (<code>apps</code>, <code>web</code>)</li>
+            <li><code>apps/web/components/**</code> has specificity 3 (<code>apps</code>, <code>web</code>, <code>components</code>)</li>
+          </ul>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            When two rules match the same path, the more specific rule wins. If two matching rules have equal specificity and one denies, the deny wins.
+          </p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Request</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Matching Rules</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Winner</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3">Write <code>apps/web/components/Button.tsx</code></td>
+                    <td class="px-4 py-3"><code>apps/web/**</code> (specificity 2, allows write), <code>apps/web/components/**</code> (specificity 3, denies write)</td>
+                    <td class="px-4 py-3">specificity 3</td>
+                    <td class="px-4 py-3">Denied</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3">Write <code>apps/web/page.tsx</code></td>
+                    <td class="px-4 py-3"><code>apps/web/**</code> (specificity 2, allows write)</td>
+                    <td class="px-4 py-3">specificity 2</td>
+                    <td class="px-4 py-3">Allowed</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Important</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Paths that match no rule are denied by default. Always add an explicit rule for every path the agent legitimately needs to access.</p>
+          </div>
+        </section>
+
+        <!-- Tool Access Control -->
+        <section id="tool-access" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Tool Access Control</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The <code>tool_allowlist</code> and <code>tool_denylist</code> fields control which tools an agent can invoke:
+          </p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li>If neither is defined, all tools are permitted.</li>
+            <li>If <code>tool_allowlist</code> is defined, only the listed tools are permitted. Any tool not in the list is blocked.</li>
+            <li>If <code>tool_denylist</code> is defined, the listed tools are always blocked &mdash; even if they appear in the allowlist. <strong class="text-[var(--color-text)]">The denylist takes precedence.</strong></li>
+          </ul>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            This means you can define a broad allowlist and use the denylist to carve out specific exceptions without rewriting the full list.
+          </p>
+        </section>
+
+        <!-- Bash Restrictions -->
+        <section id="bash-restrictions" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Bash Restrictions</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            When <code>bash</code> is included in the allowlist, the <code>bash_restrictions</code> field adds a layer of command-level filtering.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Token-Based Detection</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            <code>blocked_tokens</code> rules define sets of tokens that must not appear together in a single command. Detection is order-independent: the runtime expands aliases and checks for co-occurrence of the full token set anywhere in the command string.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            For example, a rule with <code>tokens: ["rm", "recursive"]</code> and <code>aliases: &#123; recursive: ["-r", "-R", "--recursive"] &#125;</code> will block:
+          </p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-4">
+            <li><code>rm -rf /tmp/build</code></li>
+            <li><code>rm -r -f /tmp/build</code></li>
+            <li><code>rm --recursive --force /tmp/build</code></li>
+          </ul>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            All three trigger the same rule because the alias expansion maps <code>-r</code>, <code>-R</code>, and <code>--recursive</code> to the <code>recursive</code> token. The match fires as soon as all tokens in the set are present, regardless of order or flags interleaved between them.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Pattern-Based Detection</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            <code>blocked_patterns</code> are evaluated as regular expressions against the full command string. These are useful for blocking constructs that cannot be expressed cleanly as token sets:
+          </p>
+          <pre class="mb-4"><code>{`blocked_patterns: ["curl.*-X DELETE"]`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            Patterns are checked after token expansion, as a fallback for command shapes that are difficult to enumerate with discrete tokens.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3">Safety Scope</h3>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Note</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Bash restrictions are a heuristic safety net &mdash; they raise the cost of accidental or unintended dangerous commands. They are not a security sandbox. A determined agent with bash access can still construct commands that avoid matching. Use <code>tool_denylist: [bash]</code> to fully remove bash access when it is not needed.</p>
+          </div>
+        </section>
+
+        <!-- Profile-Level Overrides -->
+        <section id="profile-overrides" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Profile-Level Overrides</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            A profile can override an agent's domain rules for a specific assembly context using <code>domain_override</code>. This is useful when the same agent participates in both restricted operational contexts and broader exploratory profiles:
+          </p>
+          <pre><code>{`assembly:
+  perspectives:
+    - agent: architect
+      domain_override:
+        rules:
+          - path: "**"
+            read: true
+            write: true          # Full access in this profile context`}</code></pre>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <code>domain_override</code> replaces the agent's <code>domain.rules</code> entirely for that profile assembly. Tool allowlists and denylists from the base agent definition remain in effect unless also overridden.
+          </p>
+        </section>
+
+        <!-- Domain Inheritance -->
+        <section id="domain-inheritance" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Domain Inheritance</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            When an agent spawns child agents (in nested orchestration), children inherit the parent's domain as a ceiling. Permissions are <strong class="text-[var(--color-text)]">ANDed</strong> &mdash; a child can only have permissions that the parent also has.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            If the parent domain allows <code>src/** &rarr; write: true</code> and a child agent is configured with <code>src/** &rarr; delete: true</code>, the delete permission is silently denied at runtime because the parent does not grant delete on that path.
+          </p>
+          <div class="bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Key Rule</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">This ensures that a child agent cannot escalate its own privileges beyond what the spawning agent was allowed to do. The parent's domain acts as the upper bound; the child's domain can be equal to or more restrictive, <strong class="text-[var(--color-text)]">never more permissive</strong>.</p>
+          </div>
+        </section>
+
+        <!-- Troubleshooting -->
+        <section id="troubleshooting" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Troubleshooting</h2>
+          </div>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>no matching rule for path "X"</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The file path did not match any rule in the agent's domain configuration. Domain enforcement is deny-by-default &mdash; unmatched paths are blocked. Add an explicit rule covering the path:
+          </p>
+          <pre class="mb-8"><code>{`rules:
+  - path: "src/generated/**"
+    read: true
+    write: true
+    delete: false`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>tool "X" is in denylist</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-8">
+            The tool is explicitly blocked via <code>tool_denylist</code>. Either remove it from the denylist, or use a different tool that achieves the same goal. If bash is the blocked tool, consider whether <code>read</code>, <code>grep</code>, or <code>glob</code> can replace the specific command needed.
+          </p>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>tool "X" is not in allowlist</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            A <code>tool_allowlist</code> is defined for this agent and the requested tool is not included. Add the tool to the allowlist:
+          </p>
+          <pre class="mb-8"><code>{`tool_allowlist:
+  - read
+  - grep
+  - glob
+  - bash           # Add the missing tool here`}</code></pre>
+
+          <h3 class="text-lg font-semibold text-[var(--color-text)] mb-3"><code>bash command matches blocked token set: [X, Y]</code></h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            The command contains a combination of tokens (after alias expansion) that matches a <code>blocked_tokens</code> rule. Review the command to determine whether it is genuinely needed. If it is, and the restriction is overly broad, adjust the <code>bash_restrictions</code> configuration in the agent's domain definition or use a more targeted <code>blocked_patterns</code> entry instead.
+          </p>
+        </section>
+</Docs>

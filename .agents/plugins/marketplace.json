@@ -1,0 +1,20 @@
+{
+  "name": "aos-engineer-local",
+  "interface": {
+    "displayName": "AOS Engineer Local"
+  },
+  "plugins": [
+    {
+      "name": "aos-harness",
+      "source": {
+        "source": "local",
+        "path": "./plugins/aos-harness"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

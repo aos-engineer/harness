@@ -1,0 +1,40 @@
+{
+  "name": "@aos-harness/codex-adapter",
+  "version": "0.9.1",
+  "description": "AOS Harness adapter for OpenAI's Codex CLI.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aos-engineer/aos-harness.git",
+    "directory": "adapters/codex"
+  },
+  "homepage": "https://aos.engineer",
+  "keywords": [
+    "aos-harness",
+    "ai-agents",
+    "codex",
+    "adapter"
+  ],
+  "type": "module",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@aos-harness/runtime": "workspace:*",
+    "@aos-harness/adapter-shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  }
+}

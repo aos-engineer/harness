@@ -1,0 +1,101 @@
+schema: aos/profile/v1
+id: incident-response
+name: Incident Response
+description: "Rapid multi-perspective incident analysis. Submit a brief describing an incident. A neutral Arbiter orchestrates specialist agents who analyze root causes, failure modes, operational impact, and prevention strategies. Output is a structured incident report with root cause analysis, contributing factors, and a prevention plan."
+version: 1.0.0
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    # Required — always active
+    - agent: architect
+      required: true
+    - agent: provocateur
+      required: true
+      structural_advantage: speaks-last
+    - agent: operator
+      required: true
+    - agent: sentinel
+      required: true
+    # Optional — active by default, can be deactivated
+    - agent: steward
+      required: false
+    - agent: auditor
+      required: false
+
+delegation:
+  default: broadcast
+  opening_rounds: 1
+  tension_pairs:
+    - [architect, provocateur]
+    - [operator, sentinel]
+  bias_limit: 5
+
+constraints:
+  time:
+    min_minutes: 2
+    max_minutes: 6
+  budget:
+    min: 1.00
+    max: 6.00
+    currency: USD
+  rounds:
+    min: 2
+    max: 4
+
+error_handling:
+  agent_timeout_seconds: 90
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation:
+  strategy: fixed_estimate
+  fixed_estimate_tokens: 2000
+  safety_margin: 0.15
+  on_estimate_exceeded: drop_optional
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Incident Description"
+      guidance: "What happened? Describe the incident in factual terms — what failed, what was affected, and how it was detected."
+    - heading: "## Impact"
+      guidance: "What is the business, customer, and technical impact? Quantify where possible — downtime duration, users affected, revenue impact."
+    - heading: "## Timeline"
+      guidance: "Chronological sequence of events from first signal to current state. Include timestamps where available."
+    - heading: "## Key Question"
+      guidance: "The single most important question you want the incident response team to answer. Be specific."
+  context_files: true
+
+output:
+  format: report
+  path_template: "output/reports/{{date}}-{{brief_slug}}-{{session_id}}/report.md"
+  sections:
+    - root_cause_analysis
+    - contributing_factors
+    - immediate_actions
+    - prevention_plan
+    - timeline_reconstruction
+  artifacts:
+    - type: diagram
+  frontmatter:
+    - date
+    - duration
+    - budget_used
+    - participants
+    - brief_path
+    - transcript_path
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+controls:
+  halt: true
+  wrap: true
+  interject: false

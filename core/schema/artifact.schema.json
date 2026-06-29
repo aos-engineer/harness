@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aos/artifact/v1",
+  "title": "AOS Artifact",
+  "type": "object",
+  "required": ["schema", "id", "produced_by", "step_id", "format", "content_path"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "aos/artifact/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Artifact identifier. Must match the workflow step's output field value."
+    },
+    "produced_by": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Agent IDs that contributed to this artifact."
+    },
+    "step_id": {
+      "type": "string",
+      "description": "The workflow step ID that produced this artifact."
+    },
+    "format": {
+      "type": "string",
+      "enum": ["markdown", "code", "structured-data", "diagram", "html-static", "html-interactive", "html-live"],
+      "description": "The artifact's content format."
+    },
+    "content_path": {
+      "type": "string",
+      "description": "Path to the artifact's content file, relative to the session directory. Supports {{deliberation_dir}} template variable."
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["linkedin", "twitter", "tiktok", "instagram", "generic"],
+      "description": "Optional platform tag for social/content artifacts."
+    },
+    "variation_index": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-indexed variation number for multi-variation artifact runs."
+    },
+    "channel_id": {
+      "type": "string",
+      "description": "Reserved for html-live artifacts using bidirectional channels."
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "review_status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "revised"],
+          "default": "pending"
+        },
+        "review_gate": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "The gate ID that reviewed this artifact. Null if no review gate."
+        },
+        "word_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Revision number. Incremented each time the step is re-run via retry_with_feedback."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

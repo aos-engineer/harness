@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aos/adapter-config/v1",
+  "title": "AOS Adapter Configuration",
+  "type": "object",
+  "required": ["platform"],
+  "properties": {
+    "platform": { "enum": ["pi", "claude-code", "gemini", "codex", "custom"] },
+    "model_overrides": {
+      "type": "object",
+      "description": "Optional per-tier model ID overrides. Falls back to discoverModels() / defaultModelMap() if not set.",
+      "properties": {
+        "economy": { "type": "string" },
+        "standard": { "type": "string" },
+        "premium": { "type": "string" }
+      }
+    },
+    "use_vendor_default_model": {
+      "type": "boolean",
+      "description": "When true, AOS omits explicit --model flags and lets the vendor CLI choose its default model."
+    },
+    "theme": { "type": "string" },
+    "editor": { "type": "string" }
+  }
+}

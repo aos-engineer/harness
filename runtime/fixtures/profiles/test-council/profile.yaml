@@ -1,0 +1,70 @@
+schema: aos/profile/v1
+id: test-council
+name: Test Council
+description: "Test profile for unit tests"
+version: 1.0.0
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    - agent: catalyst
+      required: true
+
+delegation:
+  default: broadcast
+  opening_rounds: 1
+  tension_pairs: []
+  bias_limit: 5
+
+constraints:
+  time:
+    min_minutes: 1
+    max_minutes: 5
+  budget:
+    min: 0.50
+    max: 5.00
+    currency: USD
+  rounds:
+    min: 1
+    max: 4
+
+error_handling:
+  agent_timeout_seconds: 60
+  retry_policy:
+    max_retries: 1
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation:
+  strategy: fixed_estimate
+  fixed_estimate_tokens: 2000
+  safety_margin: 0.15
+  on_estimate_exceeded: warn_arbiter
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Situation"
+      guidance: "What is happening right now?"
+    - heading: "## Key Question"
+      guidance: "The single most important question."
+  context_files: true
+
+output:
+  format: memo
+  path_template: "output/memos/{{date}}-{{brief_slug}}-{{session_id}}/memo.md"
+  sections: [ranked_recommendations, agent_stances]
+  artifacts: []
+  frontmatter: [date, duration, budget_used, participants]
+
+expertise:
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+controls:
+  halt: true
+  wrap: true
+  interject: false

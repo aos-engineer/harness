@@ -1,0 +1,162 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'serve-command', label: 'The serve Command' },
+  { id: 'agent-card', label: 'The Agent Card' },
+  { id: 'json-rpc', label: 'JSON-RPC Methods' },
+  { id: 'skill-routing', label: 'Skill Routing' },
+  { id: 'configuration', label: 'Configuration' },
+  { id: 'secure-defaults', label: 'Secure Defaults' },
+  { id: 'calling-agents', label: 'Calling Other Agents' },
+  { id: 'next-steps', label: 'Next Steps' },
+];
+---
+
+<Docs title="Serving over A2A" sidebarLinks={sidebarLinks}>
+  <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Serving over A2A</h1>
+  <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Expose an AOS assembly as a first-class <strong class="text-[var(--color-text)]">Agent2Agent (A2A)</strong> agent so other agents and clients can call its skills over JSON-RPC &mdash; skill-routed, warm, and fail-closed by default.</p>
+
+  <section id="overview" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Overview</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A2A is an open JSON-RPC protocol for agent-to-agent calls. <code>aos serve</code> turns your project into an A2A endpoint: each inbound request is routed to <strong class="text-[var(--color-text)]">one</strong> of your skills and run on a warm workflow reused across requests &mdash; focused work, no cold start.</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>An <strong class="text-[var(--color-text)]">Agent Card</strong> at <code>/.well-known/agent-card.json</code> advertises identity and skills.</li>
+      <li>A JSON-RPC endpoint (default <code>/a2a</code>) handles <code>message/send</code>, <code>tasks/get</code>, and <code>tasks/cancel</code>.</li>
+      <li>A skill bound to an MCP tool resolves to a native tool call &mdash; no LLM round-trip.</li>
+    </ul>
+  </section>
+
+  <section id="serve-command" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">The serve Command</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Serve the current project's skills as an A2A agent:</p>
+    <pre><code>aos serve --a2a</code></pre>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">The command builds a <strong class="text-[var(--color-text)]">warm runtime</strong> &mdash; a vendor adapter plus one spawned worker agent and the MCP toolset manager &mdash; then serves every skill under <code>core/skills/</code>. Flags map to <code>AOS_A2A_*</code> environment variables (see <a href="#configuration" class="text-[var(--color-signal)] no-underline hover:underline">Configuration</a>).</p>
+  </section>
+
+  <section id="agent-card" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">The Agent Card</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Clients discover the agent by fetching its card. It advertises the JSON-RPC endpoint, protocol version, and exposed skills:</p>
+    <pre><code>{`GET /.well-known/agent-card.json
+
+{
+  "name": "aos",
+  "url": "https://me.example.com/a2a",
+  "protocolVersion": "1.0",
+  "preferredTransport": "JSONRPC",
+  "capabilities": { "streaming": false, "pushNotifications": false },
+  "skills": [ { "id": "summarize", "name": "summarize", "tags": [] } ]
+}`}</code></pre>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">When signing is enabled, the card carries a detached JWS signature so a caller can verify your identity before connecting. See <a href="/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a>.</p>
+  </section>
+
+  <section id="json-rpc" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">JSON-RPC Methods</h2>
+    </div>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li><code>message/send</code> &mdash; create or continue a Task, run the routed skill, return the Task with its artifacts. This is the expensive, guarded path.</li>
+      <li><code>tasks/get</code> &mdash; fetch a Task by id (owner-scoped).</li>
+      <li><code>tasks/cancel</code> &mdash; cancel an in-flight Task (owner-scoped).</li>
+    </ul>
+    <pre><code>{`POST /a2a
+{ "jsonrpc": "2.0", "id": 1, "method": "message/send",
+  "params": { "message": {
+    "role": "user",
+    "parts": [{ "kind": "text", "text": "Summarize this thread." }],
+    "metadata": { "skillId": "summarize" }
+  } } }`}</code></pre>
+    <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+      <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Note</p>
+      <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Tasks are owner-scoped: a caller can only read, cancel, or continue tasks it created. A mismatched id reads as &ldquo;not found.&rdquo; Streaming and push notifications are not advertised.</p>
+    </div>
+  </section>
+
+  <section id="skill-routing" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Skill Routing</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Each inbound message is routed to a single exposed skill. The caller selects one via <code>message.metadata.skillId</code>; an unknown id is rejected (it cannot introduce a new skill). The selected skill runs on the warm worker:</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>Skills are discovered from <code>core/skills/&lt;id&gt;/skill.yaml</code>.</li>
+      <li>A skill with an <code>mcp_binding</code> resolves to a native MCP tool call &mdash; see <a href="/docs/mcp-toolsets" class="text-[var(--color-signal)] no-underline hover:underline">MCP Toolsets</a>.</li>
+      <li>The inbound text becomes the skill input; the skill output becomes a text Artifact on the Task.</li>
+    </ul>
+  </section>
+
+  <section id="configuration" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Configuration</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The serve entrypoint reads <code>AOS_A2A_*</code> environment variables:</p>
+    <pre><code># Endpoint
+AOS_A2A_PORT=8080                # listen port
+AOS_A2A_BIND=127.0.0.1           # interface (loopback by default)
+AOS_A2A_PUBLIC_URL=https://me.example.com
+AOS_A2A_AUTH_TOKEN=…             # bearer token required on /a2a
+AOS_A2A_WORKER_AGENT=arbiter     # warm worker agent
+AOS_A2A_ADAPTER=claude-code      # runtime adapter
+
+# Ingress limits (sane defaults if unset)
+AOS_A2A_MAX_CONCURRENT=4
+AOS_A2A_RATE_PER_MIN=60
+AOS_A2A_BUDGET_PER_MIN=60
+AOS_A2A_EXEC_TIMEOUT_MS=120000
+
+# Signing / key discovery
+AOS_A2A_SIGNING_KEY=/run/secrets/a2a.pem
+AOS_A2A_SIGNING_ALG=ES256
+AOS_A2A_SIGNING_JKU=https://me.example.com/.well-known/jwks.json</code></pre>
+  </section>
+
+  <section id="secure-defaults" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Secure Defaults</h2>
+    </div>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li><strong class="text-[var(--color-text)]">Loopback by default.</strong> The endpoint binds <code>127.0.0.1</code> unless you set <code>AOS_A2A_BIND</code>.</li>
+      <li><strong class="text-[var(--color-text)]">Fail closed.</strong> Binding a public interface without <code>AOS_A2A_AUTH_TOKEN</code> is refused (set <code>AOS_A2A_ALLOW_ANON=1</code> to serve anonymously on purpose).</li>
+      <li><strong class="text-[var(--color-text)]">Limits on by default.</strong> Concurrency, rate, and budget guards apply to <code>message/send</code> even when unset.</li>
+      <li><strong class="text-[var(--color-text)]">Signing fails closed.</strong> If <code>AOS_A2A_SIGNING_KEY</code> is set but unreadable, the server refuses to start rather than serve an unsigned card.</li>
+    </ul>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">The full model &mdash; signing, key discovery, SSRF egress, and ingress guards &mdash; is documented in <a href="/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a>.</p>
+  </section>
+
+  <section id="calling-agents" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Calling Other Agents</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The same runtime ships an A2A <em>client</em> for outbound calls. It resolves a peer's Agent Card, posts <code>message/send</code>, and drives the resulting Task to a terminal state &mdash; all through the SSRF egress gate, with optional card-signature verification:</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>Fetch <code>/.well-known/agent-card.json</code>, verify identity, then POST to the card's endpoint.</li>
+      <li>Every request and redirect hop is re-validated against the egress policy; credentials are stripped cross-origin.</li>
+      <li>Polling <code>tasks/get</code> is wall-clock bounded so a hostile peer cannot keep the client polling forever.</li>
+    </ul>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">An execution-mode workflow step can delegate a sub-task to a remote A2A agent and graft its result back into the run.</p>
+  </section>
+
+  <section id="next-steps" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Next Steps</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <a href="/docs/agent-mesh-security" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+        <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">Agent Mesh Security</h3>
+        <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Signed Agent Cards, JWKS key discovery, SSRF egress, and ingress guards.</p>
+        <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+      </a>
+      <a href="/docs/mcp-toolsets" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+        <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">MCP Toolsets</h3>
+        <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Bind skills to MCP server tools for native, no-LLM tool calls.</p>
+        <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+      </a>
+    </div>
+  </section>
+</Docs>

@@ -1,0 +1,70 @@
+schema: aos/profile/v1
+id: paperclip-worker
+name: Paperclip Worker
+description: >
+  Generic one-shot, gate-free execution profile for the Paperclip seam. Turns one
+  issue (supplied in the brief) into a review-ready work product: a perspective
+  analyzes the task, a sentinel flags risks, and the orchestrator assembles the
+  package. Domain-agnostic — point it at your own profile/workflow to specialize.
+version: 1.0.0
+
+workflow: paperclip-worker
+
+assembly:
+  orchestrator: arbiter
+  perspectives:
+    - agent: architect
+      required: true
+      role_override: "Analyze the task in the brief and outline a concrete, correct approach."
+    - agent: sentinel
+      required: true
+      role_override: "Flag the risks, edge cases, and failure modes in the proposed approach."
+
+delegation:
+  default: targeted
+  opening_rounds: 0
+  tension_pairs: []
+  bias_limit: 5
+
+constraints:
+  time: { min_minutes: 0, max_minutes: 15 }
+  budget: { min: 0.0, max: 1.0, currency: USD }
+  rounds: { min: 1, max: 8 }
+
+error_handling:
+  agent_timeout_seconds: 300
+  retry_policy: { max_retries: 1, backoff: exponential }
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+input:
+  format: brief
+  required_sections:
+    - heading: "## Task"
+      guidance: "What to produce this wake (the issue title / summary)."
+    - heading: "## Definition of Done"
+      guidance: "The acceptance criteria for the work, from the Paperclip issue."
+    - heading: "## Constraints"
+      guidance: "Review/approval rules and voice."
+  context_files: false
+
+output:
+  format: execution-package
+  path_template: "output/paperclip-worker/{{date}}-{{brief_slug}}-{{session_id}}/package.md"
+  sections:
+    - analysis
+    - risks
+    - work_product
+  artifacts: []
+  frontmatter: [date, participants, brief_path, transcript_path]
+
+expertise:
+  enabled: false
+  path_template: ""
+  mode: none
+
+controls:
+  halt: false
+  wrap: false
+  interject: false

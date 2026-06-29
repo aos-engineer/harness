@@ -1,0 +1,182 @@
+schema: aos/workflow/v1
+id: dev-execution-workflow
+name: Dev Execution
+description: >
+  End-to-end development: planning deliberation followed by agent-driven
+  code implementation with hierarchical delegation, code review, and testing.
+
+steps:
+  # ── Planning Phase ─────────────────────────────────────────────
+
+  - id: understand
+    name: Requirements Analysis
+    action: targeted-delegation
+    agents: [advocate, strategist]
+    prompt: |
+      Analyze this feature request. Read the existing codebase to understand
+      the current state. Advocate: write user stories with acceptance criteria.
+      Strategist: identify the core problem and how this fits the product roadmap.
+    output: requirements_analysis
+    review_gate: true
+
+  - id: design
+    name: Architecture & Design
+    action: targeted-delegation
+    agents: [architect]
+    input: [requirements_analysis]
+    prompt: |
+      Based on the requirements, read the existing code structure and produce
+      an architecture decision record:
+      - System design (components, data flow, integration points)
+      - Technology choices with rationale
+      - Migration strategy if modifying existing systems
+      - Mermaid diagram of the architecture
+      Ground every decision in the actual codebase — read files, check imports,
+      understand the current patterns before proposing changes.
+    output: architecture_decision_record
+    review_gate: true
+
+  - id: challenge
+    name: Architecture Review
+    action: tension-pair
+    agents: [architect, operator]
+    input: [architecture_decision_record]
+    prompt: |
+      Operator: review this architecture for buildability. Read the actual code
+      it references. What's missing? What's harder than it looks? What dependencies
+      are hidden? Architect: defend or revise based on Operator's concerns.
+    output: revised_architecture
+    review_gate: false
+
+  - id: plan
+    name: Phase Planning
+    action: targeted-delegation
+    agents: [strategist, operator]
+    input: [revised_architecture, requirements_analysis]
+    prompt: |
+      Break this into execution phases. Strategist: define 2-4 phases with
+      clear milestones and dependencies. Operator: validate against codebase
+      complexity, add effort estimates, flag risks.
+    output: phase_plan
+    review_gate: true
+
+  - id: tasks
+    name: Task Breakdown
+    action: targeted-delegation
+    agents: [operator]
+    input: [phase_plan, revised_architecture]
+    prompt: |
+      For each phase, produce a concrete task breakdown:
+      - Task name, description, effort estimate (S/M/L/XL)
+      - Dependencies between tasks
+      - domain_scope: the file paths this task reads and writes (e.g., "src/api/**")
+      - Acceptance criteria per task
+
+      The domain_scope is critical — it determines which files each coding
+      worker will have access to. Be specific: "src/api/routes/**" not "src/".
+    output: task_breakdown
+    review_gate: false
+
+  # ── Implementation Phase ───────────────────────────────────────
+
+  - id: implement
+    name: Implementation
+    action: execute-with-tools
+    agents: [engineering-lead]
+    input: [task_breakdown, revised_architecture]
+    prompt: |
+      You are the Engineering Lead. You have the task breakdown and architecture.
+
+      For each task in the breakdown:
+      1. Read the domain_scope to determine which files the worker needs access to
+      2. Spawn a worker agent scoped to those paths using spawnSubAgent
+      3. Give the worker: task description, acceptance criteria, architecture context
+      4. The worker will read existing code, implement changes, and run relevant tests
+      5. If tests fail, have the worker fix the issues
+      6. Collect the worker's result via messageChild
+
+      Respect task dependencies — implement dependencies before dependents.
+      Independent tasks can be spawned in parallel.
+
+      When all tasks are complete, produce an implementation report listing:
+      - Each task and its status (completed/failed)
+      - Files created or modified
+      - Test results per task
+    output: implementation_report
+    review_gate: false
+
+  - id: code-review
+    name: Code Review
+    action: targeted-delegation
+    agents: [sentinel]
+    input: [implementation_report, revised_architecture]
+    prompt: |
+      Review all code changes made during implementation. Read the actual
+      modified files. Check for:
+      - Security vulnerabilities and attack surface changes
+      - Consistency with the architecture decision record
+      - Code quality, naming, and test coverage
+      - Missing edge cases or error handling
+      - Any changes outside the expected scope
+
+      Produce a review report with findings categorized as:
+      critical (must fix), important (should fix), minor (nice to fix).
+    output: code_review_findings
+    review_gate: true
+
+  - id: test-verify
+    name: Test Verification
+    action: execute-with-tools
+    agents: [engineering-lead]
+    input: [implementation_report, code_review_findings]
+    max_retries: 2
+    prompt: |
+      Run the project's full test suite. Use bash to execute the test command
+      (e.g., "bun test", "npm test", "pytest").
+
+      If tests fail:
+      - Identify which tests failed and why
+      - Spawn workers to fix the failures (same scoping as implementation)
+      - Re-run tests after fixes
+
+      Report: test command used, pass/fail count, any remaining failures.
+    output: test_results
+    review_gate: false
+
+  - id: synthesize
+    name: Synthesis
+    action: orchestrator-synthesis
+    input: [requirements_analysis, revised_architecture, phase_plan, task_breakdown, implementation_report, code_review_findings, test_results]
+    prompt: |
+      Assemble the final report. Summarize:
+      - What was built (features implemented)
+      - Files changed (with summary of each change)
+      - Architecture decisions made and why
+      - Test results (passing/failing)
+      - Code review findings and whether they were addressed
+      - Any remaining concerns or suggested follow-up tasks
+
+      If tests are failing, document what failed and provide guidance
+      for manual resolution.
+    output: dev_execution_report
+
+gates:
+  - after: understand
+    type: user-approval
+    prompt: "Do these requirements capture what you're building? Any corrections?"
+    on_rejection: retry_with_feedback
+
+  - after: design
+    type: user-approval
+    prompt: "Does this architecture direction look right? Any constraints I missed?"
+    on_rejection: retry_with_feedback
+
+  - after: plan
+    type: user-approval
+    prompt: "Does this phasing make sense? Ready to proceed to implementation?"
+    on_rejection: retry_with_feedback
+
+  - after: code-review
+    type: user-approval
+    prompt: "Review the code changes and Sentinel's findings. Approve to proceed to testing, or request changes."
+    on_rejection: retry_with_feedback

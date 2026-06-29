@@ -1,0 +1,350 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'agent-structure', label: 'Agent Structure' },
+  { id: 'schema-reference', label: 'Schema Reference' },
+  { id: 'cognition', label: 'Cognition' },
+  { id: 'persona', label: 'Persona' },
+  { id: 'tensions', label: 'Tensions' },
+  { id: 'capabilities', label: 'Capabilities' },
+  { id: 'template-variables', label: 'Template Variables' },
+  { id: 'prompt-tips', label: 'Prompt Writing Tips' },
+  { id: 'validate', label: 'Validate' },
+];
+---
+
+<Docs title="Creating Agents" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Creating Agents</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Define AI personas with structured cognition, heuristics, and productive tensions</p>
+
+        <!-- Agent Structure -->
+        <section id="agent-structure" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Agent Structure</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Every agent is a directory containing two files:</p>
+          <pre><code>core/agents/perspectives/
+  catalyst/
+    agent.yaml      # Schema, cognition, persona, tensions, capabilities
+    prompt.md        # Full prompt template with {`{{variables}}`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            <strong class="text-[var(--color-text)]">agent.yaml</strong> defines the agent's structured identity &mdash; how it thinks, what it values, who it clashes with, and what it can produce. The runtime reads this file to configure the agent before each session.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-3">
+            <strong class="text-[var(--color-text)]">prompt.md</strong> is the full prompt sent to the LLM. It uses template variables (like <code>{`{{brief}}`}</code>, <code>{`{{role_override}}`}</code>, <code>{`{{participants}}`}</code>) that the runtime injects at execution time.
+          </p>
+        </section>
+
+        <!-- Schema Reference -->
+        <section id="schema-reference" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Schema Reference</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A complete agent.yaml with every field annotated:</p>
+          <pre><code>{`schema: aos/agent/v1                    # Required. Schema identifier.
+id: catalyst                            # Unique agent ID. Lowercase, hyphenated.
+name: Catalyst                          # Display name.
+role: >                                 # One-line role description.
+  Acceleration and monetization
+  strategist. Pushes for commercial
+  velocity and shipping speed.
+
+cognition:                              # How the agent thinks.
+  objective_function: >                 #   North star optimization target.
+    Maximize momentum and commercial
+    velocity. Ship, sell, collect.
+  time_horizon:                         # Planning horizons.
+    primary: 30-90 days                 #   Main focus window.
+    secondary: this quarter             #   Awareness range.
+    peripheral: next quarter            #   Peripheral vision.
+  core_bias: speed-and-monetization     # Named cognitive bias.
+  risk_tolerance: moderate              # low | moderate | high
+  default_stance: >                     # Opening position in any debate.
+    I want a version customers will
+    pay for in 90 days.
+
+persona:                                # Behavioral personality.
+  temperament:                          # Character traits.
+    - "Impatient — treats delays as costs"
+    - "Revenue-obsessed"
+    - "Action-biased"
+    - "Direct"
+  thinking_patterns:                    # Internal monologue patterns.
+    - "Who will pay for this, and how much?"
+    - "What is the fastest path to revenue?"
+  heuristics:                           # Named decision rules.
+    - name: Ship-It Rule
+      rule: >
+        If a version can ship in half the time,
+        default to shipping it — unless
+        irreversibility risk is proven.
+    - name: Payback Period
+      rule: >
+        Every initiative must have a payback
+        period under 6 months.
+  evidence_standard:                    # What convinces or fails to convince.
+    convinced_by:
+      - "Revenue data and conversion metrics"
+      - "Concrete timelines with ship dates"
+    not_convinced_by:
+      - "Abstract quality arguments without revenue impact"
+      - "Timelines that keep extending"
+  red_lines:                            # Hard boundaries.
+    - "Never accept an indefinite timeline"
+    - "Never ignore unit economics"
+
+tensions:                               # Productive conflict definitions.
+  - agent: sentinel                     #   ID of the opposing agent.
+    dynamic: >                          #   Description of the tension.
+      Ship now vs. protect long-term.
+      Catalyst pushes speed; Sentinel
+      demands sustainability.
+
+report:                                 # How the agent structures output.
+  structure: >
+    Lead with revenue opportunity.
+    State the recommended path with a
+    concrete ship date.
+
+model:                                  # LLM configuration.
+  tier: standard                        #   standard | advanced | reasoning
+  thinking: "off"                       #   off | on (extended thinking)
+
+capabilities:                           # What this agent can produce.
+  can_execute_code: false
+  can_produce_files: false
+  can_review_artifacts: true
+  available_skills: []
+  output_types: [text, markdown]
+
+tools: null                             # External tool integrations (future).
+skills: []                              # Linked skill definitions.
+expertise:                              # Persistent scratch pad.
+  - path: expertise/catalyst-notes.md
+    mode: read-write`}</code></pre>
+        </section>
+
+        <!-- Cognition -->
+        <section id="cognition" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Cognition</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The <code>cognition</code> block defines <em>how</em> the agent thinks &mdash; its optimization target, time horizon, biases, and risk appetite.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">objective_function</strong> is the agent's north star. Every argument, recommendation, and challenge the agent makes should trace back to this function. Make it specific and measurable.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">core_bias</strong> names the agent's intentional cognitive lean. This is not a flaw &mdash; it is a design choice. Agents are biased <em>on purpose</em> so that the council produces genuine tension. Examples: <code>speed-and-monetization</code>, <code>risk-aversion</code>, <code>systems-thinking</code>, <code>user-empathy</code>, <code>contrarian</code>.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">risk_tolerance</strong> (<code>low</code> / <code>moderate</code> / <code>high</code>) controls how the agent weighs uncertain outcomes. A <code>low</code> agent demands proof before acting. A <code>high</code> agent acts on signal and adjusts.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">time_horizon</strong> defines three nested windows. The <code>primary</code> horizon is where the agent does most of its thinking. The <code>secondary</code> is awareness. The <code>peripheral</code> is what it notices but does not prioritize.
+          </p>
+
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Tip</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Good councils have agents with <em>different</em> time horizons. A Catalyst focused on 30-90 days clashes productively with a Sentinel focused on 1-3 years. This asymmetry is intentional.</p>
+          </div>
+        </section>
+
+        <!-- Persona -->
+        <section id="persona" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Persona</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            The <code>persona</code> block defines <em>who</em> the agent is &mdash; its character, patterns of reasoning, decision rules, evidence standards, and hard limits.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">temperament</strong> is a list of character traits written as short descriptions. These set the tone for how the agent communicates. Write them as "Trait &mdash; explanation" pairs.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">thinking_patterns</strong> are the internal questions the agent asks itself when evaluating any input. Write them as questions the agent would ask.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">heuristics</strong> are named decision rules. Each has a <code>name</code> (short, memorable) and a <code>rule</code> (one or two sentences). Good heuristics are opinionated and actionable.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">evidence_standard</strong> has two lists: <code>convinced_by</code> (what counts as good evidence) and <code>not_convinced_by</code> (what the agent rejects). This controls how the agent responds to other agents' arguments.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">red_lines</strong> are absolute limits. The agent will never cross these regardless of the discussion. Keep the list short (2-4 items) and specific.
+          </p>
+        </section>
+
+        <!-- Tensions -->
+        <section id="tensions" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Tensions</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Tensions define the productive conflicts between agents. They are the engine of deliberation.</p>
+          <pre><code>{`tensions:
+  - agent: sentinel
+    dynamic: >
+      Ship now vs. protect long-term. The Catalyst
+      pushes for speed; the Sentinel demands
+      sustainability. The tension is whether velocity
+      creates value or destroys trust.
+  - agent: pathfinder
+    dynamic: >
+      Proven revenue vs. speculative bets. The Catalyst
+      wants to monetize the known; the Pathfinder wants
+      to bet on the unknown.`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            Each tension entry names the opposing <code>agent</code> by ID and describes the <code>dynamic</code> &mdash; the specific disagreement that makes this pairing valuable.
+          </p>
+
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Note</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">Tensions are bidirectional. If Catalyst defines a tension with Sentinel, Sentinel should also define a tension with Catalyst. The descriptions can differ &mdash; each agent describes the tension from its own perspective.</p>
+          </div>
+        </section>
+
+        <!-- Capabilities -->
+        <section id="capabilities" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Capabilities</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The <code>capabilities</code> block declares what an agent can produce during sessions.</p>
+          <pre><code>{`capabilities:
+  can_execute_code: false       # Run code in a sandboxed environment
+  can_produce_files: false      # Write files to the output directory
+  can_review_artifacts: true    # Read and critique other agents' outputs
+  available_skills: []          # Skill IDs the agent can invoke
+  output_types:                 # What formats this agent produces
+    - text
+    - markdown`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            For execution profiles, agents with <code>can_produce_files: true</code> generate artifacts (architecture docs, task breakdowns) that become part of the execution package. Agents with <code>can_review_artifacts: true</code> can read and critique those artifacts in later workflow steps.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">output_types</strong> declares the formats this agent can produce: <code>text</code>, <code>markdown</code>, <code>json</code>, <code>yaml</code>, <code>mermaid</code>, <code>code</code>.
+          </p>
+        </section>
+
+        <!-- Template Variables -->
+        <section id="template-variables" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Template Variables</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
+            The prompt.md file uses <code>{`{{variable}}`}</code> placeholders that the runtime injects at execution time.
+          </p>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Variable</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Available In</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{agent_name}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Display name of the agent (e.g., "Catalyst")</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{agent_id}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Agent identifier (e.g., "catalyst")</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{session_id}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Unique session identifier</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{participants}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Comma-separated list of all agents in the session</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{constraints}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Time, budget, and round constraints from the profile</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{brief}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Full text of the user's brief</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{role_override}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Profile-specific role override. Specializes the agent for a particular profile without modifying its base definition.</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{expertise_block}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Contents of the agent's expertise scratch pad</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>{`{{deliberation_dir}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Path to the output directory for this session</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>{`{{transcript_path}}`}</code></td>
+                    <td class="px-4 py-3">prompt.md</td>
+                    <td class="px-4 py-3">Path to the live transcript file</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Tip</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed"><code>{`{{role_override}}`}</code> is especially powerful in execution profiles. The same Architect agent can serve as "system designer" in a deliberation council and "produce architecture decision records" in an execution profile &mdash; same persona, different mission.</p>
+          </div>
+        </section>
+
+        <!-- Prompt Writing Tips -->
+        <section id="prompt-tips" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Prompt Writing Tips</h2>
+          </div>
+          <ul class="space-y-3 text-[15px] text-[var(--color-text-secondary)] leading-relaxed">
+            <li><strong class="text-[var(--color-text)]">Start with identity.</strong> The first section of prompt.md should establish who the agent is, what it cares about, and why it exists.</li>
+            <li><strong class="text-[var(--color-text)]">Use second person.</strong> Write "You are the Catalyst" not "The Catalyst is." Direct address produces stronger role adherence.</li>
+            <li><strong class="text-[var(--color-text)]">Include example reasoning.</strong> Show the agent's internal monologue with quoted examples.</li>
+            <li><strong class="text-[var(--color-text)]">Define engagement rules.</strong> Tell the agent how to interact with specific other agents.</li>
+            <li><strong class="text-[var(--color-text)]">Keep red lines few and firm.</strong> 2-4 hard limits. If you list 10, the LLM treats them all as soft.</li>
+            <li><strong class="text-[var(--color-text)]">Use <code>{`{{role_override}}`}</code> as an insertion point.</strong> Place it after the identity section so profile-specific instructions layer on top of the base persona.</li>
+            <li><strong class="text-[var(--color-text)]">End with report structure.</strong> Tell the agent exactly how to format its output. Numbered steps work better than vague instructions.</li>
+          </ul>
+        </section>
+
+        <!-- Validate -->
+        <section id="validate" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Validate</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Validate your agent definition against the schema:</p>
+          <pre><code>aos validate agent core/agents/perspectives/my-agent/agent.yaml</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-2">The validator checks:</p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li>Schema version is <code>aos/agent/v1</code></li>
+            <li>All required fields are present (id, name, role, cognition, persona)</li>
+            <li>Tension references point to agents that exist</li>
+            <li>Capability fields use valid values</li>
+            <li>prompt.md exists in the same directory</li>
+          </ul>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">To validate all agents at once:</p>
+          <pre><code>aos validate agents</code></pre>
+        </section>
+</Docs>

@@ -1,0 +1,117 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'declaring-servers', label: 'Declaring Servers' },
+  { id: 'binding-skills', label: 'Binding Skills' },
+  { id: 'transports', label: 'Transports' },
+  { id: 'tool-allowlist', label: 'Tool Allowlist' },
+  { id: 'egress-safety', label: 'Egress Safety' },
+  { id: 'next-steps', label: 'Next Steps' },
+];
+---
+
+<Docs title="MCP Toolsets" sidebarLinks={sidebarLinks}>
+  <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">MCP Toolsets</h1>
+  <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Connect AOS skills to <strong class="text-[var(--color-text)]">Model Context Protocol (MCP)</strong> servers. A skill bound to an MCP tool resolves to a native tool call &mdash; deterministic, fast, and free of an LLM round-trip.</p>
+
+  <section id="overview" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Overview</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">MCP is an open protocol for exposing tools to AI runtimes. AOS manages MCP servers through a <strong class="text-[var(--color-text)]">toolset manager</strong> that connects to declared servers, discovers their tools, and makes them callable from skills and from an A2A serve worker.</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>Servers are declared in the project's MCP registry under <code>core/mcp/</code>.</li>
+      <li>A skill's <code>mcp_binding</code> names a server and tool; invocation becomes a direct tool call.</li>
+      <li>HTTP/SSE server URLs pass through the same SSRF egress gate as A2A traffic.</li>
+    </ul>
+  </section>
+
+  <section id="declaring-servers" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Declaring Servers</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Each MCP server entry declares a transport plus how to reach it. A stdio server is launched as a child process; an HTTP server is reached over Streamable HTTP:</p>
+    <pre><code>{`# stdio server
+id: files
+transport: stdio
+command: my-mcp-server
+args: ["--root", "."]
+env:
+  API_TOKEN: \${MY_TOKEN}
+
+# http server
+id: search
+transport: http
+url: https://mcp.example.com
+auth_ref: SEARCH_TOKEN        # resolves to a bearer header
+tool_allowlist: ["web_search"]`}</code></pre>
+  </section>
+
+  <section id="binding-skills" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Binding Skills</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A skill declares an <code>mcp_binding</code> to map its invocation onto an MCP tool. When the skill runs &mdash; in a workflow step or via A2A serve &mdash; AOS calls the tool directly with the skill input as the argument:</p>
+    <pre><code># core/skills/web-search/skill.yaml
+id: web-search
+name: web-search
+mcp_binding:
+  server: search
+  tools: ["web_search"]</code></pre>
+    <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+      <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Why it matters</p>
+      <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">A bound skill skips the model entirely. Over A2A serve this means an inbound request can complete as a single deterministic tool call &mdash; the performance path for high-volume agent-to-agent work.</p>
+    </div>
+  </section>
+
+  <section id="transports" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Transports</h2>
+    </div>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li><strong class="text-[var(--color-text)]">stdio</strong> &mdash; the server is spawned as a child process with array-form <code>command</code>/<code>args</code> (no shell) and a templated <code>env</code>.</li>
+      <li><strong class="text-[var(--color-text)]">Streamable HTTP</strong> &mdash; JSON-RPC over HTTP with optional SSE responses; the negotiated protocol version rides on every post-initialize request.</li>
+    </ul>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">Credentials are never carried across an origin boundary: a redirect to a different origin drops the <code>Authorization</code> header.</p>
+  </section>
+
+  <section id="tool-allowlist" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Tool Allowlist</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A server can expose many tools; <code>tool_allowlist</code> narrows what AOS will surface and invoke. The allowlist is enforced both at discovery time and at call time, so a server cannot smuggle in a tool that was never sanctioned.</p>
+  </section>
+
+  <section id="egress-safety" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Egress Safety</h2>
+    </div>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">HTTP MCP servers are agent-initiated egress, so they go through the mesh egress policy:</p>
+    <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
+      <li>The server URL is checked against the SSRF policy (private/loopback/internal hosts blocked unless allowlisted).</li>
+      <li>A resolve-time guard runs before the initial request and every redirect hop &mdash; a DNS-rebinding defense, intrinsic to the transport.</li>
+      <li>Responses are read with a hard byte cap so a hostile server cannot exhaust memory.</li>
+    </ul>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">See <a href="/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a> for the full egress model.</p>
+  </section>
+
+  <section id="next-steps" class="mb-12">
+    <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+      <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Next Steps</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <a href="/docs/serving-over-a2a" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+        <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">Serving over A2A</h3>
+        <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Expose your skills as an A2A agent; bound skills become native tool calls.</p>
+        <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+      </a>
+      <a href="/docs/creating-skills" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+        <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">Creating Skills</h3>
+        <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Define reusable capability bundles and their platform bindings.</p>
+        <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
+      </a>
+    </div>
+  </section>
+</Docs>

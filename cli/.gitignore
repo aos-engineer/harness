@@ -1,0 +1,3 @@
+# Bundled during publish (copied from monorepo root, not committed)
+core/
+adapters/

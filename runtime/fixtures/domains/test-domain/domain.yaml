@@ -1,0 +1,22 @@
+schema: aos/domain/v1
+id: test-domain
+name: Test Domain
+description: "Test domain for unit tests"
+
+lexicon:
+  metrics: [test-metric]
+  frameworks: [test-framework]
+  stages: [test-stage]
+
+overlays:
+  catalyst:
+    thinking_patterns:
+      - "Domain-specific thinking pattern"
+    heuristics:
+      - name: Domain Heuristic
+        rule: "Domain-specific rule"
+
+additional_input_sections: []
+additional_output_sections: []
+guardrails:
+  - "Test guardrail"

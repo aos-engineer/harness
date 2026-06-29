@@ -1,0 +1,102 @@
+schema: aos/domain/v1
+id: healthcare
+name: Healthcare & Life Sciences Context
+description: "Domain pack for clinical decision support, patient safety, and regulatory compliance. Injects healthcare-specific lexicon, evidence standards, and agent overlays that sharpen each perspective's analysis for decisions involving patient care, clinical operations, and life sciences regulatory pathways (HIPAA, FDA, IRB)."
+version: 1.0.0
+
+lexicon:
+  metrics:
+    - "patient_outcomes — Measurable changes in patient health status resulting from care interventions"
+    - "readmission_rates — Percentage of patients readmitted within 30 days of discharge"
+    - "adverse_event_rates — Incidence of unintended harm to patients from medical interventions"
+    - "clinical_trial_enrollment — Number of patients enrolled in active clinical trials relative to targets"
+    - "time_to_diagnosis — Elapsed time from initial presentation to confirmed diagnosis"
+    - "care_pathway_adherence — Percentage of patients whose care follows evidence-based clinical pathways"
+    - "mortality_rates — Death rate within a defined patient population or procedure cohort"
+    - "infection_rates — Incidence of healthcare-associated infections per patient-day or procedure"
+  frameworks:
+    - "EBM — Evidence-Based Medicine: clinical decisions grounded in current best evidence, clinical expertise, and patient values"
+    - "CDS — Clinical Decision Support: systems that provide clinicians with knowledge and patient-specific information to enhance care decisions"
+    - "VBC — Value-Based Care: reimbursement models that tie payment to patient outcomes rather than volume of services"
+    - "PHM — Population Health Management: aggregation of patient data to improve outcomes across an entire patient population"
+  stages:
+    - "pre_clinical — Laboratory and animal studies before human testing"
+    - "clinical_trial — Phased human studies (Phase I–IV) to establish safety and efficacy"
+    - "regulatory_review — Submission and review by regulatory bodies (FDA, EMA) for market authorisation"
+    - "post_market_surveillance — Ongoing monitoring of safety and efficacy after market authorisation"
+    - "standard_of_care — Established treatment protocols widely adopted in clinical practice"
+
+overlays:
+  catalyst:
+    lens_additions:
+      - label: Clinical Urgency Assessment
+        instruction: "For every opportunity, assess whether clinical urgency justifies an accelerated timeline. Fast-track pathways (FDA Breakthrough Therapy, Accelerated Approval) should be evaluated when unmet medical need is high."
+      - label: Time-to-Patient-Impact
+        instruction: "Quantify the time from decision to measurable patient outcome improvement. Initiatives that delay patient benefit beyond 24 months require explicit justification for the wait."
+    evidence_standard: "Clinical urgency claims must reference disease burden data, current standard-of-care gaps, or unmet medical need assessments."
+
+  sentinel:
+    lens_additions:
+      - label: Patient Safety First
+        instruction: "Treat any risk of patient harm as the highest-severity signal. Decisions that introduce new risk vectors to patient safety must be flagged immediately, even if expected benefits are substantial."
+      - label: Adverse Event Prevention
+        instruction: "Evaluate every recommendation for potential adverse events. Require a risk-benefit analysis that quantifies both probability and severity of harm before endorsing any clinical intervention change."
+    red_lines:
+      - "No recommendation may proceed without explicit patient safety assessment"
+      - "Clinical interventions must never bypass informed consent requirements"
+    evidence_standard: "Safety claims must cite clinical trial data, adverse event databases (FAERS, VAERS), or published meta-analyses. Anecdotal safety evidence is insufficient."
+
+  architect:
+    lens_additions:
+      - label: HIPAA-Compliant Architecture
+        instruction: "Evaluate every system design decision against HIPAA Security Rule requirements. Data at rest and in transit must be encrypted, access must follow minimum necessary standard, and audit trails must be comprehensive."
+      - label: Interoperability Standards
+        instruction: "Assess whether the architecture supports HL7 FHIR for data exchange. Proprietary data formats that create interoperability barriers must be challenged as technical debt."
+    evidence_standard: "Compliance claims must reference specific HIPAA/HITECH provisions or ONC certification criteria. Architecture decisions must include a data flow diagram showing PHI boundaries."
+
+  provocateur:
+    lens_additions:
+      - label: Clinical Trial Reality Check
+        instruction: "Challenge optimistic efficacy projections against base rates. Most clinical trials fail — 90% of drugs entering Phase I never reach approval. Require the null hypothesis to be stated explicitly before accepting positive projections."
+      - label: Regulatory Rejection Patterns
+        instruction: "For every regulatory submission plan, identify the three most common reasons the FDA rejects similar applications. Demand mitigation strategies for each."
+    evidence_standard: "Efficacy projections must cite comparable clinical trial outcomes or explain why historical base rates do not apply."
+
+  steward:
+    lens_additions:
+      - label: Regulatory Compliance Matrix
+        instruction: "For every recommendation, identify the complete set of regulatory requirements: HIPAA, FDA (device class or drug pathway), IRB approval, state licensing, and CMS conditions of participation. Missing regulatory coverage is a compliance gap."
+      - label: Informed Consent Requirements
+        instruction: "Verify that patient-facing decisions include appropriate informed consent protocols. Clinical research must meet 45 CFR 46 (Common Rule) requirements."
+    evidence_standard: "Compliance assertions must cite specific regulatory provisions (21 CFR Part 11, HIPAA 164.312, etc.). General compliance claims without regulatory specificity are insufficient."
+
+  advocate:
+    lens_additions:
+      - label: Patient Experience
+        instruction: "Assess every decision through the lens of the patient experience. Health literacy varies widely — communications and interfaces must be accessible at a 6th-grade reading level minimum. Cultural competence must be considered."
+      - label: Health Equity Impact
+        instruction: "Evaluate whether the decision improves or worsens health equity. Disparities in access, outcomes, or experience across demographic groups must be identified and addressed."
+    evidence_standard: "Patient impact claims must reference patient-reported outcome measures (PROMs), health literacy assessments, or patient satisfaction data."
+
+  operator:
+    lens_additions:
+      - label: Clinical Workflow Integration
+        instruction: "Assess how the recommendation integrates with existing clinical workflows. Solutions that add friction to clinician workflows risk low adoption and workaround behaviour that undermines safety."
+      - label: Staff Training Requirements
+        instruction: "Quantify the training burden for clinical and administrative staff. Initiatives requiring >40 hours of training per clinician must justify the productivity loss during the transition period."
+    evidence_standard: "Workflow impact claims must reference time-motion studies, EHR usage data, or clinician feedback surveys."
+
+additional_input_sections:
+  - heading: "## Clinical Context"
+    guidance: "Patient population affected, current standard of care, relevant clinical evidence level (meta-analysis, RCT, observational, expert opinion), and regulatory pathway status. Include adverse event history where applicable."
+
+additional_output_sections:
+  - clinical_impact: "Projected impact on patient outcomes, safety metrics, and regulatory timeline for each recommended path. State clinical evidence level for every claim and identify regulatory requirements."
+
+guardrails:
+  - id: patient_safety_assessment
+    rule: "Patient safety must be assessed for every recommendation. Recommendations without an explicit safety evaluation are incomplete and must be flagged."
+  - id: regulatory_pathway_identification
+    rule: "Regulatory pathway must be identified before implementation planning begins. The applicable regulatory framework (FDA, HIPAA, IRB, state) must be stated explicitly."
+  - id: clinical_evidence_level
+    rule: "Clinical evidence level must be stated for every claim (Level I: systematic review/meta-analysis, Level II: RCT, Level III: controlled study, Level IV: case series, Level V: expert opinion). Unsupported clinical claims are flagged."

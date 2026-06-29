@@ -1,0 +1,66 @@
+{
+  "name": "@aos-harness/runtime",
+  "version": "0.9.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "src/engine.ts",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "bun x tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/engine.ts",
+    "./config-loader": "./src/config-loader.ts",
+    "./types": "./src/types.ts",
+    "./constraint-engine": "./src/constraint-engine.ts",
+    "./delegation-router": "./src/delegation-router.ts",
+    "./domain-merger": "./src/domain-merger.ts",
+    "./template-resolver": "./src/template-resolver.ts",
+    "./workflow-runner": "./src/workflow-runner.ts",
+    "./artifact-manager": "./src/artifact-manager.ts",
+    "./output-renderer": "./src/output-renderer.ts",
+    "./domain-enforcer": "./src/domain-enforcer.ts",
+    "./child-agent-manager": "./src/child-agent-manager.ts",
+    "./expertise-manager": "./src/expertise-manager.ts",
+    "./event-summarizer": "./src/event-summarizer.ts",
+    "./session-checkpoint": "./src/session-checkpoint.ts",
+    "./profile-schema": "./src/profile-schema.ts",
+    "./memory-config": "./src/memory-config.ts",
+    "./memory-provider": "./src/memory-provider.ts",
+    "./memory-provider-factory": "./src/memory-provider-factory.ts",
+    "./mempalace-provider": "./src/mempalace-provider.ts",
+    "./mcp-client": "./src/mcp-client.ts",
+    "./mcp-client-v2": "./src/mcp-client-v2.ts",
+    "./mcp-toolset-manager": "./src/mcp-toolset-manager.ts",
+    "./egress-policy": "./src/egress-policy.ts",
+    "./schema-validator": "./src/schema-validator.ts",
+    "./a2a-client": "./src/a2a-client.ts",
+    "./a2a-connector": "./src/a2a-connector.ts",
+    "./task-mapper": "./src/task-mapper.ts",
+    "./a2a-server": "./src/a2a-server.ts",
+    "./a2a-task-store": "./src/a2a-task-store.ts",
+    "./a2a-skill-router": "./src/a2a-skill-router.ts",
+    "./jws": "./src/jws.ts",
+    "./agent-card-signer": "./src/agent-card-signer.ts",
+    "./ingress-guard": "./src/ingress-guard.ts"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  }
+}

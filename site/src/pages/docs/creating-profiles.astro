@@ -1,0 +1,501 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const sidebarLinks = [
+  { id: 'deliberation-vs-execution', label: 'Deliberation vs Execution' },
+  { id: 'profile-schema', label: 'Profile Schema' },
+  { id: 'assembly', label: 'Assembly' },
+  { id: 'delegation', label: 'Delegation' },
+  { id: 'constraints', label: 'Constraints' },
+  { id: 'workflow', label: 'Workflow' },
+  { id: 'output-format', label: 'Output Format' },
+  { id: 'execution-profiles', label: 'Execution Profiles' },
+];
+---
+
+<Docs title="Creating Profiles" sidebarLinks={sidebarLinks}>
+  <!-- Page Header -->
+        <h1 class="text-4xl md:text-[48px] font-extrabold text-[var(--color-text)] leading-tight tracking-tight">Creating Profiles</h1>
+        <p class="text-[15px] text-[var(--color-text-secondary)] mt-2 mb-12">Assemble agents into deliberation councils or execution teams</p>
+
+        <!-- Deliberation vs Execution -->
+        <section id="deliberation-vs-execution" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Deliberation vs Execution</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">AOS supports two profile patterns. Choose based on whether you need a <em>decision</em> or a <em>deliverable</em>.</p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]"></th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Deliberation</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Execution</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Purpose</td>
+                    <td class="px-4 py-3">Multi-perspective debate to reach a strategic decision</td>
+                    <td class="px-4 py-3">Structured workflow to produce implementation-ready artifacts</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Orchestrator</td>
+                    <td class="px-4 py-3">Arbiter (neutral facilitator)</td>
+                    <td class="px-4 py-3">Domain-specific (e.g., CTO Orchestrator)</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Delegation</td>
+                    <td class="px-4 py-3">Broadcast &mdash; all agents hear everything</td>
+                    <td class="px-4 py-3">Targeted &mdash; orchestrator assigns to specific agents</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Agents</td>
+                    <td class="px-4 py-3">Debate and challenge each other</td>
+                    <td class="px-4 py-3">Produce artifacts and review each other's work</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Output</td>
+                    <td class="px-4 py-3">Structured memo with recommendations and dissent</td>
+                    <td class="px-4 py-3">Execution package with docs, tasks, and checklists</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Workflow</td>
+                    <td class="px-4 py-3">Implicit (rounds of debate)</td>
+                    <td class="px-4 py-3">Explicit (ordered steps with review gates)</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Example</td>
+                    <td class="px-4 py-3">strategic-council, security-review</td>
+                    <td class="px-4 py-3">cto-execution</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3 font-medium text-[var(--color-text)]">Brief sections</td>
+                    <td class="px-4 py-3">Situation, Stakes, Constraints, Key Question</td>
+                    <td class="px-4 py-3">Feature/Vision, Context, Constraints, Success Criteria</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Profile Schema -->
+        <section id="profile-schema" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Profile Schema</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">A complete profile.yaml with all fields:</p>
+          <pre><code>{`schema: aos/profile/v1                  # Required. Schema identifier.
+id: strategic-council                   # Unique profile ID.
+name: Strategic Council                 # Display name.
+description: >                          # What this profile does.
+  Multi-perspective strategic
+  deliberation. Agents debate and
+  the Arbiter synthesizes a memo.
+version: 1.0.0
+
+assembly:                               # Who participates.
+  orchestrator: arbiter                 # Agent ID of the orchestrator.
+  perspectives:                         # List of participating agents.
+    - agent: catalyst
+      required: true
+    - agent: sentinel
+      required: true
+    - agent: architect
+      required: true
+    - agent: provocateur
+      required: true
+      structural_advantage: speaks-last
+    - agent: navigator
+      required: false
+    - agent: operator
+      required: false
+
+delegation:                             # How work is distributed.
+  default: broadcast                    # broadcast | targeted
+  opening_rounds: 1                     # Broadcast rounds before targeting.
+  tension_pairs:                        # Paired for productive conflict.
+    - [catalyst, sentinel]
+    - [architect, pathfinder]
+    - [advocate, navigator]
+  bias_limit: 5                         # Max consecutive turns by one agent.
+
+constraints:                            # Session boundaries.
+  time:
+    min_minutes: 2
+    max_minutes: 10
+  budget:
+    min: 1.00
+    max: 10.00
+    currency: USD
+  rounds:
+    min: 2
+    max: 8
+
+error_handling:                         # Failure modes.
+  agent_timeout_seconds: 120
+  retry_policy:
+    max_retries: 2
+    backoff: exponential
+  on_agent_failure: skip
+  on_orchestrator_failure: save_transcript_and_exit
+  partial_results: include_with_status_flag
+
+budget_estimation:                      # Token budget management.
+  strategy: rolling_average
+  fixed_estimate_tokens: 2000
+  safety_margin: 0.15
+  on_estimate_exceeded: drop_optional
+
+input:                                  # Brief format requirements.
+  format: brief
+  required_sections:
+    - heading: "## Situation"
+      guidance: "What is happening right now?"
+    - heading: "## Stakes"
+      guidance: "What's at risk?"
+    - heading: "## Constraints"
+      guidance: "Boundaries and limits."
+    - heading: "## Key Question"
+      guidance: "The single question to answer."
+  context_files: true
+
+output:                                 # What the profile produces.
+  format: memo
+  path_template: "output/memos/{{date}}-{{brief_slug}}-{{session_id}}/memo.md"
+  sections:
+    - ranked_recommendations
+    - agent_stances
+    - dissent_and_tensions
+    - tradeoffs_and_risks
+    - next_actions
+    - deliberation_summary
+  artifacts:
+    - type: diagram
+  frontmatter:
+    - date
+    - duration
+    - budget_used
+    - participants
+
+expertise:                              # Persistent agent memory.
+  enabled: true
+  path_template: "expertise/{{agent_id}}-notes.md"
+  mode: per-agent
+
+controls:                               # Runtime controls.
+  halt: true
+  wrap: true
+  interject: false`}</code></pre>
+        </section>
+
+        <!-- Assembly -->
+        <section id="assembly" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Assembly</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The <code>assembly</code> block defines who participates in the session.</p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">orchestrator</strong> is the agent ID of the session leader. For deliberation, use <code>arbiter</code> (neutral facilitator). For execution, use a domain-specific orchestrator like <code>cto-orchestrator</code>.
+          </p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-2">
+            <strong class="text-[var(--color-text)]">perspectives</strong> lists participating agents. Each entry has:
+          </p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-6">
+            <li><strong class="text-[var(--color-text)]">agent</strong> &mdash; Agent ID (must exist in core/agents/)</li>
+            <li><strong class="text-[var(--color-text)]">required</strong> &mdash; If <code>true</code>, always included. If <code>false</code>, can be deactivated or dropped by budget estimation.</li>
+            <li><strong class="text-[var(--color-text)]">structural_advantage</strong> &mdash; Optional. Currently supports <code>speaks-last</code>, guaranteeing the agent gives its position after hearing all others.</li>
+            <li><strong class="text-[var(--color-text)]">role_override</strong> &mdash; Optional. Injected into the agent's <code>{`{{role_override}}`}</code> template variable to specialize it for this profile.</li>
+          </ul>
+
+          <pre><code>{`perspectives:
+  - agent: architect
+    required: true
+    role_override: "Produce architecture decision records and system design docs"
+  - agent: provocateur
+    required: false
+    structural_advantage: speaks-last
+    role_override: "Stress-test the plan. Find the gaps."`}</code></pre>
+        </section>
+
+        <!-- Delegation -->
+        <section id="delegation" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Delegation</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">The <code>delegation</code> block controls how the orchestrator distributes work.</p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-2">
+            <strong class="text-[var(--color-text)]">default</strong> sets the mode:
+          </p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-4">
+            <li><code>broadcast</code> &mdash; Every agent sees every message. Used in deliberation.</li>
+            <li><code>targeted</code> &mdash; The orchestrator sends specific tasks to specific agents. Used in execution.</li>
+          </ul>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">opening_rounds</strong> sets how many broadcast rounds happen before the orchestrator can begin targeting. Set to <code>1</code> for deliberation and <code>0</code> for execution.
+          </p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-4">
+            <strong class="text-[var(--color-text)]">tension_pairs</strong> lists pairs of agents brought into direct dialogue for productive conflict:
+          </p>
+          <pre><code>{`tension_pairs:
+  - [catalyst, sentinel]       # Speed vs. sustainability
+  - [architect, pathfinder]    # Proven patterns vs. novel approaches
+  - [advocate, navigator]      # User needs vs. market positioning
+  - [strategist, operator]     # Long-term sequence vs. what ships now`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            <strong class="text-[var(--color-text)]">bias_limit</strong> is the maximum number of consecutive turns any single agent can take before the orchestrator must rotate to another voice. Prevents any agent from dominating the conversation.
+          </p>
+        </section>
+
+        <!-- Constraints -->
+        <section id="constraints" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Constraints</h2>
+          </div>
+          <pre><code>{`constraints:
+  time:
+    min_minutes: 2              # Minimum session duration
+    max_minutes: 10             # Hard timeout
+  budget:
+    min: 1.00                   # Minimum spend before wrap-up allowed
+    max: 10.00                  # Hard budget cap (triggers wrap-up)
+    currency: USD
+  rounds:
+    min: 2                      # Minimum deliberation rounds
+    max: 8                      # Maximum rounds before forced synthesis`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            All three constraint types work together. The session ends when any <code>max</code> value is reached. The orchestrator cannot wrap up until all <code>min</code> values are met.
+          </p>
+
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Tip</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">For execution profiles, set <code>budget: null</code> if you are using subscription-based LLM access. The time and round constraints still apply.</p>
+          </div>
+        </section>
+
+        <!-- Workflow -->
+        <section id="workflow" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Workflow</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Execution profiles can link to a workflow definition that specifies ordered steps, review gates, and artifact flow.</p>
+          <pre><code>{`# In profile.yaml:
+workflow: cto-execution-workflow    # Links to workflow YAML by ID`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">The workflow YAML defines the execution pipeline:</p>
+          <pre><code>{`schema: aos/workflow/v1
+id: cto-execution-workflow
+name: CTO Execution Workflow
+
+steps:
+  - id: requirements
+    name: Requirements Analysis
+    action: targeted-delegation
+    agents: [advocate, strategist]
+    prompt: "Analyze the brief and extract structured requirements"
+    input: []
+    output: requirements_analysis
+    review_gate: true
+
+  - id: design
+    name: Architecture Design
+    action: targeted-delegation
+    agents: [architect]
+    prompt: "Design the architecture based on requirements"
+    input: [requirements_analysis]
+    output: architecture_decision
+    review_gate: true
+
+  - id: review
+    name: Architecture Review
+    action: tension-pair
+    agents: [architect, operator]
+    prompt: "Review architecture for buildability"
+    input: [architecture_decision]
+    output: revised_architecture
+
+  - id: tasks
+    name: Task Breakdown
+    action: targeted-delegation
+    agents: [operator]
+    prompt: "Break the plan into engineering tasks with estimates"
+    input: [revised_architecture]
+    output: task_breakdown
+
+  - id: risk
+    name: Risk Assessment
+    action: targeted-delegation
+    agents: [sentinel]
+    prompt: "Review for security, reliability, maintainability risks"
+    input: [revised_architecture, task_breakdown]
+    output: risk_assessment
+
+  - id: stress-test
+    name: Stress Test
+    action: targeted-delegation
+    agents: [provocateur]
+    prompt: "Challenge the timeline, find gaps, stress-test assumptions"
+    input: [revised_architecture, task_breakdown, risk_assessment]
+    output: stress_test_findings
+
+  - id: synthesize
+    name: Final Assembly
+    action: orchestrator-synthesis
+    prompt: "Assemble the complete execution package"
+    input: [requirements_analysis, revised_architecture, task_breakdown, risk_assessment, stress_test_findings]
+    output: execution_package
+
+gates:
+  - after: requirements
+    type: user-approval
+    prompt: "Do these requirements look right?"
+    on_rejection: retry_with_feedback
+
+  - after: design
+    type: user-approval
+    prompt: "Does this architecture look right?"
+    on_rejection: retry_with_feedback`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-2">Each step defines:</p>
+          <ul class="space-y-1.5 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside mb-4">
+            <li><strong class="text-[var(--color-text)]">action</strong> &mdash; <code>targeted-delegation</code> (send to specific agents), <code>tension-pair</code> (two agents debate), or <code>orchestrator-synthesis</code> (orchestrator assembles final output)</li>
+            <li><strong class="text-[var(--color-text)]">input</strong> &mdash; Output IDs from previous steps that feed into this step</li>
+            <li><strong class="text-[var(--color-text)]">output</strong> &mdash; Named output artifact produced by this step</li>
+            <li><strong class="text-[var(--color-text)]">review_gate</strong> &mdash; If <code>true</code>, the user can approve or reject before proceeding</li>
+          </ul>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">role_override</strong> in the profile's <code>assembly.perspectives</code> entries specializes agents for the workflow. The same Architect agent writes design docs in one profile and reviews code in another.
+          </p>
+        </section>
+
+        <!-- Output Format -->
+        <section id="output-format" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Output Format</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-6">The <code>output.format</code> field determines the structure of the profile's deliverable.</p>
+
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="bg-[var(--color-bg)]">
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Format</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Description</th>
+                    <th class="text-[13px] font-semibold text-[var(--color-text)] uppercase px-4 py-3 border-b border-[var(--color-border)]">Typical Use</th>
+                  </tr>
+                </thead>
+                <tbody class="text-[14px] text-[var(--color-text-secondary)]">
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>memo</code></td>
+                    <td class="px-4 py-3">Structured decision memo with recommendations, dissent, and next actions</td>
+                    <td class="px-4 py-3">Deliberation profiles</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>execution-package</code></td>
+                    <td class="px-4 py-3">Multi-file deliverable with docs, tasks, diagrams, and checklists</td>
+                    <td class="px-4 py-3">Execution profiles</td>
+                  </tr>
+                  <tr class="border-b border-[var(--color-border)]">
+                    <td class="px-4 py-3"><code>report</code></td>
+                    <td class="px-4 py-3">Single-document analysis report</td>
+                    <td class="px-4 py-3">Review profiles</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3"><code>checklist</code></td>
+                    <td class="px-4 py-3">Actionable checklist with status tracking</td>
+                    <td class="px-4 py-3">Audit profiles</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+            <strong class="text-[var(--color-text)]">path_template</strong> uses variables to generate the output path:
+          </p>
+          <pre><code>{`path_template: "output/memos/{{date}}-{{brief_slug}}-{{session_id}}/memo.md"`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            Available template variables: <code>{`{{date}}`}</code>, <code>{`{{brief_slug}}`}</code>, <code>{`{{session_id}}`}</code>, <code>{`{{profile_id}}`}</code>.
+          </p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-4">
+            <strong class="text-[var(--color-text)]">sections</strong> lists the named sections included in the output:
+          </p>
+          <pre><code>{`sections:
+  - ranked_recommendations
+  - agent_stances
+  - dissent_and_tensions
+  - tradeoffs_and_risks
+  - next_actions
+  - deliberation_summary`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6 mb-4">
+            <strong class="text-[var(--color-text)]">artifacts</strong> lists additional outputs (diagrams, structured data):
+          </p>
+          <pre><code>{`artifacts:
+  - type: diagram              # Mermaid architecture diagram
+  - type: task_list            # Structured task breakdown`}</code></pre>
+        </section>
+
+        <!-- Execution Profiles -->
+        <section id="execution-profiles" class="mb-12">
+          <div class="border-t border-[var(--color-border)] pt-12 mb-6">
+            <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Execution Profiles</h2>
+          </div>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Execution profiles differ from deliberation in several key ways.</p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">Targeted delegation.</strong> The orchestrator sends specific tasks to specific agents rather than broadcasting. The CTO Orchestrator knows that Architect produces design docs and Operator produces task breakdowns &mdash; it delegates accordingly.
+          </p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">
+            <strong class="text-[var(--color-text)]">Ordered workflow.</strong> Steps execute in sequence. Each step's <code>input</code> references outputs from previous steps, creating a dependency chain. The orchestrator manages this flow automatically.
+          </p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-4">
+            <strong class="text-[var(--color-text)]">Review gates.</strong> The <code>gates</code> section defines user-approval checkpoints. When the workflow reaches a gate, it pauses and presents the output to the user:
+          </p>
+          <pre><code>{`gates:
+  - after: requirements
+    type: user-approval
+    prompt: "Do these requirements look right?"
+    on_rejection: retry_with_feedback`}</code></pre>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">
+            <strong class="text-[var(--color-text)]">retry_with_feedback</strong> means the user can type feedback when rejecting, and the step re-runs with that feedback injected into the agent's prompt. This creates a human-in-the-loop refinement cycle.
+          </p>
+
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4 mb-4">
+            <strong class="text-[var(--color-text)]">role_override specialization.</strong> Execution profiles use <code>role_override</code> to repurpose general agents for specific tasks:
+          </p>
+          <pre><code>{`perspectives:
+  - agent: architect
+    required: true
+    role_override: "Produce architecture decision records and system design docs"
+  - agent: strategist
+    required: true
+    role_override: "Sequence the work into phases with dependency mapping"
+  - agent: operator
+    required: true
+    role_override: "Break phases into concrete engineering tasks with effort estimates"
+  - agent: sentinel
+    required: true
+    role_override: "Review all outputs for security, reliability, and maintainability risks"`}</code></pre>
+
+          <div class="mt-6 bg-[var(--color-bg)] border-l-4 border-[var(--color-signal)] rounded-r-lg px-5 py-4">
+            <p class="text-[12px] font-semibold uppercase text-[var(--color-signal)] mb-1">Note</p>
+            <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed">The agent's base persona, cognition, and heuristics remain intact. The role_override layers a specific mission on top. Sentinel still thinks like Sentinel &mdash; it just knows its job in this profile is to review artifacts for risks, not to debate strategy.</p>
+          </div>
+        </section>
+</Docs>

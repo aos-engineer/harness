@@ -1,0 +1,148 @@
+schema: aos/domain/v1
+id: personal-decisions
+name: Personal Decisions
+description: "Domain pack for personal and life decisions. Strips business metrics and adds life-stage context, emotional impact assessment, and personal values alignment. Sharpens each agent's analysis for career changes, major purchases, relationship decisions, relocations, and other life-defining choices."
+version: 1.0.0
+
+lexicon:
+  metrics:
+    - "life_satisfaction — Overall sense of fulfillment and contentment across life domains"
+    - "financial_runway — Months of living expenses covered by savings and liquid assets"
+    - "career_growth — Rate of skill acquisition, responsibility increase, and professional advancement"
+    - "relationship_quality — Depth and health of key personal and professional relationships"
+    - "health_metrics — Physical and mental health indicators including stress, energy, and wellbeing"
+    - "optionality_score — Number and quality of future paths preserved or closed by a decision"
+  frameworks:
+    - "regret_minimization — Choose the path that minimizes long-term regret, especially on a 10-year horizon"
+    - "optionality_preservation — Prefer decisions that keep future doors open over those that close them permanently"
+    - "values_alignment — Evaluate decisions against explicitly stated personal values and priorities"
+    - "opportunity_cost — Quantify what you give up by choosing one path over another"
+    - "reversibility_test — Classify decisions as reversible (two-way door) or irreversible (one-way door) and calibrate risk accordingly"
+  stages:
+    - "exploring — Early career or life phase; optimizing for learning, exposure, and discovery"
+    - "building — Actively investing in career, relationships, or assets; optimizing for growth and momentum"
+    - "established — Stable foundation; optimizing for depth, impact, and sustainability"
+    - "transitioning — Major life change underway; optimizing for adaptation and new direction"
+    - "retiring — Shifting from accumulation to distribution; optimizing for legacy, health, and fulfillment"
+
+overlays:
+  catalyst:
+    thinking_patterns:
+      - "Assess personal momentum — is this decision likely to accelerate or stall forward progress in the person's current life stage?"
+      - "Evaluate career velocity — will this choice compound professional growth or create a plateau?"
+    heuristics:
+      - name: Personal Momentum
+        rule: "Assess whether the decision accelerates or stalls forward progress in the current life stage."
+      - name: Career Velocity
+        rule: "Evaluate whether the choice compounds professional growth or creates a plateau."
+    evidence_standard:
+      convinced_by:
+        - "Concrete examples of similar decisions leading to growth or stagnation"
+        - "Quantified career trajectory impact with timeline"
+      not_convinced_by:
+        - "Vague assertions about 'growth opportunities' without specifics"
+        - "Career advice disconnected from the person's stated values and life stage"
+
+  sentinel:
+    thinking_patterns:
+      - "Evaluate life balance impact — does this decision risk burnout, relationship damage, or health deterioration?"
+      - "Assess relationship preservation — which key relationships are strengthened or strained by this choice?"
+      - "Monitor for burnout signals — financial stress, overcommitment, and unsustainable pace are sentinel-level warnings."
+    heuristics:
+      - name: Life Balance
+        rule: "Flag any decision that risks burnout, relationship damage, or health deterioration."
+      - name: Relationship Preservation
+        rule: "Identify which key relationships are strengthened or strained by each option."
+      - name: Burnout Prevention
+        rule: "Financial stress, overcommitment, and unsustainable pace are sentinel-level warnings."
+    evidence_standard:
+      convinced_by:
+        - "Concrete assessment of impact on health, relationships, and stress levels"
+        - "Historical evidence from similar life transitions"
+      not_convinced_by:
+        - "Risk assessment that ignores emotional and relationship dimensions"
+        - "Safety analysis focused only on financial metrics"
+
+  provocateur:
+    thinking_patterns:
+      - "Challenge sunk cost fallacy — how much of the resistance to change is driven by past investment rather than future value?"
+      - "Expose status quo bias — what would you choose if you were starting fresh today with no prior commitments?"
+      - "Probe fear-based decisions — is the person avoiding a choice because of genuine risk analysis or because of fear of the unknown?"
+    heuristics:
+      - name: Sunk Cost Check
+        rule: "Challenge whether resistance to change is driven by past investment rather than future value."
+      - name: Status Quo Bias
+        rule: "Ask what the person would choose if starting fresh with no prior commitments."
+      - name: Fear vs Risk
+        rule: "Distinguish between genuine risk analysis and fear-based avoidance."
+    evidence_standard:
+      convinced_by:
+        - "Evidence that distinguishes between rational risk assessment and emotional avoidance"
+        - "Comparison with base rates for similar life decisions"
+      not_convinced_by:
+        - "Arguments that rely on 'what you've already invested' as justification for continuing"
+        - "Comfort-seeking framed as prudent risk management"
+
+  pathfinder:
+    thinking_patterns:
+      - "Identify life-changing asymmetric bets — decisions where the upside vastly outweighs the downside, even if unlikely."
+      - "Evaluate career pivots through the lens of regret minimization — will the person regret not trying this in 10 years?"
+    heuristics:
+      - name: Asymmetric Life Bets
+        rule: "Identify decisions where personal upside vastly outweighs downside, even if the outcome is uncertain."
+      - name: Regret Minimization
+        rule: "Evaluate career pivots by asking whether the person will regret not trying in 10 years."
+    evidence_standard:
+      convinced_by:
+        - "Clear articulation of asymmetric payoff with bounded downside"
+        - "Regret minimization analysis with concrete time horizons"
+      not_convinced_by:
+        - "Optimistic projections without downside analysis"
+        - "Appeals to YOLO without risk acknowledgment"
+
+  advocate:
+    thinking_patterns:
+      - "Assess family and relationship impact — how does this decision affect the people closest to the decision-maker?"
+      - "Evaluate quality of life implications — daily experience, commute, stress levels, free time, and personal fulfillment."
+    heuristics:
+      - name: Family Impact
+        rule: "Assess how the decision affects the people closest to the decision-maker."
+      - name: Quality of Life
+        rule: "Evaluate daily experience impact — commute, stress, free time, and personal fulfillment."
+    evidence_standard:
+      convinced_by:
+        - "Specific assessment of impact on family members and close relationships"
+        - "Quality of life comparison with concrete daily-life scenarios"
+      not_convinced_by:
+        - "Decision analysis that treats the person as an isolated individual"
+        - "Quality of life claims without concrete daily-experience comparison"
+
+  operator:
+    thinking_patterns:
+      - "Evaluate practical execution — finances, logistics, timeline, and concrete next steps for each option."
+      - "Assess financial feasibility — does the person have the financial runway to support this decision through the transition period?"
+    heuristics:
+      - name: Practical Execution
+        rule: "Map out concrete finances, logistics, timeline, and next steps for each option."
+      - name: Financial Feasibility
+        rule: "Verify the person has sufficient financial runway to support the transition."
+    evidence_standard:
+      convinced_by:
+        - "Detailed financial plan with runway calculation and contingency"
+        - "Concrete step-by-step execution timeline"
+      not_convinced_by:
+        - "Vague plans without financial modeling"
+        - "Execution plans that assume everything goes smoothly"
+
+additional_input_sections:
+  - heading: "## Life Context"
+    guidance: "Current life stage, key relationships, financial situation, health status, and personal values. Include what matters most to you right now."
+
+additional_output_sections:
+  - section: personal_impact
+    description: "Projected impact on life satisfaction, relationships, health, financial runway, and career trajectory for each recommended path. Emotional impact assessed alongside rational analysis."
+
+guardrails:
+  - "Emotional impact must be assessed alongside rational analysis"
+  - "Reversibility must be evaluated for every recommendation"
+  - "Family and relationship impact must be explicitly addressed for every major recommendation"

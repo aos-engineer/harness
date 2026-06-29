@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AOS Memory Configuration",
+  "type": "object",
+  "required": ["api_version", "provider", "orchestrator"],
+  "properties": {
+    "api_version": { "const": "aos/memory/v1" },
+    "provider": { "type": "string", "enum": ["mempalace", "expertise"] },
+    "mempalace": {
+      "type": "object",
+      "required": ["palace_path", "project_wing"],
+      "properties": {
+        "palace_path": { "type": "string" },
+        "project_wing": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "wake_layers": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["L0", "L1"] },
+          "default": ["L0", "L1"]
+        },
+        "auto_hall": { "type": "boolean", "default": true },
+        "max_wake_tokens": { "type": "integer", "minimum": 100, "default": 1200 },
+        "max_drawer_tokens": { "type": "integer", "minimum": 50, "default": 500 }
+      }
+    },
+    "expertise": {
+      "type": "object",
+      "properties": {
+        "max_lines": { "type": "integer", "minimum": 10, "default": 200 },
+        "scope": { "type": "string", "enum": ["per-project", "global"], "default": "per-project" }
+      }
+    },
+    "orchestrator": {
+      "type": "object",
+      "required": ["remember_prompt", "recall_gate", "max_recall_per_session"],
+      "properties": {
+        "remember_prompt": { "type": "string", "enum": ["session_end", "per_round"] },
+        "recall_gate": { "type": "boolean" },
+        "max_recall_per_session": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

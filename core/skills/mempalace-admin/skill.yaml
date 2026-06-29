@@ -1,0 +1,22 @@
+schema: aos/skill/v1
+id: mempalace-admin
+name: MemPalace Admin
+description: Full administrative access to all MemPalace tools — explicit opt-in only
+version: 1.0.0
+
+input:
+  required: []
+  optional: []
+
+output:
+  structured_result: true
+
+compatible_agents:
+  - auditor
+
+platform_bindings:
+  claude-code: null
+  pi: mempalace-mcp
+
+platform_requirements:
+  requires_network: false

@@ -1,0 +1,26 @@
+schema: aos/skill/v1
+id: test-skill
+name: Test Skill
+description: "A minimal skill for testing the config loader"
+version: 0.1.0
+
+input:
+  required:
+    - id: source
+      type: text
+      description: "Input text to process"
+  optional: []
+
+output:
+  artifacts:
+    - id: result
+      format: markdown
+      description: "Processed output"
+  structured_result: false
+
+compatible_agents: [operator]
+
+platform_requirements:
+  requires_code_execution: false
+  requires_file_access: false
+  requires_network: false

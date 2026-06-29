@@ -1,0 +1,261 @@
+---
+import Base from '../layouts/Base.astro';
+import { loadAllAgents, loadAllProfiles, loadAllDomains, loadAllSkills } from '../lib/content';
+
+const agents = loadAllAgents();
+const profiles = loadAllProfiles();
+const domains = loadAllDomains();
+const skills = loadAllSkills();
+
+const arbiter = agents.find(a => a.id === 'arbiter');
+const ctoOrch = agents.find(a => a.id === 'cto-orchestrator');
+const listAgents = agents.filter(a => ['catalyst', 'sentinel', 'architect', 'provocateur', 'navigator', 'advocate'].includes(a.id));
+---
+
+<Base title="AOS Harness">
+  <!-- Hero -->
+  <section class="px-6 pt-16 pb-12 md:pt-[120px] md:pb-20">
+    <div class="mx-auto max-w-[800px] text-center">
+      <h1 class="text-[32px] sm:text-[40px] md:text-5xl font-extrabold leading-[1.1] tracking-tight text-[var(--color-text)]">
+        Agentic Orchestration System
+      </h1>
+      <p class="mt-5 text-[19px] leading-relaxed text-[var(--color-text-secondary)] max-w-[640px] mx-auto">
+        A config-driven framework that assembles specialized AI agents into deliberation councils and execution teams on top of Claude Code, Codex, Gemini, and Pi.
+      </p>
+      <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="/docs/getting-started" class="btn-primary w-full sm:w-auto">Get Started</a>
+        <a href="/agents" class="btn-secondary w-full sm:w-auto">Explore Agents</a>
+      </div>
+      <div class="mt-12 max-w-[480px] mx-auto text-left">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 px-5">
+          <pre class="!bg-transparent !border-0 !p-0 text-sm"><code><span class="text-[var(--color-text-muted)]">$</span> bun add aos-harness
+<span class="text-[var(--color-text-muted)]">$</span> bunx aos init
+<span class="text-[var(--color-text-muted)]">$</span> bunx aos run strategic-council --adapter codex</code></pre>
+          <p class="text-xs text-[var(--color-text-muted)] mt-2 font-['JetBrains_Mono',monospace]"># local install or global CLI. {agents.length} agents. {profiles.length} profiles.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <section class="bg-[var(--color-surface)] border-y border-[var(--color-border)] py-10">
+    <div class="mx-auto max-w-[1200px] px-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div class="text-center">
+        <div class="text-4xl font-extrabold text-[var(--color-signal)]">{agents.length}</div>
+        <div class="mt-1 text-[13px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Agents</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl font-extrabold text-[var(--color-signal)]">{profiles.length}</div>
+        <div class="mt-1 text-[13px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Profiles</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl font-extrabold text-[var(--color-signal)]">{domains.length}</div>
+        <div class="mt-1 text-[13px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Domains</div>
+      </div>
+      <div class="text-center">
+        <div class="text-4xl font-extrabold text-[var(--color-signal)]">{skills.length}</div>
+        <div class="mt-1 text-[13px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Skills</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Two Orchestration Patterns -->
+  <section class="px-6 py-20">
+    <div class="mx-auto max-w-[1200px]">
+      <h2 class="text-[28px] font-bold text-[var(--color-text)] text-center">Two Orchestration Patterns</h2>
+      <p class="text-[15px] text-[var(--color-text-secondary)] text-center mt-3">
+        Every decision is either a debate or a build. AOS handles both.
+      </p>
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Deliberation -->
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-8 card-hover">
+          <span class="badge badge-deliberation">deliberation</span>
+          <h3 class="text-[22px] font-bold text-[var(--color-text)] mt-4">Deliberation</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-3">
+            A neutral Arbiter frames the question. Specialist agents debate from opposing perspectives. The Provocateur stress-tests consensus. Output: a structured memo with ranked recommendations and documented dissent.
+          </p>
+          <div class="mt-6 flex flex-wrap items-center gap-1.5 text-[13px] font-medium text-[var(--color-text-muted)]">
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Brief</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Arbiter</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Broadcast</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Tension Pairs</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Provocateur</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Memo</span>
+          </div>
+          <p class="text-[13px] text-[var(--color-text-muted)] mt-4">Strategic Council, Security Review, Architecture Review</p>
+        </div>
+        <!-- Execution -->
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-8 card-hover">
+          <span class="badge badge-execution">execution</span>
+          <h3 class="text-[22px] font-bold text-[var(--color-text)] mt-4">Execution</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-3">
+            A CTO Orchestrator drives the product lifecycle. Agents produce artifacts in sequence &mdash; requirements, architecture, planning, tasks, security review, and final assembly. Output: a complete execution package ready for engineering handoff.
+          </p>
+          <div class="mt-6 flex flex-wrap items-center gap-1.5 text-[13px] font-medium text-[var(--color-text-muted)]">
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Brief</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">CTO</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Requirements</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Architecture</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Tasks</span>
+            <span>&rarr;</span>
+            <span class="bg-[var(--color-bg)] px-2.5 py-1 rounded-md">Package</span>
+          </div>
+          <p class="text-[13px] text-[var(--color-text-muted)] mt-4">CTO Execution Orchestration</p>
+          <div class="mt-5 border-t border-[var(--color-border)] pt-5">
+            <p class="text-[13px] text-[var(--color-text-muted)] mb-2 font-medium uppercase tracking-wider">Goes further with Dev Execution</p>
+            <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mb-3">
+              Dev Execution goes beyond planning to actual code implementation. An Engineering Lead spawns domain-scoped worker agents that write code directly to your working directory via hierarchical delegation &mdash; from brief to committed-ready changes in a single session.
+            </p>
+            <a href="/docs/dev-execution" class="text-[13px] font-medium text-[var(--color-signal)] no-underline hover:underline">Learn about Dev Execution &rarr;</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Agent Preview -->
+  <section class="bg-[var(--color-surface)] px-6 py-20">
+    <div class="mx-auto max-w-[1200px]">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-[28px] font-bold text-[var(--color-text)]">The Agents</h2>
+      </div>
+      <p class="text-[15px] text-[var(--color-text-secondary)] mb-8">
+        {agents.length} cognitive agents, each with a distinct bias, temperament, and evidence standard.
+      </p>
+
+      <!-- Hero Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {arbiter && (
+          <a href={`/agents/${arbiter.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 px-6 flex gap-4 card-hover no-underline">
+            <div class="w-1 rounded-sm bg-[var(--color-orchestrator)] flex-shrink-0"></div>
+            <div>
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)]">{arbiter.name}</h3>
+              <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-2">{arbiter.cognition.objective_function}</p>
+              <div class="flex gap-2 mt-3">
+                <span class="badge badge-orchestrator">orchestrator</span>
+                <span class="badge" style="background: rgba(0,0,0,0.05); color: var(--color-text-muted);">premium</span>
+              </div>
+            </div>
+          </a>
+        )}
+        {ctoOrch && (
+          <a href={`/agents/${ctoOrch.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 px-6 flex gap-4 card-hover no-underline">
+            <div class="w-1 rounded-sm bg-[var(--color-orchestrator)] flex-shrink-0"></div>
+            <div>
+              <h3 class="text-[17px] font-semibold text-[var(--color-text)]">{ctoOrch.name}</h3>
+              <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-2">{ctoOrch.cognition.objective_function}</p>
+              <div class="flex gap-2 mt-3">
+                <span class="badge badge-orchestrator">orchestrator</span>
+                <span class="badge" style="background: rgba(0,0,0,0.05); color: var(--color-text-muted);">premium</span>
+              </div>
+            </div>
+          </a>
+        )}
+      </div>
+
+      <!-- List Rows -->
+      <div class="flex flex-col gap-2">
+        {listAgents.map(agent => (
+          <a href={`/agents/${agent.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 flex items-center justify-between card-hover no-underline">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="dot" style={`background: ${agent.category === 'orchestrator' ? 'var(--color-orchestrator)' : agent.category === 'perspective' ? 'var(--color-perspective)' : 'var(--color-operational)'}`}></span>
+              <span class="text-sm font-semibold text-[var(--color-text)] whitespace-nowrap">{agent.name}</span>
+              <span class="text-xs text-[var(--color-text-muted)] truncate">({agent.cognition.core_bias})</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-[var(--color-text-muted)]">{agent.category}</span>
+              <span class="text-[var(--color-text-muted)]">&rsaquo;</span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <div class="mt-4 text-right">
+        <a href="/agents" class="text-sm font-medium text-[var(--color-signal)]">
+          View all {agents.length} agents &rarr;
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Agent Interop -->
+  <section class="px-6 py-20">
+    <div class="mx-auto max-w-[1200px]">
+      <h2 class="text-[28px] font-bold text-[var(--color-text)] text-center">Connect to the Agent Mesh</h2>
+      <p class="text-[15px] text-[var(--color-text-secondary)] text-center mt-3 max-w-[680px] mx-auto">
+        Don't stop at one runtime. Serve an AOS assembly as an Agent2Agent (A2A) agent, call other agents, and bind skills to MCP tools &mdash; with identity, egress, and ingress secured by default.
+      </p>
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="/docs/serving-over-a2a" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover no-underline block">
+          <h3 class="text-[18px] font-bold text-[var(--color-text)]">Serve over A2A</h3>
+          <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-2">Expose your skills as a JSON-RPC A2A endpoint, skill-routed on a warm worker. <code>aos serve --a2a</code>.</p>
+          <span class="inline-block mt-4 text-[var(--color-signal)] text-[14px] font-medium">Learn more &rarr;</span>
+        </a>
+        <a href="/docs/mcp-toolsets" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover no-underline block">
+          <h3 class="text-[18px] font-bold text-[var(--color-text)]">Bind MCP tools</h3>
+          <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-2">Map a skill to a Model Context Protocol tool for a native, deterministic call &mdash; no LLM round-trip.</p>
+          <span class="inline-block mt-4 text-[var(--color-signal)] text-[14px] font-medium">Learn more &rarr;</span>
+        </a>
+        <a href="/docs/agent-mesh-security" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover no-underline block">
+          <h3 class="text-[18px] font-bold text-[var(--color-text)]">Secured by default</h3>
+          <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed mt-2">Signed Agent Cards, JWKS key discovery, SSRF-screened egress, and rate-limited, owner-scoped ingress.</p>
+          <span class="inline-block mt-4 text-[var(--color-signal)] text-[14px] font-medium">Learn more &rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Supported CLIs -->
+  <section class="bg-[var(--color-surface)] px-6 py-20">
+    <div class="mx-auto max-w-[1200px] text-center">
+      <h2 class="text-[28px] font-bold text-[var(--color-text)]">Supported CLIs</h2>
+      <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Bring the AI CLI you already use. Install the matching adapter, keep Pi pinned to explicit tier models, and let Codex, Claude Code, and Gemini use their vendor-default models unless you intentionally override them.</p>
+      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 max-w-[1100px] mx-auto text-left">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
+          <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Pi CLI</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Keep Pi installed, add the Pi adapter, and run the same AOS profiles through the Pi extension package.</p>
+          <pre class="mt-4 !bg-[var(--color-bg)] !border-[var(--color-border)] text-[13px]"><code><span class="text-[var(--color-text-muted)]">$</span> npm i -g @aos-harness/pi-adapter</code></pre>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
+          <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Claude Code</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Use your existing Claude Code installation, add the adapter, then optionally install the project command pack. Readiness checks surface when <code>ANTHROPIC_API_KEY</code> is overriding Claude auth.</p>
+          <pre class="mt-4 !bg-[var(--color-bg)] !border-[var(--color-border)] text-[13px]"><code><span class="text-[var(--color-text-muted)]">$</span> npm i -g @aos-harness/claude-code-adapter
+<span class="text-[var(--color-text-muted)]">$</span> bash plugins/aos-harness/claude-code/install.sh</code></pre>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
+          <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Codex CLI</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Pair Codex CLI with the Codex adapter, then optionally install the local Codex plugin bundle on top. By default, AOS defers model choice to Codex unless you pin a tier model.</p>
+          <pre class="mt-4 !bg-[var(--color-bg)] !border-[var(--color-border)] text-[13px]"><code><span class="text-[var(--color-text-muted)]">$</span> npm i -g @aos-harness/codex-adapter
+<span class="text-[var(--color-text-muted)]">$</span> aos init --apply</code></pre>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
+          <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Gemini CLI</h3>
+          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Run the same deliberation and execution profiles through Gemini after installing the matching adapter package. Current account-level Gemini failures are surfaced directly instead of hidden behind stale flags.</p>
+          <pre class="mt-4 !bg-[var(--color-bg)] !border-[var(--color-border)] text-[13px]"><code><span class="text-[var(--color-text-muted)]">$</span> npm i -g @aos-harness/gemini-adapter</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="px-6 py-20">
+    <div class="mx-auto max-w-[600px] text-center">
+      <h2 class="text-[28px] font-bold text-[var(--color-text)]">Ready to orchestrate?</h2>
+      <p class="text-[15px] text-[var(--color-text-secondary)] mt-3">
+        Install the framework. Write a brief. Let {agents.length} agents debate your hardest question.
+      </p>
+      <div class="mt-7">
+        <a href="/docs/getting-started" class="btn-primary">Get Started</a>
+      </div>
+    </div>
+  </section>
+</Base>

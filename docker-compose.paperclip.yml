@@ -1,0 +1,46 @@
+# Compose for the Paperclip worker (the AOS-Harness /paperclip/wake seam).
+#
+# Built from Dockerfile.paperclip. All values come from the deploy env overlay
+# (referenced, never inlined). Secrets (PAPERCLIP_API_KEY, PAPERCLIP_WAKE_TOKEN,
+# ANTHROPIC_API_KEY) are injected by the operator into the platform's secret
+# store. The cron routine that drives wakes lives in Paperclip and stays DISABLED
+# until go-live; this service only responds to wakes.
+
+services:
+  paperclip-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.paperclip
+    image: paperclip-worker:latest
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      AOS_HARNESS_ROOT: /app
+      # ── required (injected at deploy time; NOT defaulted here) ──
+      PAPERCLIP_API_BASE: ${PAPERCLIP_API_BASE}
+      PAPERCLIP_API_KEY: ${PAPERCLIP_API_KEY}
+      PAPERCLIP_WAKE_TOKEN: ${PAPERCLIP_WAKE_TOKEN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # ── tunables (safe defaults) ──
+      AOS_PLATFORM: ${AOS_PLATFORM:-claude-code}
+      PAPERCLIP_PROFILE_DIR: ${PAPERCLIP_PROFILE_DIR:-/app/core/profiles/paperclip-worker}
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.paperclip-worker.rule=Host(`${HARNESS_DOMAIN}`)
+      - traefik.http.routers.paperclip-worker.entrypoints=websecure
+      - traefik.http.routers.paperclip-worker.tls.certResolver=letsencrypt
+      - traefik.http.services.paperclip-worker.loadbalancer.server.port=8080
+
+networks:
+  web:
+    external: true

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aos-harness.dev/registry.schema.json",
+  "title": "AOS Community Registry",
+  "description": "Schema for validating AOS community registry entries (agents, profiles, domains).",
+  "type": "object",
+  "required": ["version", "agents", "profiles", "domains"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "1"
+    },
+    "agents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/agent" },
+      "uniqueItems": true
+    },
+    "profiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/profile" },
+      "uniqueItems": true
+    },
+    "domains": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/domain" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "namespace_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$",
+      "description": "Namespaced identifier in the format namespace/name (e.g., aos/catalyst)."
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?(\\+[a-zA-Z0-9.]+)?$",
+      "description": "Semantic version string."
+    },
+    "agent": {
+      "type": "object",
+      "required": ["id", "name", "author", "description", "tags", "source", "version", "compatible_profiles", "schema_version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/namespace_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "maxLength": 200 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "source": { "type": "string", "format": "uri" },
+        "version": { "$ref": "#/$defs/semver" },
+        "compatible_profiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schema_version": { "type": "string" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": ["id", "name", "author", "description", "agent_count", "tags", "source", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/namespace_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "maxLength": 200 },
+        "agent_count": { "type": "integer", "minimum": 1 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "source": { "type": "string", "format": "uri" },
+        "version": { "$ref": "#/$defs/semver" }
+      }
+    },
+    "domain": {
+      "type": "object",
+      "required": ["id", "name", "author", "description", "tags", "source", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/namespace_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "maxLength": 200 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "source": { "type": "string", "format": "uri" },
+        "version": { "$ref": "#/$defs/semver" }
+      }
+    }
+  }
+}

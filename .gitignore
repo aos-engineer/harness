@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+bun.lock
+
+# AOS session data
+.aos/
+
+# Superpowers brainstorm sessions
+.superpowers/
+
+# OS files
+.DS_Store
+
+# Build output
+dist/
+
+# Logs
+*.log
+
+# Worktrees
+.worktrees/
+
+# Environment / secrets
+.env
+.env.*
+# Signing keys / certs (A2A Agent Card signing) — never commit private key material
+*.pem
+*.key
+*.p8

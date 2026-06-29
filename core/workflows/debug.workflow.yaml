@@ -1,0 +1,46 @@
+schema: aos/workflow/v1
+id: debug
+name: Systematic Debugging
+description: "Evidence-driven debugging: reproduce the issue first, form a hypothesis, gather evidence, then fix and verify."
+
+steps:
+  - id: reproduce-issue
+    action: reproduce
+    description: "Reproduce the reported issue with a minimal, reliable reproduction case"
+    input: []
+    output: reproduction
+    review_gate: true
+
+  - id: form-hypothesis
+    action: analyze
+    description: "Form a hypothesis about the root cause based on the reproduction"
+    input: [reproduce-issue]
+    output: hypothesis
+    review_gate: false
+
+  - id: gather-evidence
+    action: investigate
+    description: "Gather evidence to confirm or refute the hypothesis through logging, tracing, or inspection"
+    input: [form-hypothesis, reproduce-issue]
+    output: evidence
+    review_gate: false
+
+  - id: test-fix
+    action: write-code
+    description: "Implement and test the fix based on confirmed root cause"
+    input: [gather-evidence]
+    output: fix-implementation
+    review_gate: false
+
+  - id: verify-no-regression
+    action: run-tests
+    description: "Run full test suite to verify fix works and no regressions were introduced"
+    input: [test-fix]
+    output: regression-results
+    review_gate: false
+
+gates:
+  - after: reproduce-issue
+    type: user-approval
+    prompt: "Evidence gate: confirm the issue has been reliably reproduced before proceeding to fix."
+    on_rejection: re-run-step
