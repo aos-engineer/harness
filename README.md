@@ -2,7 +2,7 @@
 
 **Agentic Orchestration System** — Assemble specialized AI agents into deliberation and execution teams.
 
-[![CI](https://github.com/aos-engineer/aos-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/aos-engineer/aos-harness/actions/workflows/ci.yml)
+[![CI](https://github.com/aos-engineer/aos/actions/workflows/ci.yml/badge.svg)](https://github.com/aos-engineer/aos/actions/workflows/ci.yml)
 
 ---
 

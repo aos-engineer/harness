@@ -3,6 +3,6 @@
   "version": "0.9.1",
   "description": "Run AOS Harness deliberation and execution workflows from Gemini.",
   "author": "AOS Engineer",
-  "homepage": "https://github.com/aos-engineer/aos-harness",
+  "homepage": "https://github.com/aos-engineer/aos",
   "skills": "../skills/"
 }

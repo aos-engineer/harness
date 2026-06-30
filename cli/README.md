@@ -149,7 +149,7 @@ Ships with 13 agent personas, 6 orchestration profiles, 5 domain packs, and full
 ## Documentation
 
 - [Full documentation](https://aos.engineer/docs/getting-started)
-- [GitHub repository](https://github.com/aos-engineer/aos-harness)
+- [GitHub repository](https://github.com/aos-engineer/aos)
 
 ## License
 

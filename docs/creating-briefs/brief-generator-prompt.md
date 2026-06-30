@@ -77,5 +77,5 @@ Once you have the brief, feed it to the appropriate AOS profile:
 ## Examples
 
 See the sample briefs in the repo:
-- [`core/briefs/sample-product-decision/brief.md`](https://github.com/aos-engineer/aos-harness/core/briefs/sample-product-decision/brief.md) — Deliberation brief example
-- [`core/briefs/sample-cto-execution/brief.md`](https://github.com/aos-engineer/aos-harness/core/briefs/sample-cto-execution/brief.md) — Execution brief example
+- [`core/briefs/sample-product-decision/brief.md`](https://github.com/aos-engineer/aos/core/briefs/sample-product-decision/brief.md) — Deliberation brief example
+- [`core/briefs/sample-cto-execution/brief.md`](https://github.com/aos-engineer/aos/core/briefs/sample-cto-execution/brief.md) — Execution brief example

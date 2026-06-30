@@ -7,7 +7,7 @@
       "author": "aos-harness",
       "description": "Neutral decision synthesizer. Frames strategic questions, drives multi-perspective debate, and synthesizes competing viewpoints into actionable, ranked recommendations with documented dissent.",
       "tags": ["orchestrator", "synthesis", "decision-making"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/delivery-ops", "aos/incident-response", "aos/security-review"],
       "schema_version": "aos/agent/v1"
@@ -18,7 +18,7 @@
       "author": "aos-harness",
       "description": "User voice and behavior reality analyst. Grounds every proposal in real user behavior, adoption friction, and workflow integration.",
       "tags": ["perspective", "user-research", "adoption", "product"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/delivery-ops"],
       "schema_version": "aos/agent/v1"
@@ -29,7 +29,7 @@
       "author": "aos-harness",
       "description": "Feasibility and systems thinking strategist. Grounds proposals in technical reality, operational complexity, and system durability.",
       "tags": ["perspective", "architecture", "systems-thinking", "feasibility"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/delivery-ops", "aos/incident-response", "aos/security-review"],
       "schema_version": "aos/agent/v1"
@@ -40,7 +40,7 @@
       "author": "aos-harness",
       "description": "Acceleration and monetization strategist. Pushes for commercial velocity, revenue capture, and shipping speed.",
       "tags": ["perspective", "monetization", "growth", "velocity"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/delivery-ops"],
       "schema_version": "aos/agent/v1"
@@ -51,7 +51,7 @@
       "author": "aos-harness",
       "description": "Market positioning and competitive timing strategist. Maps competitive landscapes and identifies timing windows for go-to-market viability.",
       "tags": ["perspective", "market", "positioning", "competitive-analysis"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/security-review", "aos/delivery-ops"],
       "schema_version": "aos/agent/v1"
@@ -62,7 +62,7 @@
       "author": "aos-harness",
       "description": "Asymmetric opportunity hunter and 10x thinker. Challenges incrementalism and identifies step-function moves where upside dwarfs downside.",
       "tags": ["perspective", "innovation", "moonshot", "opportunity"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review"],
       "schema_version": "aos/agent/v1"
@@ -73,7 +73,7 @@
       "author": "aos-harness",
       "description": "Assumption-breaker and stress-tester. Challenges consensus, surfaces hidden assumptions, and forces the assembly to prove it is not fooling itself.",
       "tags": ["perspective", "stress-testing", "assumptions", "contrarian"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/incident-response", "aos/security-review"],
       "schema_version": "aos/agent/v1"
@@ -84,7 +84,7 @@
       "author": "aos-harness",
       "description": "Protection and durability strategist. Safeguards long-term value, user trust, and retention against proposals that erode compounding assets.",
       "tags": ["perspective", "risk", "trust", "retention", "protection"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/delivery-ops", "aos/incident-response", "aos/security-review"],
       "schema_version": "aos/agent/v1"
@@ -95,7 +95,7 @@
       "author": "aos-harness",
       "description": "Problem selection and sequencing specialist. Ensures the team works on the right problems in the right order based on impact-per-effort.",
       "tags": ["perspective", "strategy", "prioritization", "sequencing"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/delivery-ops"],
       "schema_version": "aos/agent/v1"
@@ -106,7 +106,7 @@
       "author": "aos-harness",
       "description": "Retrospective analyst and institutional memory. Tracks decision patterns, surfaces historical precedent, and ensures the organization learns from past decisions.",
       "tags": ["operational", "audit", "institutional-memory", "retrospective"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/incident-response"],
       "schema_version": "aos/agent/v1"
@@ -117,7 +117,7 @@
       "author": "aos-harness",
       "description": "Execution reality analyst. Grounds every plan in team capacity, dependency chains, and delivery risk to test whether proposals can actually be built.",
       "tags": ["operational", "execution", "delivery", "capacity"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/delivery-ops", "aos/incident-response", "aos/security-review"],
       "schema_version": "aos/agent/v1"
@@ -128,7 +128,7 @@
       "author": "aos-harness",
       "description": "Ethics, compliance, and governance guardian. Prevents decisions that create legal, regulatory, or reputational exposure.",
       "tags": ["operational", "compliance", "ethics", "governance"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0",
       "compatible_profiles": ["aos/strategic-council", "aos/architecture-review", "aos/incident-response", "aos/security-review"],
       "schema_version": "aos/agent/v1"
@@ -142,7 +142,7 @@
       "description": "Multi-perspective strategic deliberation. A neutral Arbiter orchestrates 11 specialist agents who debate, challenge, and stress-test from opposing perspectives.",
       "agent_count": 12,
       "tags": ["strategy", "deliberation", "decision-making", "multi-perspective"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -152,7 +152,7 @@
       "description": "Technical architecture evaluation. Assesses system design decisions against feasibility, scalability, and long-term maintainability.",
       "agent_count": 8,
       "tags": ["architecture", "technical", "review", "scalability"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -162,7 +162,7 @@
       "description": "Product delivery orchestration. Plans and sequences feature delivery with execution reality checks and go/no-go criteria.",
       "agent_count": 8,
       "tags": ["delivery", "operations", "planning", "execution"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -172,7 +172,7 @@
       "description": "Rapid multi-perspective incident analysis. Analyzes root causes, failure modes, operational impact, and prevention strategies.",
       "agent_count": 7,
       "tags": ["incident", "response", "root-cause", "postmortem"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -182,7 +182,7 @@
       "description": "Security assessment and remediation planning. Identifies vulnerabilities and produces a prioritized remediation plan with a risk matrix.",
       "agent_count": 7,
       "tags": ["security", "assessment", "vulnerability", "remediation"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     }
   ],
@@ -193,7 +193,7 @@
       "author": "aos-harness",
       "description": "Domain pack for financial services, payments, lending, and investment platforms. Injects fintech-specific lexicon, compliance standards, and agent overlays.",
       "tags": ["fintech", "finance", "payments", "compliance", "banking"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -202,7 +202,7 @@
       "author": "aos-harness",
       "description": "Domain pack for clinical decision support, patient safety, and regulatory compliance (HIPAA, FDA, IRB).",
       "tags": ["healthcare", "clinical", "patient-safety", "hipaa", "life-sciences"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -211,7 +211,7 @@
       "author": "aos-harness",
       "description": "Domain pack for personal and life decisions. Strips business metrics and adds life-stage context, emotional impact assessment, and personal values alignment.",
       "tags": ["personal", "life-decisions", "career", "values"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -220,7 +220,7 @@
       "author": "aos-harness",
       "description": "Domain pack for internal developer platforms, infrastructure, and SRE practices. Injects platform-engineering-specific lexicon and reliability standards.",
       "tags": ["platform", "infrastructure", "sre", "devex", "reliability"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     },
     {
@@ -229,7 +229,7 @@
       "author": "aos-harness",
       "description": "Domain pack for B2B and B2C SaaS businesses. Injects SaaS-specific lexicon, metrics standards, and agent overlays for subscription-based software decisions.",
       "tags": ["saas", "subscription", "b2b", "b2c", "metrics"],
-      "source": "https://github.com/aos-engineer/aos-harness",
+      "source": "https://github.com/aos-engineer/aos",
       "version": "0.1.0"
     }
   ]
