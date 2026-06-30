@@ -4,7 +4,7 @@ The AOS community registry is the central index of agents, profiles, and domains
 
 ## Submission Process
 
-1. **Fork** the [aos-harness](https://github.com/aos-engineer/aos) repository.
+1. **Fork** the [aos-harness](https://github.com/aos-engineer/harness) repository.
 2. **Create** your agent, profile, or domain following the AOS schemas (`aos/agent/v1`, `aos/profile/v1`, `aos/domain/v1`).
 3. **Add an entry** to `registry/registry.json` in the appropriate array (`agents`, `profiles`, or `domains`).
 4. **Run validation** locally to confirm your entry passes:
@@ -69,4 +69,4 @@ Adding a custom agent to the registry:
 
 ## Questions
 
-Open an issue on the [aos-harness](https://github.com/aos-engineer/aos) repository if you have questions about the submission process or need help structuring your entry.
+Open an issue on the [aos-harness](https://github.com/aos-engineer/harness) repository if you have questions about the submission process or need help structuring your entry.

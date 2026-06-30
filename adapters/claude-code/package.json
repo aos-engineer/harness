@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aos-engineer/aos.git",
+    "url": "https://github.com/aos-engineer/harness.git",
     "directory": "adapters/claude-code"
   },
   "homepage": "https://aos.engineer",

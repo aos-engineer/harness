@@ -92,7 +92,7 @@ Checklist items (green checkmark + text):
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/aos-engineer/aos.git
+git clone https://github.com/aos-engineer/harness.git
 cd aos-harness
 bun install
 ```

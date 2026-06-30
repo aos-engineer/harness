@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aos-engineer/aos.git",
+    "url": "https://github.com/aos-engineer/harness.git",
     "directory": "adapters/shared"
   },
   "homepage": "https://aos.engineer",

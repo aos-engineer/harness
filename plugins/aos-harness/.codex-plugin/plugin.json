@@ -4,10 +4,10 @@
   "description": "Run AOS Harness deliberation and execution workflows from Codex.",
   "author": {
     "name": "AOS Engineer",
-    "url": "https://github.com/aos-engineer/aos"
+    "url": "https://github.com/aos-engineer/harness"
   },
-  "homepage": "https://github.com/aos-engineer/aos",
-  "repository": "https://github.com/aos-engineer/aos",
+  "homepage": "https://github.com/aos-engineer/harness",
+  "repository": "https://github.com/aos-engineer/harness",
   "license": "MIT",
   "keywords": [
     "aos",
@@ -26,7 +26,7 @@
       "Interactive",
       "Write"
     ],
-    "websiteURL": "https://github.com/aos-engineer/aos",
+    "websiteURL": "https://github.com/aos-engineer/harness",
     "privacyPolicyURL": "https://openai.com/policies/row-privacy-policy/",
     "termsOfServiceURL": "https://openai.com/policies/row-terms-of-use/",
     "defaultPrompt": [

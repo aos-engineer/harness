@@ -110,7 +110,7 @@ aos-harness/
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aos-engineer/aos.git"
+    "url": "https://github.com/aos-engineer/harness.git"
   },
   "homepage": "https://aos.engineer",
   "keywords": ["ai", "agents", "orchestration", "multi-agent", "deliberation", "execution", "llm", "bun"],
