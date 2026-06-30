@@ -1,6 +1,6 @@
 {
   "name": "aos-harness",
-  "version": "0.9.1",
+  "version": "0.1.0",
   "description": "Agentic Orchestration System — assemble AI agents into deliberation and execution teams",
   "license": "MIT",
   "publishConfig": {
@@ -46,10 +46,10 @@
     "yaml": "^2.8.3"
   },
   "peerDependencies": {
-    "@aos-harness/claude-code-adapter": ">=0.9.1 <1.0.0",
-    "@aos-harness/codex-adapter": ">=0.9.1 <1.0.0",
-    "@aos-harness/gemini-adapter": ">=0.9.1 <1.0.0",
-    "@aos-harness/pi-adapter": ">=0.9.1 <1.0.0"
+    "@aos-harness/claude-code-adapter": ">=0.1.0 <1.0.0",
+    "@aos-harness/codex-adapter": ">=0.1.0 <1.0.0",
+    "@aos-harness/gemini-adapter": ">=0.1.0 <1.0.0",
+    "@aos-harness/pi-adapter": ">=0.1.0 <1.0.0"
   },
   "peerDependenciesMeta": {
     "@aos-harness/claude-code-adapter": {

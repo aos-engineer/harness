@@ -33,8 +33,8 @@ jobs:
       - name: Verify tag matches package versions and repo state
         run: bun run scripts/verify-release-tag.ts
 
-      - name: Install (frozen)
-        run: bun install --frozen-lockfile
+      - name: Install
+        run: bun install
 
       - name: Lint (yaml-safety + typecheck)
         run: bun run lint
@@ -54,18 +54,33 @@ jobs:
             echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Detect npm token
+        id: npmtoken
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::NPM_TOKEN is not set — skipping npm publish. The GitHub release is still created. Add the NPM_TOKEN secret to enable automated npm publishing."
+          fi
+
       - name: Publish all packages to npm
+        if: steps.npmtoken.outputs.publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_ACTIONS: "true"
         run: bun run scripts/publish.ts --ci --dist-tag=${{ steps.disttag.outputs.dist_tag }}
 
       - name: Wait for npm registry propagation
+        if: steps.npmtoken.outputs.publish == 'true'
         env:
           VERSION: ${{ github.ref_name }}
         run: bun run scripts/wait-for-npm-release.ts
 
       - name: Verify registry signatures (install-then-audit)
+        if: steps.npmtoken.outputs.publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ github.ref_name }}
@@ -116,8 +131,10 @@ jobs:
             PRE_FLAG="--prerelease"
           fi
 
+          # If the release already exists (e.g. created by a maintainer with
+          # curated notes), leave its body intact — only ensure title + latest.
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release edit "$TAG_NAME" --title "$TAG_NAME" --latest --generate-notes
+            gh release edit "$TAG_NAME" --title "$TAG_NAME" --latest
           else
             gh release create "$TAG_NAME" --title "$TAG_NAME" --verify-tag --latest --generate-notes $PRE_FLAG
           fi

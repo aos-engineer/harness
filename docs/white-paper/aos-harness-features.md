@@ -3,7 +3,7 @@
 **Agentic Orchestration System (AOS)**
 *A Language-Agnostic Multi-Agent Orchestration Framework for Strategic Deliberation and Execution*
 
-**Version:** 0.9.1
+**Version:** 0.1.0
 **Date:** April 2026
 
 ---
@@ -58,9 +58,9 @@ The harness addresses a fundamental limitation in current AI tooling: single-age
 | Dimension | Value |
 |-----------|-------|
 | Agent Personas | 15 (2 orchestrators, 9 perspectives, 4 operational) |
-| Orchestration Profiles | 8 (strategic-council, cto-execution, security-review, delivery-ops, architecture-review, incident-response, dev-execution, design-variations) |
+| Orchestration Profiles | 9 (strategic-council, cto-execution, security-review, delivery-ops, architecture-review, incident-response, dev-execution, design-variations, paperclip-worker) |
 | Domain Packs | 5 (SaaS, healthcare, fintech, platform-engineering, personal-decisions) |
-| Workflow Definitions | 9 (brainstorm, plan, execute, review, debug, verify, cto-execution, dev-execution, design-variations) |
+| Workflow Definitions | 10 (brainstorm, plan, execute, review, debug, verify, cto-execution, dev-execution, design-variations, paperclip-worker) |
 | Skills | 6 (code-review, security-scan, task-decomposition, mempalace-read-write, mempalace-admin, graphify-query) |
 | Runtime Size | ~2,000 lines TypeScript |
 | Test Coverage | 70+ test files, including 400+ passing runtime tests |
@@ -1371,4 +1371,4 @@ aos-harness/
 
 ---
 
-*This document serves as the comprehensive feature reference for the AOS Harness v0.9.1 and is intended as source material for white paper publication.*
+*This document serves as the comprehensive feature reference for the AOS Harness v0.1.0 and is intended as source material for white paper publication.*

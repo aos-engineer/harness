@@ -97,7 +97,7 @@ aos init
 
 Release line:
 
-- Current repo version: `0.9.1`
+- Current repo version: `0.1.0`
 - npm latest is published separately via the tag-driven release workflow
 - Site image tag: `novashock/aos-harness-site:0.9.1-20260629-graphify`
 
@@ -225,7 +225,7 @@ aos-harness/
     profiles/         # 9 orchestration profiles
     domains/          # 5 domain knowledge packs
     skills/           # 6 skill definitions (aos/skill/v1)
-    workflows/        # 9 workflow definitions
+    workflows/        # 10 workflow definitions
     schema/           # JSON Schema for validation
     briefs/           # Sample briefs
   runtime/            # Minimal TypeScript engine (~2000 lines)

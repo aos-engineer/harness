@@ -1,6 +1,6 @@
 {
   "name": "aos-harness",
-  "version": "0.9.1",
+  "version": "0.1.0",
   "description": "Run AOS Harness deliberation and execution workflows from Gemini.",
   "author": "AOS Engineer",
   "homepage": "https://github.com/aos-engineer/aos",

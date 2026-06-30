@@ -43,7 +43,11 @@ export function signAgentCard(card: AgentCard, opts: SignAgentCardOptions): Agen
   const { signatures: _drop, ...unsigned } = card as any; // never sign over existing sigs
   const payload = canonicalizeForSigning(unsigned); // a2a-sdk compatible (clean_empty + ascii)
   const jwk =
-    opts.embedPublicKey === false ? undefined : createPublicKey(opts.privateKey).export({ format: "jwk" });
+    opts.embedPublicKey === false
+      ? undefined
+      : createPublicKey(opts.privateKey as unknown as Parameters<typeof createPublicKey>[0]).export({
+          format: "jwk",
+        });
   const kid = opts.kid ?? (jwk ? jwkThumbprint(jwk) : undefined); // RFC 7638 thumbprint hint
   const sig = jwsSignDetached(payload, opts.privateKey, { alg, kid, jwk, jku: opts.jku });
   return { ...unsigned, signatures: [sig] };

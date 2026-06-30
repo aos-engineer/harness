@@ -1,10 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 — First public release (2026-06-30)
 
-### Added
+The inaugural public release of **AOS Harness** — an agentic orchestration system
+for multi-agent deliberation and execution. This is a deliberate version reset:
+it consolidates all prior internal development (versioned 0.7.x–0.9.x before going
+public) into a clean, stable baseline to build on. Entries below this section are
+that pre-public internal history.
 
-- **Graphify memory provider** — a third pluggable memory backend alongside `mempalace` and the built-in `expertise` fallback. Recall/wake/status are served by graphify's MCP server (`graphify-mcp`, `query_graph`/`graph_stats`); `remember()` writes notes into a corpus dir and (optionally) rebuilds the knowledge graph via `graphify build`. Includes the `graphify-query` skill, `aos init` wizard + env-scanner support, schema, and docs. Falls back to `expertise` when no graph is available.
+### Highlights
+
+- **Two orchestration patterns** — Council *deliberation* (Arbiter synthesizes ranked recommendations with dissent) and CTO *execution* workflows (architecture, task breakdown, security review, implementation plans).
+- **15 cognitive agents, 9 profiles, 5 domain packs, 6 skills**, all language-agnostic YAML + Markdown.
+- **4-layer adapter contract** with adapters for Claude Code, Codex, Gemini, and Pi.
+- **A2A + MCP interop** — serve an AOS assembly as an A2A agent (skill-routed, signed Agent Cards, ingress guards) and consume remote A2A/MCP tools.
+- **Three pluggable memory providers** — MemPalace (semantic), **Graphify** (knowledge-graph via MCP), and the built-in `expertise` fallback, behind one `MemoryProvider` interface.
+- **Pluggable Platform streaming** (`--platform-url` / `AOS_PLATFORM_TOKEN`) for live observability — the open-core Enterprise tier.
+- **Reusable Paperclip control-plane seam** for running AOS passes as a service.
+- Security-reviewed and hardened; release pipeline publishes to npm (when configured) and creates GitHub releases.
 
 ## 0.9.1 — Platform stream hardening and memory observability
 

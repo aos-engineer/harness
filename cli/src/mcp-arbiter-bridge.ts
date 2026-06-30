@@ -55,7 +55,7 @@ async function rpc(method: string, params: unknown): Promise<unknown> {
 }
 
 const server = new Server(
-  { name: "aos-arbiter-bridge", version: "0.9.1" },
+  { name: "aos-arbiter-bridge", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
 

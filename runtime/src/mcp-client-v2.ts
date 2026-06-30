@@ -393,7 +393,7 @@ export class McpClientV2 {
   }
 
   /** Start the transport and perform the MCP initialize handshake. */
-  async start(clientInfo: { name: string; version: string } = { name: "aos", version: "0.9.1" }): Promise<void> {
+  async start(clientInfo: { name: string; version: string } = { name: "aos", version: "0.1.0" }): Promise<void> {
     await this.transport.start();
     const result = (await this.transport.request("initialize", {
       protocolVersion: MCP_PROTOCOL_VERSION,

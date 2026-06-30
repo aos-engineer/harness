@@ -280,7 +280,13 @@ export function buildJwks(keys: KeyObject[]): { keys: Array<Record<string, unkno
       // derive its public half before export so the private scalar `d` can never
       // reach the wire — the invariant must not depend on every caller wrapping
       // in createPublicKey(). `delete jwk.d` is belt-and-suspenders.
-      const pub = key.type === "private" ? createPublicKey(key) : key;
+      // createPublicKey accepts a KeyObject at runtime (deriving the public key
+      // from a private one); some @types/node versions omit that overload, so
+      // widen the arg to the accepted input type to keep the build portable.
+      const pub =
+        key.type === "private"
+          ? createPublicKey(key as unknown as Parameters<typeof createPublicKey>[0])
+          : key;
       const jwk = pub.export({ format: "jwk" }) as Record<string, unknown>;
       delete jwk.d;
       out.push({ ...jwk, kid: jwkThumbprint(jwk) });
