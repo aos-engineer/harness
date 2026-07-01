@@ -1,12 +1,12 @@
 # Changelog
 
-## 0.1.0 — First public release (2026-06-30)
+## 0.10.0 — First public release (2026-06-30)
 
 The inaugural public release of **AOS Harness** — an agentic orchestration system
-for multi-agent deliberation and execution. This is a deliberate version reset:
-it consolidates all prior internal development (versioned 0.7.x–0.9.x before going
-public) into a clean, stable baseline to build on. Entries below this section are
-that pre-public internal history.
+for multi-agent deliberation and execution. It is versioned above the prior
+internal line (0.7.x–0.9.x) and consolidates that work into a clean, stable
+baseline to build on. Entries below this section are that pre-public internal
+history.
 
 ### Highlights
 

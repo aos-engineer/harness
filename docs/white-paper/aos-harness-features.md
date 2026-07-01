@@ -3,7 +3,7 @@
 **Agentic Orchestration System (AOS)**
 *A Language-Agnostic Multi-Agent Orchestration Framework for Strategic Deliberation and Execution*
 
-**Version:** 0.1.0
+**Version:** 0.10.0
 **Date:** April 2026
 
 ---
@@ -1371,4 +1371,4 @@ aos-harness/
 
 ---
 
-*This document serves as the comprehensive feature reference for the AOS Harness v0.1.0 and is intended as source material for white paper publication.*
+*This document serves as the comprehensive feature reference for the AOS Harness v0.10.0 and is intended as source material for white paper publication.*

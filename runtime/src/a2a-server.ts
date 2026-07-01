@@ -115,7 +115,7 @@ export class A2aServer {
       name: this.opts.card.name,
       description: this.opts.card.description,
       url: this.opts.endpointUrl,
-      version: this.opts.card.version ?? "0.1.0",
+      version: this.opts.card.version ?? "0.10.0",
       protocolVersion: "1.0",
       capabilities: { streaming: false, pushNotifications: false },
       skills: this.opts.card.skills ?? [],
