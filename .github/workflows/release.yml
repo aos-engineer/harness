@@ -66,6 +66,12 @@ jobs:
             echo "::notice::NPM_TOKEN is not set — skipping npm publish. The GitHub release is still created. Add the NPM_TOKEN secret to enable automated npm publishing."
           fi
 
+      - name: Preflight — verify npm publish permissions
+        if: steps.npmtoken.outputs.publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: bun run scripts/preflight-npm.ts
+
       - name: Publish all packages to npm
         if: steps.npmtoken.outputs.publish == 'true'
         env:
