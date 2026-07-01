@@ -1,6 +1,6 @@
 {
   "name": "aos-harness",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Agentic Orchestration System — assemble AI agents into deliberation and execution teams",
   "license": "MIT",
   "repository": {

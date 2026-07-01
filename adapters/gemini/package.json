@@ -1,6 +1,6 @@
 {
   "name": "@aos-harness/gemini-adapter",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "AOS Harness adapter for Google's Gemini CLI.",
   "license": "MIT",
   "repository": {
