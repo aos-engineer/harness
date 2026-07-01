@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.11.0 — Execution profiles run for real (2026-07-01)
+
+Execution-mode profiles (`cto-execution`, `dev-execution`) could not complete a
+real run before this release. This version fixes the blocking bugs found while
+driving them end-to-end, and adds the non-interactive controls a real or CI run
+needs.
+
+### Fixed
+
+- **Execution workflow resolution.** The engine resolved workflows only by the
+  `<id>/workflow.yaml` directory convention, so every flat `<name>.workflow.yaml`
+  execution workflow (all of them except `paperclip-worker`) died with
+  "workflow.yaml not found". A shared `resolveWorkflowFile()` now handles both
+  conventions, and the CLI, engine, and `aos validate` all use it.
+- **Brief injection into execution steps.** Workflow-step agents received no
+  brief (only deliberation agents did), so they refused to fabricate and the
+  execution package came back empty. The loaded brief is now threaded into every
+  step prompt (and exposed as `{{brief}}`).
+- **Bridge socket path length.** On a deep macOS `$TMPDIR`, the arbiter bridge
+  socket for long profile ids (e.g. `architecture-review`) exceeded the unix
+  `sun_path` cap and `listen()` failed. The socket name is now a short hash with
+  a `/tmp` fallback.
+
+### Added
+
+- **`aos run --yes`** — auto-approve execution-workflow review gates for
+  non-interactive / CI runs (also honoured via `AOS_AUTO_APPROVE=1`).
+- **`cto-execution` and `dev-execution` registered** in `registry/registry.json`
+  (registry now lists 7 profiles), plus a `sample-dev-execution` brief.
+- Execution briefs accept `## Feature / Change` (dev-execution) as an alias of
+  `## Feature / Vision`, so a correct dev-execution brief lints clean.
+
+### Changed
+
+- `architecture-review` orchestrator timeout raised 120 → 600s; the Arbiter's
+  final synthesis turn was exceeding the specialists' timeout and losing the
+  report.
+
 ## 0.10.0 — First public release (2026-06-30)
 
 The inaugural public release of **AOS Harness** — an agentic orchestration system

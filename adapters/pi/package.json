@@ -1,6 +1,6 @@
 {
   "name": "@aos-harness/pi-adapter",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "AOS Harness adapter for the Pi coding agent runtime.",
   "license": "MIT",
   "repository": {
