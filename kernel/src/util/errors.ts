@@ -1,13 +1,6 @@
 // Typed errors let hooks, MCP tools, and the CLI react to a failure class without parsing messages.
 // Every constructor accepts ErrorOptions so a wrapped git, fs, or JSON failure keeps its cause.
 
-export class NotImplementedError extends Error {
-  constructor(owner: string) {
-    super(`not implemented yet (${owner})`);
-    this.name = "NotImplementedError";
-  }
-}
-
 export class RunNotFoundError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -61,9 +54,4 @@ export class ChainError extends Error {
     this.name = "ChainError";
     this.badSeq = badSeq;
   }
-}
-
-/** Placeholder body for a module whose implementation has not landed yet. */
-export function notImplemented(owner: string): never {
-  throw new NotImplementedError(owner);
 }

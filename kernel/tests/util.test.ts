@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ulid } from "../src/util/ulid.ts";
 import { sha256Hex, sha256Tag } from "../src/util/hash.ts";
-import { ChainError, notImplemented, NotImplementedError, OpError, PackError, TreeError } from "../src/util/errors.ts";
+import { ChainError, OpError, PackError, TreeError } from "../src/util/errors.ts";
 
 test("ulid is 26 Crockford chars and sorts by time", () => {
   const a = ulid(1_000), b = ulid(2_000);
@@ -23,7 +23,6 @@ test("error classes carry their name and extra fields", () => {
   expect(new OpError("refused", "no").code).toBe("refused");
   expect(new ChainError("broken", 3).badSeq).toBe(3);
   expect(new OpError("invalid", "x").name).toBe("OpError");
-  expect(() => notImplemented("X")).toThrow(NotImplementedError);
 });
 
 test("errors keep the underlying cause", () => {
