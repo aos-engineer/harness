@@ -6,7 +6,8 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { join } from "node:path";
 import { projector } from "../../src/projection.ts";
 import { loadState } from "../../src/store/store.ts";
-import { tmpGitRepo } from "../helpers.ts";
+import { existsSync } from "node:fs";
+import { tmpDir, tmpGitRepo } from "../helpers.ts";
 import { PACK } from "../ops-agent/fixtures.ts";
 
 const REPO_ROOT = join(import.meta.dirname, "../../..");
@@ -16,10 +17,13 @@ const TIMEOUT = 20_000;
 
 interface Message { id?: number; result?: Record<string, unknown>; error?: unknown }
 
-// Git settings from the developer's shell must not reach the server's git calls.
+// Git settings from the developer's shell must not reach the server's git calls, and neither may a project
+// directory a hook shell exports, or runs would land in that project.
 function childEnv(extra: Record<string, string>): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !k.startsWith("GIT_") && !k.startsWith("AOS_")) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v !== undefined && !k.startsWith("GIT_") && !k.startsWith("AOS_") && k !== "CLAUDE_PROJECT_DIR") env[k] = v;
+  }
   return { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", ...extra };
 }
 
@@ -130,5 +134,31 @@ describe("plugin MCP entry point", () => {
     expect(loadState({ root: repo, run: runId }, projector).state).toMatchObject({ host: "claude-code", tier: "bounded" });
     peer.child.stdin.end();
     expect(await peer.exited).toBe(0);
+  }, TIMEOUT);
+});
+
+describe("plugin MCP entry point and the project directory", () => {
+  test("puts runs under CLAUDE_PROJECT_DIR, wherever it was started", async () => {
+    const project = tmpGitRepo();
+    const elsewhere = tmpDir();
+    const peer = launch([BIN], elsewhere, { CLAUDE_PROJECT_DIR: project });
+    await peer.initialize();
+    const runId = await startRun(peer);
+    expect(loadState({ root: project, run: runId }, projector).state).toMatchObject({ root: project, git: true });
+    expect(existsSync(join(elsewhere, ".aos"))).toBe(false);
+    peer.child.stdin.end();
+    expect(await peer.exited).toBe(0);
+  }, TIMEOUT);
+
+  test("falls back to the working directory when CLAUDE_PROJECT_DIR is empty or unexpanded", async () => {
+    for (const value of ["", "${CLAUDE_PROJECT_DIR}"]) {
+      const repo = tmpGitRepo();
+      const peer = launch([BIN], repo, { CLAUDE_PROJECT_DIR: value });
+      await peer.initialize();
+      const runId = await startRun(peer);
+      expect(loadState({ root: repo, run: runId }, projector).state.root).toBe(repo);
+      peer.child.stdin.end();
+      expect(await peer.exited).toBe(0);
+    }
   }, TIMEOUT);
 });
