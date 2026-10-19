@@ -1,5 +1,7 @@
 # feature-delivery reference pack. Data only: packs never run code. Binds only public skills; personal bindings belong in overlays.
 # Starting values, to be tuned from dogfood logs: classify keywords, roles, deploy patterns, budget.
+# Classify rules favor strong signals. This pack defines no architectural tier, so a false architectural
+# match blocks a run from starting, while a miss still runs bounded: design approval, tests, and review.
 name: feature-delivery
 version: 1.0.0
 
@@ -9,7 +11,7 @@ roles:
 classify:
   rules:
     - tier: architectural
-      any: ['\bschema\b', '\bmigrations?\b', '\b(o?auth[nz]?|authentication|authorization)\b', '\bpublic api\b', '\bnew service\b']
+      any: ['\b(database|db|data)\s+schema\b', '\bschema\s+(change|migration)s?\b', '\bmigrations?\b', '\b(authentication|authorization|oauth2?|auth0|authn|authz|sso)\b', '\bpublic api\b', '\bnew service\b']
     - tier: spike
       any: ['\bspike\b', '\bfeasibility\b', '\bprototype\b', '\bthrowaway\b', '\bis it possible\b']
   default: bounded

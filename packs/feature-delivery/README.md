@@ -15,7 +15,7 @@ A run starts in a tier. The `classify` rules propose one from the brief, and a p
 | `spike` | frame, probe | The human approves the question and the probe before any file is written. Spike code can be committed, but never pushed or opened as a pull request. | 1 |
 | `bounded` | design, build, verify | The human approves a short design. Build passes on an observed test run at the current tree with every task done. Verify adds an approved code review recorded after the last edit. | 1 |
 
-Briefs that mention a schema, a migration, authentication, a public API, or a new service classify as `architectural`. This version of the pack defines no architectural tier, so a run cannot start under it. Briefs that match no rule are `bounded`.
+Briefs that mention a database schema or schema change, a migration, authentication or authorization (OAuth, Auth0, SSO), a public API, or a new service classify as `architectural`. This version of the pack defines no architectural tier, so a run cannot start under it. Briefs that match no rule are `bounded`. The rules favor strong signals ("schema docs" and "the auth helper" stay bounded): a false architectural match stops work that should run, while a miss still gets a design approval, tests, and a review.
 
 | Stage | Writes | Bound skills | Model hint |
 |---|---|---|---|

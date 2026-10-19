@@ -13,6 +13,16 @@ const briefs: [string, Tier][] = [
   ["Spike: try Bun's new SQLite driver", "spike"],
   ["Fix the typo in the README", "bounded"],
   ["Spike a new service for billing", "architectural"],     // architectural rule is listed first
+  ["Add OAuth2 login", "architectural"],
+  ["Add an auth0 integration", "architectural"],
+  ["Change the db schema for orders", "architectural"],
+  ["Add SSO for the admin console", "architectural"],
+  // A false architectural match stops a run that cannot start, while a miss still runs bounded with a
+  // design approval, tests, and review, so only strong signals count.
+  ["Fix a typo in the schema docs", "bounded"],
+  ["Add a test for the auth helper", "bounded"],
+  ["Update auth error message copy", "bounded"],
+  ["Update the author list", "bounded"],
 ];
 test.each(briefs)("%s -> %s", (brief, tier) => expect(classifyTier(pack, brief).tier).toBe(tier));
 
