@@ -74,7 +74,7 @@ The [feature-delivery pack README](../../packs/feature-delivery/README.md) has t
 
 An allowed tool call prints nothing, so your own permission prompts still apply: AOS never approves a tool call on your behalf. Hook errors go to `.aos/hook-errors.log`, which `aos doctor` reports.
 
-Each hook is a new Bun process. On an M1 Pro laptop with Bun 1.4.0, the PreToolUse guards measure a p95 of 41 to 44 ms, of which about 35 ms is starting Bun and loading the hook's modules. The target is a p95 under 100 ms per hook. Measure your own machine with `bun run scripts/bench-hook.ts`.
+Each hook is a new Bun process. On an M1 Pro laptop with Bun 1.4.0, the PreToolUse guards measure a p95 of 43 to 44 ms, of which about 38 ms is starting Bun and loading the hook's modules. A PostToolUse that records a test run also fingerprints the working tree, and measured a p95 of about 95 ms on a clone of this repository (439 files) while parallel work loaded the machine; that cost grows with the size of the working tree. The target is a p95 under 100 ms per hook. Measure your own machine and repository with `bun run scripts/bench-hook.ts`.
 
 ## What AOS does not defend
 
@@ -90,7 +90,7 @@ AOS stops lazy or accidental bypass by an agent that is trying to follow the pro
 
 - **Payload shapes are partly docs-derived.** The plugin's hook fixtures were shaped from the Claude Code docs, and a capture session has not yet confirmed all of them, notably the response Claude Code passes to PostToolUse for an MCP tool (which session binding reads) and the Bash success shape. The plugin rejects a payload it cannot read rather than guessing, so a changed shape fails safe, but it can stop binding or observing. `tools/README.md` describes how to capture and check real payloads.
 - **Subagents may not be gated.** Whether a subagent's tool calls carry the parent session id is unconfirmed. If they do not, a subagent's tool calls are not gated.
-- **A new session cannot rejoin a run.** `/clear` or a fork starts a session with a new id, which the run's binding does not cover, and only `aos_run_start` binds a session. SessionStart says so, and gates do not apply to that session. Finish the run in the session that started it, or cancel it with `aos run cancel` and start a new one.
+- **A new session cannot rejoin a run.** `/clear` or a fork starts a session with a new id, which the run's binding does not cover, and only `aos_run_start` binds a session. SessionStart says so, gates do not apply to that session, and Claude is told not to continue the old run there. Finish the run in the session that started it, or cancel it with `aos run cancel` and start a new one.
 - **The pack loads from the checkout** until a later release bundles it.
 - **The iteration budget lets Claude stop when it runs out;** it does not block further tool calls.
 - **Not in this release:** context packets for subagents, a structured decision tool, waivers, `aos run pause`, budgets beyond iterations (wall time, tool calls, cost), raising the tier mid-run, the architectural tier (a brief that classifies as architectural is refused, with the reason), resuming a run, a status line, an agent reviewer, a `pre-push` git hook backstop, `aos pack add` and a pack lockfile, pack overlays, Codex and Pi hosts, headless runs, and an `aos hook` CLI command.
