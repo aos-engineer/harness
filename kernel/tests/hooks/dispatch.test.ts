@@ -89,6 +89,15 @@ describe("binding on aos_run_start", () => {
     expect(existsSync(join(aosDir(repo), "sessions"))).toBe(false);
   });
 
+  test("a run that is no longer active does not take over the session", () => {
+    const active = startRun(repo, "bounded");
+    bound(repo, active);
+    append(loc, { type: "run.cancelled", actor: { kind: "human", id: "owner", agent: null }, data: { reason: "stuck" } });
+    // Rebinding to the cancelled run would switch enforcement off for the session.
+    expect(handleHook(runStartPost(shapes["a content array"]!(run)))).toEqual(ALLOW);
+    expect(findBinding(repo, HOST, SESSION)?.run).toBe(active);
+  });
+
   test("a response with no run id binds nothing", () => {
     expect(handleHook(runStartPost([{ type: "text", text: "Error: a run is already active" }]))).toEqual(ALLOW);
     expect(findBinding(repo, HOST, SESSION)).toBeNull();

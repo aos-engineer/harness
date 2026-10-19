@@ -24,6 +24,9 @@ export function bindOnRunStart(input: HookInput): HookDecision | null {
   const loc = { root, run };
   if (!existsSync(runPaths(loc).log)) return null;
   const { state } = loadState(loc, projector);
+  // A new run is always active. Rebinding to a cancelled or completed one would switch enforcement off
+  // (or loosen it) for the session, so any other id in the response is ignored.
+  if (state.status !== "active") return null;
   bindSession(root, input.host, input.session, run);
   appendEvents(loc, [{ type: "session.bound", actor: hookActor(input), data: { host: input.host, session: input.session } }], projector);
   return allow(`AOS: this session is bound to run ${run} (${state.tier}). Gates apply from now on.`);
