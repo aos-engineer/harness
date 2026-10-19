@@ -11,13 +11,15 @@ function out(body: unknown): Rendered {
 
 function notice(event: ClaudeEventName, text: string): Rendered {
   switch (event) {
+    // These reach the model. A failure notice has to as well: a masked test run can still fail, and
+    // the agent must hear that its result was not recorded.
     case "PostToolUse":
+    case "PostToolUseFailure":
     case "SessionStart":
       return out({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
     // A Stop notice is for the user. On PreToolUse, a systemMessage cannot touch the permission
     // flow, which a hookSpecificOutput block might.
     case "Stop":
-    case "PostToolUseFailure":
     case "PreToolUse":
       return out({ systemMessage: text });
     default:

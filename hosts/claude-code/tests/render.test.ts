@@ -28,9 +28,14 @@ describe("render: allow", () => {
     expect(json("SessionStart", { kind: "allow", notice: "n" })).toEqual({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: "n" } });
   });
 
-  test("Stop and PostToolUseFailure notices go to the user as systemMessage", () => {
+  test("a PostToolUseFailure notice goes to the model as additionalContext, so it is heard even when the command failed", () => {
+    expect(json("PostToolUseFailure", { kind: "allow", notice: "n" })).toEqual({
+      hookSpecificOutput: { hookEventName: "PostToolUseFailure", additionalContext: "n" },
+    });
+  });
+
+  test("a Stop notice goes to the user as systemMessage", () => {
     expect(json("Stop", { kind: "allow", notice: "n" })).toEqual({ systemMessage: "n" });
-    expect(json("PostToolUseFailure", { kind: "allow", notice: "n" })).toEqual({ systemMessage: "n" });
   });
 
   test("a PreToolUse notice is a systemMessage and carries no permission decision", () => {
