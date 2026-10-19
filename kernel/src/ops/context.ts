@@ -4,7 +4,14 @@ import { resolve } from "node:path";
 import { gitRoot, treeFingerprint } from "../tree/fingerprint.ts";
 import type { Actor, TreeState } from "../types.ts";
 
-export interface OpContext { root: string; git: boolean; packDir: string; host: string; tree: (root: string, o: { git: boolean; changes: number }) => TreeState }
+export interface OpContext {
+  root: string; git: boolean; packDir: string; host: string; tree: (root: string, o: { git: boolean; changes: number }) => TreeState;
+  /**
+   * Called after an operation has read and planned against the run, just before it appends. Other writers
+   * can land in that window; tests use this to put one there. Production contexts leave it unset.
+   */
+  afterRead?: (run: string) => void;
+}
 
 /**
  * Runs live at the repository top level, so a server started in a subdirectory still finds the runs a hook

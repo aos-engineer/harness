@@ -11,7 +11,7 @@ import { loadPack } from "../pack/load.ts";
 import { projector, stageDef } from "../projection.ts";
 import { writeArtifact } from "../store/artifacts.ts";
 import { appendEvents, createRun, loadState } from "../store/store.ts";
-import type { EventDraft, Evidence, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier } from "../types.ts";
+import type { EventDraft, Evidence, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier, TreeState } from "../types.ts";
 import { TIER_RANK } from "../types.ts";
 import { OpError, RunNotFoundError } from "../util/errors.ts";
 import { sha256Tag } from "../util/hash.ts";
@@ -69,7 +69,9 @@ export function runStart(ctx: OpContext, p: { brief: string; tier?: Tier }): Run
   const loc: RunLocation = { root: ctx.root, run: runId };
   const actor = agentActor("aos_run_start");
   createRun(loc, { type: "run.started", actor, data: { brief, tier, tierReason, root: ctx.root, git: ctx.git, host: ctx.host, pack } }, projector);
-  append(loc, [{ type: "stage.entered", actor, data: { stage: first, index: 0 } }]);
+  append(loc, [{ type: "stage.entered", actor, data: { stage: first, index: 0 } }], (locked) => {
+    if (locked.status !== "active") throw inactive(locked);
+  });
   return {
     runId, tier, tierReason, stages, stage: first,
     instructions: instructionsFor(pack, tier, first),
@@ -79,7 +81,7 @@ export function runStart(ctx: OpContext, p: { brief: string; tier?: Tier }): Run
 
 export function runStatus(ctx: OpContext, p: { runId: string }): StatusResult {
   const { state } = read(ctx, p.runId);
-  const gate = evaluate(ctx, state);
+  const { gate } = evaluate(ctx, state);
   const { used, limit } = state.budget.iterations;
   return {
     runId: state.run, status: state.status, tier: state.tier, stage: state.current.stage, stages: [...state.stages],
@@ -88,33 +90,48 @@ export function runStatus(ctx: OpContext, p: { runId: string }): StatusResult {
 }
 
 export function gateCheck(ctx: OpContext, p: { runId: string }): GateCheckResult {
-  const { loc, state } = readActive(ctx, p.runId);
-  const gate = evaluate(ctx, state);
-  append(loc, [{ type: "gate.evaluated", actor: agentActor("aos_gate_check"), data: gate }]);
-  return { gate, message: gate.verdict === "pass" ? null : formatGate(gate, state, "advance") };
+  return change(ctx, p.runId, (state) => {
+    const { gate } = evaluate(ctx, state);
+    return {
+      drafts: [{ type: "gate.evaluated", actor: agentActor("aos_gate_check"), data: gate }],
+      still: (locked) => sameStage(locked, state) && locked.changes === state.changes,
+      result: { gate, message: gate.verdict === "pass" ? null : formatGate(gate, state, "advance") },
+    };
+  });
 }
 
 export function stageAdvance(ctx: OpContext, p: { runId: string }): StageAdvanceResult {
-  const { loc, state } = readActive(ctx, p.runId);
-  const actor = agentActor("aos_stage_advance");
-  const gate = evaluate(ctx, state);
-  const evaluated: EventDraft = { type: "gate.evaluated", actor, data: gate };
-  const stage = state.current.stage;
-  if (gate.verdict !== "pass") {
-    append(loc, [evaluated]);
-    return { advanced: false, completed: false, gate, stage, instructions: null, message: formatGate(gate, state, "advance") };
-  }
+  return change(ctx, p.runId, (state): Change<StageAdvanceResult> => {
+    const actor = agentActor("aos_stage_advance");
+    const { gate, tree } = evaluate(ctx, state);
+    const evaluated: EventDraft = { type: "gate.evaluated", actor, data: gate };
+    const stage = state.current.stage;
+    // An edit observed since the read makes the evaluation stale; evidence landing meanwhile does not.
+    const unmoved = (locked: RunState) => sameStage(locked, state) && locked.changes === state.changes;
+    if (gate.verdict !== "pass") {
+      return {
+        drafts: [evaluated], still: unmoved,
+        result: { advanced: false, completed: false, gate, stage, instructions: null, message: formatGate(gate, state, "advance") },
+      };
+    }
 
-  // The evaluation and the move land in one append, so the log never shows a stage entered without
-  // the passing gate that allowed it.
-  const index = state.current.index + 1;
-  const next = state.stages[index];
-  if (next === undefined) {
-    append(loc, [evaluated, { type: "run.completed", actor, data: { stage } }]);
-    return { advanced: true, completed: true, gate, stage, instructions: null, message: null };
-  }
-  append(loc, [evaluated, { type: "stage.entered", actor, data: { stage: next, index } }]);
-  return { advanced: true, completed: false, gate, stage: next, instructions: instructionsFor(state.pack, state.tier, next), message: null };
+    // The evaluation and the move land in one append, so the log never shows a stage entered without the
+    // passing gate that allowed it. The gate is re-checked against the locked state at the same tree, so a
+    // task or approval request added in the meantime cannot be skipped.
+    const still = (locked: RunState) => unmoved(locked) && evaluateGate(locked, stage, tree).verdict === "pass";
+    const index = state.current.index + 1;
+    const next = state.stages[index];
+    if (next === undefined) {
+      return {
+        drafts: [evaluated, { type: "run.completed", actor, data: { stage } }], still,
+        result: { advanced: true, completed: true, gate, stage, instructions: null, message: null },
+      };
+    }
+    return {
+      drafts: [evaluated, { type: "stage.entered", actor, data: { stage: next, index } }], still,
+      result: { advanced: true, completed: false, gate, stage: next, instructions: instructionsFor(state.pack, state.tier, next), message: null },
+    };
+  });
 }
 
 const MAX_TITLE_CHARS = 500;
@@ -128,17 +145,24 @@ const COPY_LIMIT_BYTES = 1024 * 1024;
 const REVIEW_STATUSES: readonly string[] = ["approved", "rejected", "needs-revision"];
 
 export function taskAdd(ctx: OpContext, p: { runId: string; title: string }): { task: string; stage: string } {
-  const { loc, state } = readActive(ctx, p.runId);
   const title = text(p.title, "title", MAX_TITLE_CHARS);
-  // Ids count across the whole run, so a task id never means two different tasks.
-  const task = `t${state.tasks.length + 1}`;
-  const stage = state.current.stage;
-  append(loc, [{ type: "task.added", actor: agentActor("aos_task_add"), data: { task, stage, title } }]);
-  return { task, stage };
+  return change(ctx, p.runId, (state) => {
+    // Ids count across the whole run, so a task id never means two different tasks.
+    const task = `t${state.tasks.length + 1}`;
+    const stage = state.current.stage;
+    return {
+      drafts: [{ type: "task.added", actor: agentActor("aos_task_add"), data: { task, stage, title } }],
+      still: (locked) => sameStage(locked, state) && !locked.tasks.some((t) => t.id === task),
+      result: { task, stage },
+    };
+  });
 }
 
 export function taskComplete(ctx: OpContext, p: { runId: string; task: string; evidence?: string[] }): { task: string; open: number } {
-  const { loc, state } = readActive(ctx, p.runId);
+  return change(ctx, p.runId, (state) => planTaskComplete(state, p));
+}
+
+function planTaskComplete(state: RunState, p: { task: string; evidence?: string[] }): Change<{ task: string; open: number }> {
   const stage = state.current.stage;
   const task = state.tasks.find((t) => t.id === p.task);
   if (task === undefined) throw new OpError("invalid", `No task ${JSON.stringify(p.task)} in run ${state.run}. Add it with aos_task_add first.`);
@@ -153,14 +177,21 @@ export function taskComplete(ctx: OpContext, p: { runId: string; task: string; e
   const unknown = evidence.filter((id) => typeof id !== "string" || !known.has(id));
   if (unknown.length > 0) throw new OpError("invalid", `Unknown evidence ids: ${unknown.map((id) => JSON.stringify(id)).join(", ")}. Use ids returned by aos_evidence_record.`);
 
-  append(loc, [{ type: "task.completed", actor: agentActor("aos_task_complete"), data: { task: task.id, evidence: [...evidence] } }]);
   const open = state.tasks.filter((t) => t.stage === stage && !t.done && t.id !== task.id).length;
-  return { task: task.id, open };
+  return {
+    drafts: [{ type: "task.completed", actor: agentActor("aos_task_complete"), data: { task: task.id, evidence: [...evidence] } }],
+    still: (locked) => sameStage(locked, state) && locked.tasks.some((t) => t.id === task.id && !t.done),
+    result: { task: task.id, open },
+  };
 }
 
 export function evidenceRecord(ctx: OpContext, p: EvidenceInput & { runId: string }): { evidenceId: string; fingerprint: string } {
-  const { loc, state } = readActive(ctx, p.runId);
-  const { fingerprint } = ctx.tree(state.root, { git: state.git, changes: state.changes });
+  return change(ctx, p.runId, (state, loc) => planEvidence(ctx, state, loc, p));
+}
+
+// Evidence needs only an active run: it carries the tree it was taken at, so later events cannot make it wrong.
+function planEvidence(ctx: OpContext, state: RunState, loc: RunLocation, p: EvidenceInput): Change<{ evidenceId: string; fingerprint: string }> {
+  const { fingerprint } = treeOf(ctx, state);
   // Provenance is fixed here, not taken from input: only hooks observe, and agents can only claim.
   const base = { id: ulid(), provenance: "claimed" as const, fingerprint, changes: state.changes, stage: state.current.stage, agent: null };
   let data: Evidence;
@@ -192,23 +223,27 @@ export function evidenceRecord(ctx: OpContext, p: EvidenceInput & { runId: strin
     default:
       throw new OpError("invalid", `kind must be artifact, citation, review, or skill (got ${JSON.stringify((p as { kind: unknown }).kind)}). Test runs are observed by AOS automatically.`);
   }
-  append(loc, [{ type: "evidence.recorded", actor: agentActor("aos_evidence_record"), data }]);
-  return { evidenceId: data.id, fingerprint };
+  return { drafts: [{ type: "evidence.recorded", actor: agentActor("aos_evidence_record"), data }], result: { evidenceId: data.id, fingerprint } };
 }
 
 export function requestApproval(ctx: OpContext, p: { runId: string; summary: string }): { request: string; stage: string; instructions: string } {
-  const { loc, state } = readActive(ctx, p.runId);
-  const stage = state.current.stage;
-  if (stageDef(state, stage).gate.decider !== "human") {
-    throw new OpError("invalid", `The ${stage} gate is decided by rules, not by a human. Call aos_gate_check to see what it needs.`);
-  }
-  const summary = text(p.summary, "summary", MAX_SUMMARY_CHARS);
-  const request = ulid();
-  append(loc, [{ type: "approval.requested", actor: agentActor("aos_request_approval"), data: { request, stage, summary } }]);
-  return {
-    request, stage,
-    instructions: `Ask the human to run, in their own terminal: aos approve ${state.run} ${stage} --root ${shellQuote(state.root)}. Then stop and wait; do not run it yourself.`,
-  };
+  return change(ctx, p.runId, (state) => {
+    const stage = state.current.stage;
+    if (stageDef(state, stage).gate.decider !== "human") {
+      throw new OpError("invalid", `The ${stage} gate is decided by rules, not by a human. Call aos_gate_check to see what it needs.`);
+    }
+    const summary = text(p.summary, "summary", MAX_SUMMARY_CHARS);
+    const request = ulid();
+    return {
+      drafts: [{ type: "approval.requested", actor: agentActor("aos_request_approval"), data: { request, stage, summary } }],
+      // A request for a stage the run has already left would wait on an approval nothing can use.
+      still: (locked) => sameStage(locked, state),
+      result: {
+        request, stage,
+        instructions: `Ask the human to run, in their own terminal: aos approve ${state.run} ${stage} --root ${shellQuote(state.root)}. Then stop and wait; do not run it yourself.`,
+      },
+    };
+  });
 }
 
 // ---- helpers ----
@@ -222,15 +257,51 @@ function read(ctx: OpContext, runId: string): { loc: RunLocation; state: RunStat
 // Status stays readable after a run ends; everything else would append to a finished log.
 function readActive(ctx: OpContext, runId: string): { loc: RunLocation; state: RunState } {
   const r = read(ctx, runId);
-  if (r.state.status !== "active") {
-    throw new OpError("refused", `Run ${runId} is ${r.state.status}; only aos_status works on it. Start a new run with aos_run_start for further work.`);
-  }
+  if (r.state.status !== "active") throw inactive(r.state);
   return r;
 }
 
-function append(loc: RunLocation, drafts: EventDraft[]): void {
-  notFound(() => appendEvents(loc, drafts, projector));
+const inactive = (state: RunState) =>
+  new OpError("refused", `Run ${state.run} is ${state.status}; only aos_status works on it. Start a new run with aos_run_start for further work.`);
+
+function append(loc: RunLocation, drafts: EventDraft[], precondition: (locked: RunState) => void): void {
+  notFound(() => appendEvents(loc, drafts, projector, { precondition }));
 }
+
+// A few retries absorb ordinary overlap (a hook observing an edit mid-call); a run that keeps moving is
+// left for the agent to re-read rather than chased forever.
+const MAX_ATTEMPTS = 3;
+
+/** Raised inside a precondition when another writer changed what the operation planned against. */
+class RunChanged extends Error {}
+
+interface Change<T> { drafts: EventDraft[]; result: T; still?: (locked: RunState) => boolean }
+
+/**
+ * Reads the active run, plans the events, and appends them only if, under the run's lock, the run is still
+ * active and `still` holds. Another writer can append between the read and the append (a hook, the
+ * human's CLI, a second tool call), so a plan that went stale is re-planned from a fresh read. A run that is
+ * no longer active is final: the human ended it, and no retry may override that.
+ */
+function change<T>(ctx: OpContext, runId: string, plan: (state: RunState, loc: RunLocation) => Change<T>): T {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { loc, state } = readActive(ctx, runId);
+    const c = plan(state, loc);
+    ctx.afterRead?.(runId);
+    try {
+      append(loc, c.drafts, (locked) => {
+        if (locked.status !== "active") throw inactive(locked);
+        if (c.still !== undefined && !c.still(locked)) throw new RunChanged();
+      });
+      return c.result;
+    } catch (e) {
+      if (!(e instanceof RunChanged)) throw e;
+    }
+  }
+  throw new OpError("refused", "The run changed while this call ran; call aos_status and try again.");
+}
+
+const sameStage = (locked: RunState, read: RunState) => locked.current.index === read.current.index;
 
 // The store reports unknown and malformed run ids alike, since both come from agent input.
 function notFound<T>(fn: () => T): T {
@@ -243,8 +314,13 @@ function notFound<T>(fn: () => T): T {
 }
 
 // The run's own git setting decides freshness, so a context opened differently cannot change what counts.
-function evaluate(ctx: OpContext, state: RunState): GateResult {
-  return evaluateGate(state, state.current.stage, ctx.tree(state.root, { git: state.git, changes: state.changes }));
+function treeOf(ctx: OpContext, state: RunState): TreeState {
+  return ctx.tree(state.root, { git: state.git, changes: state.changes });
+}
+
+function evaluate(ctx: OpContext, state: RunState): { gate: GateResult; tree: TreeState } {
+  const tree = treeOf(ctx, state);
+  return { gate: evaluateGate(state, state.current.stage, tree), tree };
 }
 
 // The pack loader requires an instruction file for every stage, so the fallback never shows in practice.
