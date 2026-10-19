@@ -45,7 +45,7 @@ interface Span {
 const BLANK = new Set([" ", "\t"]);
 const DELIM_STOP = new Set([" ", "\t", "\n", ";", "&", "|", "<", ">", "(", ")"]);
 // Nesting past this depth is read as literal text. Honest commands nest a few levels; the cap keeps a
-// deliberately deep or unclosed input from overflowing the stack, which is smaller under Node than Bun.
+// deliberately deep or unclosed input from overflowing the stack, which Node keeps smaller than Bun does.
 const MAX_NESTING = 64;
 
 export function lex(input: string): Lexed {
