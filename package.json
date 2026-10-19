@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "test": "bun test ./kernel ./hosts ./cli ./tests",
-    "typecheck": "bun x tsc --noEmit -p tsconfig.json",
+    "typecheck": "bun x tsc --noEmit -p tsconfig.json && bun x tsc --noEmit -p kernel/tsconfig.src.json",
     "lint:yaml-safety": "bun run scripts/check-yaml-safety.ts",
     "lint": "bun run lint:yaml-safety && bun run typecheck"
   },
