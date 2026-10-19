@@ -12,7 +12,7 @@ const WRITE_TOOLS: ReadonlySet<string> = new Set(["Write", "Edit", "MultiEdit", 
 
 // Matched by suffix so the tools are recognized whether the server is registered by this plugin
 // (mcp__plugin_aos_aos__aos_status) or directly in a project's MCP config (mcp__aos__aos_status).
-const AOS_MCP_TOOL = /^mcp__.+__(aos_[a-z_]+)$/;
+const AOS_MCP_TOOL = /^mcp__.+__(aos_[a-z0-9_]+)$/;
 
 // Claude Code starts a failed Bash call's error with "Exit code N", then the output. Only the start
 // counts: a later line reading "Exit code 0" is program output, and trusting it would turn a

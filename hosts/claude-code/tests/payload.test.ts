@@ -183,6 +183,10 @@ describe("normalize: tools", () => {
     expect(normalize("PostToolUse", withTool("mcp__aos__aos_status")).tool).toMatchObject({ kind: "aos-mcp", aosTool: "aos_status" });
   });
 
+  test("aos MCP tool names may contain digits", () => {
+    expect(normalize("PostToolUse", withTool("mcp__plugin_aos_aos__aos_v2_status")).tool).toMatchObject({ kind: "aos-mcp", aosTool: "aos_v2_status" });
+  });
+
   test("other MCP tools and unknown tools are other", () => {
     expect(normalize("PostToolUse", withTool("mcp__github__create_pr")).tool).toMatchObject({ kind: "other", aosTool: null });
     expect(normalize("PostToolUse", withTool("aos_run_start")).tool).toMatchObject({ kind: "other", aosTool: null });
