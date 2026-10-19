@@ -129,6 +129,15 @@ describe("tool calls", () => {
     expect(evidenceCount(runId)).toBe(0);
   });
 
+  test("a citation's note is optional", async () => {
+    const runId = await startRun();
+    writeFile(repo, "src/a.ts", "one\n");
+    const r = await call("aos_evidence_record", { runId, kind: "citation", path: "src/a.ts", line: 1 });
+    expect(r.isError).toBeFalsy();
+    const { evidence } = loadState({ root: repo, run: runId }, projector).state;
+    expect(evidence[0]).toMatchObject({ kind: "citation", path: "src/a.ts", line: 1, note: "" });
+  });
+
   test("bad arguments are rejected before any operation runs", async () => {
     const missing = await call("aos_run_start", {});
     expect(missing.isError).toBe(true);

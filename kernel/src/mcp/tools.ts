@@ -26,7 +26,7 @@ const EVIDENCE_KINDS = ["artifact", "citation", "review", "skill"];
 const evidenceFields = {
   path: str("artifact and citation: a file path inside the repository, outside .aos/."),
   line: { type: "integer", minimum: 1, description: "citation: the 1-based line number." },
-  note: str("citation: what the cited line shows."),
+  note: str("citation: optional. What the cited line shows."),
   status: { type: "string", enum: ["approved", "rejected", "needs-revision"], description: "review: the reviewer's verdict, reported honestly." },
   feedback: str("review: the reviewer's feedback, verbatim or faithfully summarized. Required, even for an approval."),
   reviewer: str("review: who reviewed the change, such as the reviewing subagent's name."),
@@ -94,8 +94,12 @@ export const TOOLS: ReadonlyArray<{ name: string; description: string; inputSche
 
 // Each evidence kind admits exactly its own fields. The discriminator makes the validator report errors
 // for the kind the caller chose, instead of one list per kind.
-const kindOf = (kind: string, fields: Array<keyof typeof evidenceFields>): Schema =>
-  closed({ runId, kind: { const: kind }, ...Object.fromEntries(fields.map((f) => [f, evidenceFields[f]])) }, ["runId", "kind", ...fields]);
+type Field = keyof typeof evidenceFields;
+const kindOf = (kind: string, fields: Field[], optional: Field[] = []): Schema =>
+  closed(
+    { runId, kind: { const: kind }, ...Object.fromEntries([...fields, ...optional].map((f) => [f, evidenceFields[f]])) },
+    ["runId", "kind", ...fields],
+  );
 
 const EVIDENCE_ARGUMENTS: Schema = {
   type: "object",
@@ -103,7 +107,7 @@ const EVIDENCE_ARGUMENTS: Schema = {
   discriminator: { propertyName: "kind" },
   oneOf: [
     kindOf("artifact", ["path"]),
-    kindOf("citation", ["path", "line", "note"]),
+    kindOf("citation", ["path", "line"], ["note"]),
     kindOf("review", ["status", "feedback", "reviewer"]),
     kindOf("skill", ["skill"]),
   ],
