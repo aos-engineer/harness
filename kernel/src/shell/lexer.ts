@@ -34,15 +34,18 @@ interface ScanResult extends Lexed {
 
 const BLANK = new Set([" ", "\t"]);
 const DELIM_STOP = new Set([" ", "\t", "\n", ";", "&", "|", "<", ">", "(", ")"]);
+// Nesting past this depth is read as literal text. Honest commands nest a few levels; the cap keeps a
+// deliberately deep or unclosed input from overflowing the stack, which is smaller under Node than Bun.
+const MAX_NESTING = 64;
 
 export function lex(input: string): Lexed {
   // Surrounding whitespace is not a separator: a command typed with a trailing newline is still one command.
-  const { segments, operators } = scan(input.trim(), 0, null);
+  const { segments, operators } = scan(input.trim(), 0, null, 0);
   return { segments, operators };
 }
 
 /** Scan from `start` until `close` (unquoted, at depth zero) or the end of input. */
-function scan(src: string, start: number, close: Close): ScanResult {
+function scan(src: string, start: number, close: Close, level: number): ScanResult {
   const segments: Segment[] = [];
   const operators: string[] = [];
   // Inside ${...} the text is parameter-expansion syntax, not shell grammar: `#` there is not a comment.
@@ -112,12 +115,12 @@ function scan(src: string, start: number, close: Close): ScanResult {
     }
     if (c === '"') {
       const w = begin(i);
-      const r = readDouble(src, i + 1);
+      const r = readDouble(src, i + 1, level);
       w.value += r.value;
       i = r.end;
       continue;
     }
-    const span = spanAt(src, i);
+    const span = spanAt(src, i, level);
     if (span !== null) {
       begin(i).value += src.slice(i, span);
       i = span;
@@ -208,18 +211,19 @@ function scan(src: string, start: number, close: Close): ScanResult {
 }
 
 /** If an opaque span opens at `i`, return the index just past its closer. */
-function spanAt(src: string, i: number): number | null {
+function spanAt(src: string, i: number, level: number): number | null {
+  if (level >= MAX_NESTING) return null;
   const c = src[i];
   const next = src[i + 1];
-  if (c === "$" && next === "(") return scan(src, i + 2, ")").end;
-  if (c === "$" && next === "{") return scan(src, i + 2, "}").end;
-  if ((c === "<" || c === ">") && next === "(") return scan(src, i + 2, ")").end;
-  if (c === "`") return scan(src, i + 1, "`").end;
+  if (c === "$" && next === "(") return scan(src, i + 2, ")", level + 1).end;
+  if (c === "$" && next === "{") return scan(src, i + 2, "}", level + 1).end;
+  if ((c === "<" || c === ">") && next === "(") return scan(src, i + 2, ")", level + 1).end;
+  if (c === "`") return scan(src, i + 1, "`", level + 1).end;
   return null;
 }
 
 /** Read a double-quoted string starting after its opening quote. */
-function readDouble(src: string, start: number): { value: string; end: number } {
+function readDouble(src: string, start: number, level: number): { value: string; end: number } {
   let value = "";
   let i = start;
   while (i < src.length) {
@@ -239,7 +243,7 @@ function readDouble(src: string, start: number): { value: string; end: number } 
       }
       continue;
     }
-    const span = spanAt(src, i);
+    const span = spanAt(src, i, level);
     if (span !== null) {
       value += src.slice(i, span);
       i = span;

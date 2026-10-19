@@ -49,7 +49,18 @@ test.each([
   ["a b # c d", ["a", "b"]],
 ])("shellWords(%j)", (segment, want) => expect(shellWords(segment)).toEqual(want));
 
-test("leafSegments strips env and cd and unwraps bash -c", () => expect(leafSegments(`cd a && FOO=1 bash -c "git push origin && echo ok"`)).toEqual(["git push origin", "echo ok"]));
+test("deeply nested or unclosed substitutions do not overflow the stack", () => {
+  expect(() => splitCommand("echo " + "$(a ".repeat(100_000))).not.toThrow();
+  expect(() => leafSegments('"$('.repeat(50_000) + "x")).not.toThrow();
+  expect(() => leafSegments("echo " + "`a $(b ".repeat(50_000))).not.toThrow();
+});
+
+test("nesting past the cap is literal text that still balances", () => {
+  const deep = "$(".repeat(100) + "x" + ")".repeat(100);
+  expect(splitCommand(`echo ${deep} && git push`)).toEqual({ segments: [`echo ${deep}`, "git push"], operators: ["&&"] });
+});
+
+test("leafSegments strips env and cd and unwraps bash -c",() => expect(leafSegments(`cd a && FOO=1 bash -c "git push origin && echo ok"`)).toEqual(["git push origin", "echo ok"]));
 
 test.each([
   [`FOO="a b" bun test`, ["bun test"]],
