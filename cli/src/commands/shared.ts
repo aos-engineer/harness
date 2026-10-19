@@ -1,6 +1,8 @@
 // Flag parsing, root resolution, and output helpers shared by the human-facing commands.
-import { resolve } from "node:path";
-import { gitRoot } from "@aos-harness/kernel";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { aosDir, gitRoot } from "@aos-harness/kernel";
+import type { Binding } from "@aos-harness/kernel";
 import type { CliIO } from "../io.ts";
 
 export type FlagName = "root" | "reason" | "deny" | "json" | "pack" | "help";
@@ -113,4 +115,36 @@ export function printable(s: string): string {
 export function clipText(s: string, max: number): string {
   if (s.length <= max) return s;
   return `${s.slice(0, max)}\n... (${s.length - max} more characters not shown)`;
+}
+
+export interface BindingFile { name: string; binding: Binding | null; problem: string | null }
+
+/**
+ * Every session binding file under <root>/.aos/sessions, parsed. A file that is not a binding comes back with
+ * `binding: null` and the problem. No sessions directory means no bindings; any other listing error throws.
+ */
+export function readBindings(root: string): BindingFile[] {
+  const dir = join(aosDir(root), "sessions");
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw e;
+  }
+  return names.map((name) => parseBindingFile(join(dir, name), name));
+}
+
+function parseBindingFile(path: string, name: string): BindingFile {
+  let raw: Record<string, unknown> | null;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown> | null;
+  } catch (e) {
+    return { name, binding: null, problem: e instanceof SyntaxError ? "not JSON" : e instanceof Error ? e.message : String(e) };
+  }
+  const fields = ["host", "session", "run", "root", "boundAt"] as const;
+  const missing = fields.filter((k) => typeof raw?.[k] !== "string");
+  if (missing.length > 0) return { name, binding: null, problem: `missing ${missing.join(", ")}` };
+  const b = raw as Record<(typeof fields)[number], string>;
+  return { name, binding: { host: b.host, session: b.session, run: b.run, root: b.root, boundAt: b.boundAt }, problem: null };
 }

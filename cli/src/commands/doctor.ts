@@ -6,10 +6,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { aosDir, gitRoot, listRuns, loadPack, PackError, runPaths, verifyChain } from "@aos-harness/kernel";
+import { aosDir, gitRoot, listRuns, loadPack, PackError, RunNotFoundError, runPaths, verifyChain } from "@aos-harness/kernel";
 import type { ResolvedPack } from "@aos-harness/kernel";
 import type { CliIO, CommandFn } from "../io.ts";
-import { parseFlags, printable, resolveRoot, UsageError } from "./shared.ts";
+import { parseFlags, printable, readBindings, resolveRoot, UsageError } from "./shared.ts";
+import type { BindingFile } from "./shared.ts";
 
 const MIN_BUN = "1.3.11";
 // The first Claude Code release with onFailure: "block", which lets a dead hook process fail closed.
@@ -216,35 +217,41 @@ function snapshotSeq(path: string): number | null {
   }
 }
 
-// Hooks look up bindings on every tool call and refuse to guess past an unreadable one.
+// Hooks look up the bound run on every tool call and fail closed when they cannot read it, so a binding to a
+// run that is gone or fails verification blocks pushes in that session until it is released.
 function checkBindings(root: string): Finding[] {
-  const dir = join(aosDir(root), "sessions");
-  let names: string[];
+  let files: BindingFile[];
   try {
-    names = readdirSync(dir).filter((n) => n.endsWith(".json"));
-  } catch {
-    return [];
+    files = readBindings(root);
+  } catch (e) {
+    return [{ level: "FAIL", text: `could not list .aos/sessions (${message(e)})`, fix: "check the permissions on .aos/sessions" }];
   }
   const found: Finding[] = [];
-  for (const name of names) {
-    const problem = bindingProblem(join(dir, name));
-    if (problem !== null) {
-      found.push({ level: "WARN", text: `session binding .aos/sessions/${name} is unreadable (${problem})`, fix: "delete it to unbind that session" });
+  for (const f of files) {
+    const where = `session binding .aos/sessions/${f.name}`;
+    if (f.binding === null) {
+      found.push({ level: "WARN", text: `${where} is unreadable (${f.problem ?? "unknown"})`, fix: "delete it to unbind that session" });
+      continue;
     }
+    const { run } = f.binding;
+    const problem = boundRunProblem(root, run);
+    if (problem !== null) found.push({ level: "FAIL", text: `${where} points at run ${run}, which ${problem}`, fix: `aos run cancel ${run} --reason "..."` });
   }
   return found;
 }
 
-function bindingProblem(path: string): string | null {
-  let b: Record<string, unknown> | null;
+function boundRunProblem(root: string, run: string): string | null {
   try {
-    b = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown> | null;
+    const chain = verifyChain({ root, run });
+    return chain.ok ? null : `fails verification at seq ${chain.badSeq ?? "?"}`;
   } catch (e) {
-    return e instanceof SyntaxError ? "not JSON" : e instanceof Error ? e.message : String(e);
+    if (e instanceof RunNotFoundError) return "does not exist";
+    return `cannot be read (${message(e)})`;
   }
-  const fields = ["host", "session", "run", "root", "boundAt"];
-  const missing = fields.filter((k) => typeof b?.[k] !== "string");
-  return missing.length === 0 ? null : `missing ${missing.join(", ")}`;
+}
+
+function message(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function checkHookErrors(root: string): Finding {
