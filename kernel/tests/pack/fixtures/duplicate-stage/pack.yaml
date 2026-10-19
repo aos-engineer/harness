@@ -1,0 +1,39 @@
+# Smallest pack the loader accepts: one tier, one stage, every action declared.
+name: valid
+version: 0.1.0
+
+roles:
+  test: ["bun test"]
+
+classify:
+  rules:
+    - tier: bounded
+      any: ['\bfix\b']
+  default: bounded
+
+budget:
+  iterations: 5
+
+tiers:
+  bounded:
+    stages:
+      - name: build
+        writes: any
+        gate: { decider: rule }
+      - name: build
+        writes: any
+        gate: { decider: human }
+
+actions:
+  commit:
+    patterns: ['^git\s+commit\b']
+    policy: { bounded: { allow: in_stages, stages: [build] } }
+  push:
+    patterns: ['^git\s+push\b']
+    policy: { bounded: { allow: after_gate, gate: build } }
+  pr_create:
+    patterns: ['^gh\s+pr\s+create\b']
+    policy: { bounded: { allow: never } }
+  deploy:
+    patterns: ['\bdeploy\b']
+    policy: { bounded: { allow: never } }
