@@ -111,7 +111,16 @@ export function createRun(loc: RunLocation, started: EventDraft<"run.started">, 
  * so an event the projector rejects never reaches the log. The snapshot is trusted as the starting point
  * only when it pins the current end of the log; otherwise the full log is verified and replayed.
  */
-export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: Projector): { events: EventEnvelope[]; file: StateFile } {
+export interface AppendOptions {
+  /**
+   * Runs under the lock against the run's current state, before anything is written. Throw to refuse the
+   * batch: the log stays untouched. Operations use it to re-check what they read (status, stage, ids), so a
+   * concurrent writer cannot slip between an operation's read and its append.
+   */
+  precondition?: (state: RunState) => void;
+}
+
+export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: Projector, opts: AppendOptions = {}): { events: EventEnvelope[]; file: StateFile } {
   const paths = runPaths(loc);
   if (!existsSync(paths.dir)) throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`);
   return withLock(paths.lock, (held) => {
@@ -123,6 +132,10 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
       const lastSeq = sealed[0].seq - 1;
       const pinned = snapshot !== null && lastSeq > 0 && snapshot.seq === lastSeq && snapshot.head === sealed[0].prev;
       const base = pinned ? snapshot.state : rebuild(loc, projector, snapshot).state;
+      if (opts.precondition) {
+        if (base === null) throw new RunNotFoundError(`run ${loc.run} has no events to check against`);
+        opts.precondition(base);
+      }
       const next = project(projector, base, sealed);
       if (next === null) throw new Error("the projector returned no state for a non-empty batch");
       out.file = { v: 1, seq: sealed[sealed.length - 1].seq, head: sha256Tag(lastLine), state: next };
