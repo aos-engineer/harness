@@ -45,9 +45,21 @@ export function matchAction(cmd: string, actions: Record<ActionName, ActionDef>)
   return null;
 }
 
-// The installed binary (bare or by path), the published package through a runner, or the CLI from source.
-const HUMAN_ONLY =
-  /^(?:(?:\S*\/)?aos|(?:bunx|npx)\s+aos-harness|bun\s+(?:run\s+)?\S*cli\/src\/index\.ts)\s+(approve|waive|tier\s+lower|budget\s+extend|run\s+(?:pause|cancel))\b/;
+// Every way to reach the CLI: the installed binary (already reduced to its basename), the published package
+// through a package runner with its own flags and an optional pinned version, or the source entry point
+// through bun, node, or tsx, or run directly through its shebang.
+const RUNNER_FLAGS = String.raw`(?:\s+-\S+)*`;
+const PACKAGE = String.raw`aos-harness(?:@\S+)?`;
+const SOURCE = String.raw`\S*cli/src/index\.ts`;
+const INVOCATION = [
+  "aos",
+  String.raw`(?:bunx|npx|pnpx|bun\s+x|npm\s+exec|pnpm\s+(?:dlx|exec)|yarn\s+dlx)${RUNNER_FLAGS}\s+${PACKAGE}`,
+  String.raw`(?:bun(?:\s+run)?|node|tsx)${RUNNER_FLAGS}\s+${SOURCE}`,
+  SOURCE,
+].join("|");
+const HUMAN_ONLY = new RegExp(
+  String.raw`^(?:${INVOCATION})(?:\s+--)?\s+(approve|waive|tier\s+lower|budget\s+extend|run\s+(?:pause|cancel))\b`,
+);
 
 /** The human-only subcommand a leaf command invokes (for example "approve" or "run cancel"), or null. */
 export function matchHumanOnly(cmd: string): string | null {

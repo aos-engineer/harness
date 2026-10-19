@@ -117,6 +117,14 @@ test.each([
   ['bash -c "aos approve 01J"', "approve"],
   ["chaos approve", null], ["aos approved", null],
   ["command aos approve", "approve"], ["(aos approve)", "approve"], ["echo y | sudo aos approve", "approve"],
+  // Package runners, with their own flags and a pinned version
+  ["npx -y aos-harness approve 01J", "approve"], ["bun x aos-harness approve", "approve"],
+  ["bunx --bun aos-harness approve", "approve"], ["bunx aos-harness@latest approve", "approve"],
+  ["npm exec aos-harness -- approve", "approve"], ["pnpm dlx aos-harness approve", "approve"],
+  ["yarn dlx aos-harness waive 01J", "waive"],
+  // The CLI from source, through node or run directly
+  ["node cli/src/index.ts approve", "approve"], ["./cli/src/index.ts run cancel 01J", "run cancel"],
+  ["npx aos-harness status", null], ["npm exec other-tool -- approve", null], ["node index.ts approve", null],
 ])("matchHumanOnly(%j)", (cmd, want) => expect(matchHumanOnly(cmd)).toBe(want));
 
 test.each([
