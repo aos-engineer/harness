@@ -35,7 +35,7 @@
 ## Sandbox notes
 
 - Create branches with `git switch --no-track -c`, check `git branch --show-current` before committing, and never pipe git output through `tail`.
-- Worktrees live under `.worktrees/` (gitignored). The sandbox blocks writing `site/.vscode/*`, so create them with `git worktree add --no-checkout`, then `git read-tree HEAD`, mark `site/.vscode/*` skip-worktree, and run `git checkout-index -a`.
+- Worktrees live under `.worktrees/` (gitignored). The sandbox blocks shell writes to `site/.vscode/*` and to any `.mcp.json`, so create them with `git worktree add --no-checkout`, then `git read-tree HEAD`, mark those files skip-worktree, and run `git checkout-index -a`. Write `hosts/claude-code/.mcp.json` from `git show HEAD:hosts/claude-code/.mcp.json` with the file-editing tool (the plugin tests read it), then clear its skip-worktree flag. Merges that add or change a `.mcp.json` fail in the sandbox for the same reason.
 - Local port binding is blocked, so tests must not listen on ports.
 
 ## Deploy
