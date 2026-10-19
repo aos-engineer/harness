@@ -39,6 +39,29 @@ test("ignores gitignored files", () => {
   expect(fp(repo)).toBe(a);
 });
 
+// Most repositories gitignore .aos/, and git refuses any pathspec, even an exclude, that names an ignored path.
+test.each([[".gitignore", ".aos/\n"], [".gitignore", ".aos\n"], [".git/info/exclude", ".aos/\n"]])(
+  "works when .aos is ignored through %s (%j) and is unchanged by a log append",
+  (file, pattern) => {
+    writeFile(repo, file, pattern);
+    writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n");
+    const a = fp(repo);
+    expect(a).toMatch(/^git:[0-9a-f]{40}$/);
+    writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n{}\n");
+    expect(fp(repo)).toBe(a);
+  },
+);
+
+test("works when .aos is ignored, even after .aos content was committed earlier", () => {
+  writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n");
+  git(repo, "add", "-A");
+  git(repo, "commit", "-qm", "commit run data by mistake");
+  writeFile(repo, ".gitignore", ".aos/\n");
+  const a = fp(repo);
+  writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n{}\n");
+  expect(fp(repo)).toBe(a);
+});
+
 test("ignores .aos even when .aos is not gitignored", () => {
   const a = fp(repo);
   writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n");
