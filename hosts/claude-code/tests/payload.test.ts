@@ -23,6 +23,24 @@ describe("normalize: Bash results", () => {
     expect(normalize("PostToolUse", raw).result?.exitCode).toBe(7);
   });
 
+  test("a background Bash run has no exit code, since PostToolUse fires before it finishes", () => {
+    expect(normalize("PostToolUse", fx("post-tool-use-bash-background")).result?.exitCode).toBeNull();
+  });
+
+  test("run_in_background alone marks a Bash run as backgrounded", () => {
+    const raw = fx("post-tool-use-bash-true");
+    raw.tool_input = { ...(raw.tool_input as Record<string, unknown>), run_in_background: true };
+    expect(normalize("PostToolUse", raw).result?.exitCode).toBeNull();
+  });
+
+  test("a background task id in the response alone marks a Bash run as backgrounded", () => {
+    for (const key of ["backgroundTaskId", "background_task_id"]) {
+      const raw = fx("post-tool-use-bash-true");
+      raw.tool_response = { ...(raw.tool_response as Record<string, unknown>), [key]: "bash_1" };
+      expect(normalize("PostToolUse", raw).result?.exitCode).toBeNull();
+    }
+  });
+
   test("an interrupted Bash run has no exit code", () => {
     const raw = { ...fx("post-tool-use-bash-true"), tool_response: { stdout: "", stderr: "", interrupted: true, isImage: false } };
     expect(normalize("PostToolUse", raw).result?.exitCode).toBeNull();

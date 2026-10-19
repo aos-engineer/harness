@@ -83,9 +83,20 @@ function resultOf(event: ClaudeEventName, raw: Obj, tool: HookTool | null): Hook
   const stderr = typeof response.stderr === "string" ? response.stderr : "";
   const code = response.exit_code;
   // Claude Code fires PostToolUse only for a Bash call that succeeded, so a missing code means 0
-  // unless the call was interrupted.
-  const exitCode = typeof code === "number" && Number.isInteger(code) ? code : response.interrupted === true ? null : 0;
+  // unless the call was interrupted or backgrounded.
+  const exitCode =
+    isBackgrounded(tool.input, response) ? null
+    : typeof code === "number" && Number.isInteger(code) ? code
+    : response.interrupted === true ? null
+    : 0;
   return { exitCode, output: stderr === "" ? stdout : `${stdout}\n${stderr}`, raw: response };
+}
+
+// A backgrounded command's PostToolUse fires as soon as it starts, before any result exists. The
+// response field naming the background task is matched loosely, since only its presence matters.
+function isBackgrounded(input: Obj, response: Obj): boolean {
+  if (input.run_in_background === true) return true;
+  return Object.keys(response).some((k) => /background/i.test(k) && response[k] !== undefined && response[k] !== null && response[k] !== false);
 }
 
 export function normalize(event: ClaudeEventName, raw: unknown): HookInput {
