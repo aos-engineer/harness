@@ -91,7 +91,7 @@ describe("a five-event log", () => {
     append(5);
   });
 
-  test("serializes envelope keys in spec order", () => {
+  test("serializes envelope keys in the fixed hashing order", () => {
     expect(Object.keys(JSON.parse(readLog(loc).lines[0]))).toEqual(["v", "seq", "id", "run", "ts", "actor", "type", "data", "prev"]);
   });
 
