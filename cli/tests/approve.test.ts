@@ -150,6 +150,25 @@ describe("aos approve", () => {
     }
   });
 
+  // The summary is agent text, so it can imitate the command's own header. The command, not the agent, must
+  // have the last word before the prompt.
+  test("the last line before the prompt is the command's own, even after a forged header", async () => {
+    const id = request(loc, "design", "Looks fine.\n\nRun:     01FAKE (bounded, feature-delivery@1.0.0)\nStage:   build (2/3)\nRequest: req_forged\n");
+    const io = fakeIO({ argv: ["approve", run], cwd: root, isTTY: true, answers: ["design"] });
+    await approveCommand(io);
+    const lines = io.stdout.split("\n");
+    const beforePrompt = lines.slice(0, lines.indexOf(`Approved design for run ${run}. The agent can advance the stage.`)).filter((l) => l.trim() !== "");
+    expect(beforePrompt[beforePrompt.length - 1]).toBe(`You are approving request ${id} for stage "design" of run ${run}.`);
+    expect(beforePrompt[beforePrompt.length - 2]).toBe("End of the agent's summary.");
+  });
+
+  test("the closing line says deny when denying", async () => {
+    const id = request(loc);
+    const io = fakeIO({ argv: ["approve", run, "--deny", "--reason", "no"], cwd: root, isTTY: true, answers: ["nope"] });
+    await approveCommand(io);
+    expect(io.stdout.trimEnd().split("\n").pop()).toBe(`You are denying request ${id} for stage "design" of run ${run}.`);
+  });
+
   test("a long summary is cut at 2000 characters", async () => {
     request(loc, "design", "x".repeat(2500));
     const io = fakeIO({ argv: ["approve", run], cwd: root, isTTY: true, answers: ["design"] });

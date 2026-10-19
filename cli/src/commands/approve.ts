@@ -75,9 +75,13 @@ export const approveCommand: CommandFn = async (io) => {
   io.out(`Brief:   ${printable(clipText(oneLine(state.brief), 200))}`);
   io.out(`Stage:   ${pending.stage} (${state.current.index + 1}/${state.stages.length})`);
   io.out(`Request: ${pending.request}`);
-  io.out("Summary:");
+  io.out("Summary from the agent:");
   io.out(printable(clipText(pending.summary, SUMMARY_CHARS)));
+  io.out("End of the agent's summary.");
   io.out("");
+  // The summary can imitate the header above, so the command, not the agent, writes the last line the human
+  // reads before typing.
+  io.out(printable(`You are ${flags.deny ? "denying" : "approving"} request ${pending.request} for stage "${pending.stage}" of run ${state.run}.`));
 
   const answer = await io.prompt(`Type the stage name ("${pending.stage}") to ${verb}: `);
   if (answer.trim() !== pending.stage) {
