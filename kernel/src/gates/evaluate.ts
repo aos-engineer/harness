@@ -9,6 +9,15 @@ const REVIEW_FEEDBACK_CHARS = 200;
 export function evaluateGate(state: RunState, stage: string, tree: TreeState): GateResult {
   const { gate } = stageDef(state, stage);
   const gaps: Gap[] = [];
+  // Action policies evaluate later gates live (push waits on verify), so a stage the run has not
+  // reached must never pass, or evidence alone would skip the gates before it.
+  if (state.stages.indexOf(stage) > state.current.index) {
+    const current = state.current.stage;
+    gaps.push({
+      kind: "missing", who: "agent", requirement: `stage:${stage}`,
+      text: `The run is at ${current}; the ${stage} stage has not been reached. Pass the ${current} gate and call aos_stage_advance.`,
+    });
+  }
   for (const req of gate.requires) {
     const gap = checkRequirement(state, req, tree);
     if (gap !== null) gaps.push(gap);

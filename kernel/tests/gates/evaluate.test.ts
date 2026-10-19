@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { evaluateGate, gapKey, hasAgentGaps } from "../../src/gates/evaluate.ts";
 import type { GateDef, Requirement, RunState } from "../../src/types.ts";
 import {
-  RUN, T1, T2, build, cmd, deniedA, design, entered, evidence, g1, g2, grantedA, packWithGate, reenter, requestedA, review,
+  RUN, T1, T2, build, cmd, completed, deniedA, design, entered, evidence, g1, g2, grantedA, packWithGate, reenter, requestedA, review,
   taskAdded, taskCompleted, verify, withGaps, worktreeChanged,
 } from "./fixtures.ts";
 
@@ -167,6 +167,23 @@ describe("other evidence kinds", () => {
       text: 'The last observed skill evidence matching "brainstorming" predates the current tree (1 file edit since, plus any shell changes). Record it again.',
     });
   });
+});
+
+describe("stage order", () => {
+  const unreached = {
+    kind: "missing", who: "agent", requirement: "stage:verify",
+    text: "The run is at build; the verify stage has not been reached. Pass the build gate and call aos_stage_advance.",
+  };
+  test("a later stage's gate cannot pass while the run is at an earlier stage", () => {
+    const s = build([cmd(0, T1), review("approved", T1)], { openTask: true });
+    expect(evaluateGate(s, "verify", { fingerprint: T1, weak: false })).toMatchObject({ verdict: "pending", gaps: [unreached] });
+  });
+  test("the same evidence passes once the run is at that stage", () =>
+    expect(gate(verify([taskAdded("t1", "build", "add the route"), cmd(0, T1), review("approved", T1)]), T1).verdict).toBe("pass"));
+  test("a completed run still evaluates its last gate normally", () =>
+    expect(gate(verify([cmd(0, T1), review("approved", T1), completed("verify")]), T1).verdict).toBe("pass"));
+  test("an earlier stage gets no stage-order gap", () =>
+    expect(evaluateGate(build([cmd(0, T1)]), "design", { fingerprint: T1, weak: false }).gaps.map((g) => g.requirement)).toEqual(["approval"]));
 });
 
 describe("result shape", () => {
