@@ -105,6 +105,18 @@ const commands: [string, ActionName | null][] = [
   ["gh pr create --fill", "pr_create"], ["gh pr view 12", null],
   ["vercel deploy --prod", "deploy"], ["kubectl apply -f k8s/", "deploy"], ["terraform apply", "deploy"],
   ["helm upgrade api ./chart", "deploy"], ["gh workflow run release.yml", "deploy"], ["terraform plan", null],
+  // Global options before the subcommand must not hide it, and a subcommand's own "push" is not a push.
+  ["git --git-dir .git push", "push"], ["git --git-dir=.git push", "push"], ["git --work-tree . push", "push"],
+  ["git -p push", "push"], ["git --no-pager push", "push"], ["git -C ../x push origin main", "push"],
+  ["git stash push", null], ["git stash push -m \"wip\"", null],
+  ["git --git-dir .git commit", "commit"], ["git --work-tree . commit -m x", "commit"], ["git -p commit", "commit"],
+  ["git -C ../x commit -m msg", "commit"], ["git help commit", null], ["git log --grep commit", null],
+  // Only running a Dokploy CLI or script with a deploying subcommand is a deploy.
+  ["python3 ~/.claude/skills/dokploy-deploy/scripts/dokploy.py deploy --compose-id X", "deploy"],
+  ["dokploy redeploy", "deploy"], ["uv run scripts/dokploy.py upsert-compose --name api", "deploy"],
+  ["python scripts/dokploy.py compose.redeploy --compose-id X", "deploy"],
+  ["git add docker-compose.dokploy.yml", null], ["git commit -m \"fix the dokploy redeploy loop\"", "commit"],
+  ["python3 scripts/dokploy.py status --compose-id X", null], ["cat docker-compose.dokploy.yml", null],
 ];
 test.each(commands)("%s -> %p", (cmd, expected) => {
   const { actions } = pack();

@@ -59,14 +59,14 @@ tiers:
 
 actions:
   commit:
-    patterns: ['^git(\s+(-[cC]\s+\S+|--\S+))*\s+commit\b']
+    patterns: ['^git(?:\s+(?:-[cC]\s+\S+|--(?:git-dir|work-tree|namespace)(?:=\S+|\s+\S+)|--[a-z][a-z-]*(?:=\S+)?|-[a-zA-Z]))*\s+commit\b']
     policy: { spike: { allow: always }, bounded: { allow: in_stages, stages: [build, verify] } }
   push:
-    patterns: ['^git(\s+(-[cC]\s+\S+|--\S+))*\s+push\b']
+    patterns: ['^git(?:\s+(?:-[cC]\s+\S+|--(?:git-dir|work-tree|namespace)(?:=\S+|\s+\S+)|--[a-z][a-z-]*(?:=\S+)?|-[a-zA-Z]))*\s+push\b']
     policy: { spike: { allow: never }, bounded: { allow: after_gate, gate: verify } }
   pr_create:
     patterns: ['^gh\s+pr\s+create\b']
     policy: { spike: { allow: never }, bounded: { allow: after_gate, gate: verify } }
   deploy:
-    patterns: ['^(vercel|netlify|flyctl|fly)\s+deploy\b', '^kubectl\s+(apply|rollout)\b', '^terraform\s+apply\b', '^helm\s+(install|upgrade)\b', '\bdokploy\b', '^gh\s+workflow\s+run\b']
+    patterns: ['^(vercel|netlify|flyctl|fly)\s+deploy\b', '^kubectl\s+(apply|rollout)\b', '^terraform\s+apply\b', '^helm\s+(install|upgrade)\b', '^(?:python3?\s+|uv\s+run\s+|bun\s+)?\S*dokploy\S*(?:\s+\S+)*?\s+(?:deploy|redeploy|upsert-compose|compose\.(?:deploy|redeploy|stop))\b', '^gh\s+workflow\s+run\b']
     policy: { spike: { allow: never }, bounded: { allow: never } }
