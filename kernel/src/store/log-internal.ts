@@ -1,7 +1,7 @@
 // Log internals shared by the log reader, the run store, and the store tests. Kept out of the package
 // barrel: appending without the lock, or without projecting, would break the store's guarantees.
 import { closeSync, fstatSync, fsyncSync, ftruncateSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
-import type { Actor, EventDraft, EventEnvelope, EventType, RunLocation } from "../types.ts";
+import type { Actor, EventDraft, EventEnvelope, EventType, RunLocation, StateFile } from "../types.ts";
 import { GENESIS_PREV } from "../types.ts";
 import { ChainError, RunNotFoundError } from "../util/errors.ts";
 import { sha256Tag } from "../util/hash.ts";
@@ -79,6 +79,42 @@ export function checkLines(lines: string[]): ChainCheck {
     prev = sha256Tag(lines[i]);
   }
   return { ok: true, badSeq: null, reason: null };
+}
+
+/** The snapshot on disk, or null when it is missing or unreadable: it is a cache, so either means rebuild. */
+export function readStateFile(path: string): StateFile | null {
+  try {
+    const f = JSON.parse(readFileSync(path, "utf8")) as Partial<StateFile> | null;
+    if (f && f.v === 1 && Number.isInteger(f.seq) && typeof f.head === "string" && f.state && typeof f.state === "object") {
+      return f as StateFile;
+    }
+  } catch {
+    // Missing, torn by a crash before rename, or hand-edited: all mean the same thing here.
+  }
+  return null;
+}
+
+/**
+ * The snapshot pins the log at the seq it reflects: the line at that seq must still hash to its head, and
+ * the log cannot end before it. This is what catches an edited or removed last event, which no later prev
+ * covers. Read the snapshot before the log: writers append first and snapshot second, so a snapshot read
+ * first can only lag a log read after it, never lead it.
+ */
+export function checkAgainstState(lines: string[], file: StateFile | null): ChainCheck {
+  if (file === null || file.seq < 1) return { ok: true, badSeq: null, reason: null };
+  if (file.seq > lines.length) {
+    return { ok: false, badSeq: lines.length + 1, reason: `state.json reflects seq ${file.seq} but the log ends at seq ${lines.length}` };
+  }
+  if (sha256Tag(lines[file.seq - 1]) !== file.head) {
+    return { ok: false, badSeq: file.seq, reason: `seq ${file.seq} no longer matches the hash state.json recorded for it` };
+  }
+  return { ok: true, badSeq: null, reason: null };
+}
+
+/** Full chain check: contiguity and prev links, then the snapshot's pin on the end of the log. */
+export function checkChain(lines: string[], file: StateFile | null): ChainCheck {
+  const links = checkLines(lines);
+  return links.ok ? checkAgainstState(lines, file) : links;
 }
 
 /** The end of the log as an appender sees it: the last good line, and the bytes a repair would drop. */

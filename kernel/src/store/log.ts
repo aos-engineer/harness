@@ -1,5 +1,6 @@
 import type { EventEnvelope, RunLocation } from "../types.ts";
-import { checkLines, parseLines, readLogBytes, scanLog } from "./log-internal.ts";
+import { checkChain, parseLines, readLogBytes, readStateFile, scanLog } from "./log-internal.ts";
+import { runPaths } from "./paths.ts";
 
 export interface LogRead { events: EventEnvelope[]; lines: string[]; tornBytes: number }
 
@@ -14,9 +15,12 @@ export function readLog(loc: RunLocation): LogRead {
   return { events: parseLines(lines), lines, tornBytes };
 }
 
-/** Replays the hash chain. Detects edits and deletions; it cannot prevent them. */
+/**
+ * Replays the hash chain and checks it against state.json. Detects edits, deletions, and truncation; it
+ * cannot prevent them, and an agent that rewrites the whole chain and snapshot is not detected.
+ */
 export function verifyChain(loc: RunLocation): ChainReport {
+  const file = readStateFile(runPaths(loc).state);
   const { lines } = scanLog(readLogBytes(loc));
-  const check = checkLines(lines);
-  return { ...check, events: lines.length };
+  return { ...checkChain(lines, file), events: lines.length };
 }
