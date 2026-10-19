@@ -101,10 +101,14 @@ export interface EventDataMap {
   "log.repaired": { droppedBytes: number; droppedSha256: string };
 }
 export type EventType = keyof EventDataMap;
-export interface EventEnvelope<T extends EventType = EventType> {
+interface EventEnvelopeOf<T extends EventType> {
   v: 1; seq: number; id: string; run: string; ts: string; actor: Actor; type: T; data: EventDataMap[T]; prev: string;
 }
-export interface EventDraft<T extends EventType = EventType> { type: T; actor: Actor; data: EventDataMap[T] }
+interface EventDraftOf<T extends EventType> { type: T; actor: Actor; data: EventDataMap[T] }
+// Distributing over T makes each event a union member keyed by `type`, so a draft's data must match its
+// type and `if (e.type === ...)` narrows `e.data`. A conditional type would break generic draft factories.
+export type EventEnvelope<T extends EventType = EventType> = { [K in T]: EventEnvelopeOf<K> }[T];
+export type EventDraft<T extends EventType = EventType> = { [K in T]: EventDraftOf<K> }[T];
 export const GENESIS_PREV = "sha256:" + "0".repeat(64);
 export interface RunLocation { root: string; run: string }
 export interface Projector { apply(state: RunState | null, event: EventEnvelope): RunState }
