@@ -1,24 +1,20 @@
 // Evidence is fresh only if it was recorded at the current tree, so the kernel needs a cheap, stable name
 // for "the working tree right now": tracked and untracked files, minus ignored files and minus `.aos/`,
 // whose run log changes on every event.
-import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { copyFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TreeState } from "../types.ts";
 import { TreeError } from "../util/errors.ts";
+import { runGit, spawnGit } from "./git.ts";
 
-function git(root: string, args: string[], env: NodeJS.ProcessEnv = process.env): string {
-  const r = spawnSync("git", args, { cwd: root, env, encoding: "utf8" });
-  if (r.error !== undefined) throw new TreeError(`git ${args[0]} could not run in ${root}`, { cause: r.error });
-  if (r.status !== 0) throw new TreeError(`git ${args.join(" ")} failed in ${root}: ${r.stderr.trim()}`);
-  return r.stdout.trim();
-}
-
-/** The repository's top-level directory, or null when `cwd` is not inside a work tree. */
+/**
+ * The repository's top-level directory, or null when `cwd` is not inside a work tree. A git that hangs
+ * throws a TreeError instead: reporting "not a repository" would quietly weaken freshness to a counter.
+ */
 export function gitRoot(cwd: string): string | null {
-  const r = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" });
+  const r = spawnGit(cwd, ["rev-parse", "--show-toplevel"]);
   if (r.error !== undefined || r.status !== 0) return null;
   return r.stdout.trim() || null;
 }
@@ -37,7 +33,7 @@ export function treeFingerprint(root: string, opts: { git: boolean; changes: num
   if (!opts.git) return { fingerprint: "counter:" + opts.changes, weak: true };
 
   // --path-format=absolute resolves a linked worktree's own index under the main repository's .git.
-  const index = git(root, ["rev-parse", "--path-format=absolute", "--git-path", "index"]);
+  const index = runGit(root, ["rev-parse", "--path-format=absolute", "--git-path", "index"]);
   const tmp = join(tmpdir(), `aos-index-${process.pid}-${randomBytes(6).toString("hex")}`);
   try {
     try {
@@ -52,10 +48,13 @@ export function treeFingerprint(root: string, opts: { git: boolean; changes: num
     // .aos/ must never reach the tree, or every log append would change it. Excluding it from `add` is not
     // enough once .aos/ content has been committed: the copied index already carries those entries, so they
     // are dropped first. Both pathspecs are root-relative, so a subdirectory `root` still covers the repository.
-    git(root, ["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", ":(top).aos"], env);
-    git(root, ["add", "-A", "--", ":/", ":(top,exclude).aos"], env);
-    return { fingerprint: "git:" + git(root, ["write-tree"], env), weak: false };
+    runGit(root, ["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", ":(top).aos"], env);
+    // With autocrlf on, safecrlf would refuse a file with mixed line endings and fail the whole fingerprint.
+    runGit(root, ["-c", "core.safecrlf=false", "add", "-A", "--", ":/", ":(top,exclude).aos"], env);
+    return { fingerprint: "git:" + runGit(root, ["write-tree"], env), weak: false };
   } finally {
+    // git removes its own lock on a clean exit or SIGTERM, but not when killed outright.
     rmSync(tmp, { force: true });
+    rmSync(tmp + ".lock", { force: true });
   }
 }

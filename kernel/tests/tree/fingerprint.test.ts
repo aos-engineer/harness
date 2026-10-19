@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { gitRoot, treeFingerprint } from "../../src/tree/fingerprint.ts";
 import { TreeError } from "../../src/util/errors.ts";
 import { git, tmpDir, tmpGitRepo, writeFile } from "../helpers.ts";
+import { fakeGitDir, withPath } from "./fake-git.ts";
 
 const fp = (r: string) => treeFingerprint(r, { git: true, changes: 0 }).fingerprint;
 
@@ -86,6 +87,20 @@ test("does not modify the real index", () => {
 test("removes its temporary index", () => {
   fp(repo);
   expect(readdirSync(tmpdir()).filter((f) => f.startsWith(`aos-index-${process.pid}-`))).toEqual([]);
+});
+
+test("removes its temporary index and lock when git fails part way", () => {
+  // This git answers rev-parse, then leaves a lock beside the temporary index and fails, as a killed git would.
+  const bin = fakeGitDir('case "$1" in\n  rev-parse) echo /nonexistent/index ;;\n  *) : > "$GIT_INDEX_FILE.lock"; exit 1 ;;\nesac\n');
+  expect(() => withPath(bin, () => fp(repo))).toThrow(TreeError);
+  expect(readdirSync(tmpdir()).filter((f) => f.startsWith(`aos-index-${process.pid}-`))).toEqual([]);
+});
+
+test("a file with mixed line endings does not make staging fail", () => {
+  git(repo, "config", "core.autocrlf", "true");
+  git(repo, "config", "core.safecrlf", "true");
+  writeFile(repo, "m.txt", "a\nb\r\n");
+  expect(fp(repo)).toMatch(/^git:[0-9a-f]{40}$/);
 });
 
 test("works in a repo with no commits", () => {
