@@ -134,4 +134,10 @@ test.each([
   ["cd .aos && rm -rf runs", true], ["DIR=.aos/runs ls", true],
   ['bash -c "rm -rf .aos"', true], ["cat<.aos/x", true], ['cp a ".aos/runs/x"', true],
   [heredocCommit("It's in .aos/runs now."), false], ["ls .aosx my.aos", false],
+  // Prose in a quoted argument is not a path, however it mentions .aos
+  ['git commit -m "move logs to ./.aos/runs"', false], ['git commit -m "see DIR=.aos/runs"', false],
+  ['git commit -m ".aos/ is ignored now"', false],
+  ['git commit -m "feat: x" -m "Run logs live under repo/.aos/runs."', false],
+  // Whitespace inside a substitution does not make the path around it prose
+  ['cat "$(git rev-parse --show-toplevel)/.aos/runs/x"', true], ["cat $(echo .aos/x)", true],
 ])("mentionsAosDir(%j)", (cmd, want) => expect(mentionsAosDir(cmd)).toBe(want));

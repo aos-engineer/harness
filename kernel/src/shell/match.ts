@@ -76,10 +76,16 @@ const AOS_DIR = /(^|\/|>)\.aos(\/|$)/;
 /** True when any word of any segment, including `cd` targets, assignments, and redirect targets, names `.aos`. */
 export function mentionsAosDir(cmd: string): boolean {
   // Every segment, not just leaves: `cd .aos` and `DIR=.aos/runs` are dropped from leaves but still reach it.
-  // Splitting at `<`, `>`, and `=` exposes redirect targets and assigned values glued to other text.
+  // Substitution and bash -c bodies are segments of their own, so they are checked as commands too.
   for (const seg of walk(cmd).segments) {
     for (const word of seg.words) {
-      if (word.value.split(/[<>=]/).some((part) => AOS_DIR.test(part))) return true;
+      // A word with whitespace in it is prose, such as a commit message, not a path. Whitespace inside a
+      // substitution does not count: `"$(git rev-parse --show-toplevel)/.aos"` is still a path.
+      let path = word.value;
+      for (const body of word.subs) path = path.split(body).join("");
+      if (/\s/.test(path)) continue;
+      // Splitting at `<`, `>`, and `=` exposes redirect targets and assigned values glued to other text.
+      if (path.split(/[<>=]/).some((part) => AOS_DIR.test(part))) return true;
     }
   }
   return false;
