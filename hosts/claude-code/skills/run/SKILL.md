@@ -11,6 +11,8 @@ AOS splits a piece of work into stages. Each stage ends at a gate, and a gate pa
 
 If this session already has an active run (a session-start note names it), call `aos_status` with its run id and continue from its current stage instead of starting another.
 
+If the note says the run is not bound to this session (for example after /clear), AOS gates do not apply here. Do not continue the old run: tell the human, and ask whether to end it (they run `aos run cancel <run> --reason "..."` in their own terminal) and start a new run in this session.
+
 Otherwise call `aos_run_start` with the user's request as the brief: the text after `/aos:run`, or the request in the user's own words. Then tell the human the tier and the reason in one sentence.
 
 If `aos_run_start` refuses, stop. Tell the human what it said and ask how to proceed. Do not reword the brief to get a different tier.

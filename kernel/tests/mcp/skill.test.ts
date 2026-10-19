@@ -52,3 +52,11 @@ test("plain public text: no em dashes and no internal planning references", () =
   expect(src).not.toContain(String.fromCodePoint(0x2014));
   expect(src).not.toMatch(/\bM\d\b|\bspec\b|\bsection \d|\bD\d+\b|\bRF ?\d|\blane\b|\binvariant\b/i);
 });
+
+// After /clear or a fork the session is unbound; continuing the old run there would happen with no gates.
+test("an unbound session is told to stop and ask, not to continue the old run", () => {
+  const body = parse().body;
+  expect(body).toContain("not bound to this session");
+  expect(body).toContain("aos run cancel");
+  expect(body).toMatch(/do not continue/i);
+});
