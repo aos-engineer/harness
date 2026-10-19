@@ -179,7 +179,7 @@ describe("data only", () => {
     expect(issuesOf(dir)).toEqual([expect.stringMatching(/^stages\/bounded\/build\.md: .*executable/)]);
   });
 
-  for (const ext of [".js", ".mjs", ".cjs", ".ts", ".sh"])
+  for (const ext of [".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx", ".sh", ".py", ".rb", ".bash", ".zsh", ".ps1", ".bat", ".cmd", ".PY"])
     test(`a ${ext} file is rejected`, () => {
       const dir = copyFixture("valid");
       writeFileSync(join(dir, `extra${ext}`), "");
@@ -213,6 +213,13 @@ describe("data only", () => {
     const dir = copyFixture("valid");
     writeFileSync(join(dir, ".setup.sh"), "#!/bin/sh\n", { mode: 0o755 });
     expect(issuesOf(dir)).toEqual([expect.stringContaining(".setup.sh")]);
+  });
+
+  test("a non-executable script in a hidden directory is rejected", () => {
+    const dir = copyFixture("valid");
+    mkdirSync(join(dir, ".helpers"));
+    writeFileSync(join(dir, ".helpers/run.py"), "print('hi')\n");
+    expect(issuesOf(dir)).toEqual([expect.stringContaining(".helpers/run.py")]);
   });
 
   test("files in a hidden directory are checked", () => {

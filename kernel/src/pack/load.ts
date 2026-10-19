@@ -31,7 +31,10 @@ interface RawPack {
 
 // Script extensions a pack might ship expecting someone to run them. The kernel never executes pack
 // files; this check keeps packs honest about being data.
-const CODE_EXTENSIONS = [".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx", ".sh"];
+const CODE_EXTENSIONS = [
+  ".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx",
+  ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd", ".py", ".rb",
+];
 
 /** Loads and validates the pack in `dir`. Throws PackError listing every issue found. */
 export function loadPack(dir: string): ResolvedPack {
