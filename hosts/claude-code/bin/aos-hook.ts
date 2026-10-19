@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { text } from "node:stream/consumers";
-import { failsafeDecision, handleHook, type HookDecision } from "@aos-harness/kernel";
+import { failsafeDecision, handleHook, payloadFailsafe, type HookDecision } from "@aos-harness/kernel";
 import { CLI_EVENTS, HOOK_EVENT, type ClaudeEventName } from "../src/events.ts";
 import { normalize } from "../src/payload.ts";
 import { render } from "../src/render.ts";
@@ -28,9 +28,10 @@ function decide(event: ClaudeEventName, raw: string): HookDecision {
     parsed = JSON.parse(raw);
     return handleHook(normalize(event, parsed), projectDir());
   } catch (err) {
-    // handleHook never throws, so this is a payload that did not parse or normalize. The command is read
-    // straight from the raw payload, so a push still fails closed.
-    return failsafeDecision(HOOK_EVENT[event], commandOf(parsed), err);
+    // handleHook never throws, so this is a payload that did not parse or normalize. The command and cwd are
+    // read straight from the raw payload, so a push still fails closed wherever AOS has state.
+    const site = { cwd: field(parsed, "cwd"), projectDir: projectDir().projectDir ?? null, command: commandOf(parsed) };
+    return payloadFailsafe(HOOK_EVENT[event], site, err);
   }
 }
 
@@ -54,12 +55,16 @@ function projectDir(): { projectDir?: string } {
   return dir === undefined || dir === "" ? {} : { projectDir: dir };
 }
 
+/** A string field of a JSON object, or null for anything else. */
+function field(value: unknown, key: string): string | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = (value as Record<string, unknown>)[key];
+  return typeof v === "string" ? v : null;
+}
+
 function commandOf(parsed: unknown): string | null {
-  if (typeof parsed !== "object" || parsed === null) return null;
-  const input = (parsed as { tool_input?: unknown }).tool_input;
-  if (typeof input !== "object" || input === null) return null;
-  const command = (input as { command?: unknown }).command;
-  return typeof command === "string" ? command : null;
+  const input = typeof parsed === "object" && parsed !== null ? (parsed as { tool_input?: unknown }).tool_input : null;
+  return field(input, "command");
 }
 
 // For re-capturing host payloads after a Claude Code upgrade. Best effort: capture never affects the decision.

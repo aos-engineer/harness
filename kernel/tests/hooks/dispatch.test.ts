@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONSEQUENTIAL, failsafeDecision } from "../../src/hooks/failsafe.ts";
+import { CONSEQUENTIAL, failsafeDecision, payloadFailsafe } from "../../src/hooks/failsafe.ts";
 import { handleHook } from "../../src/hooks/handle.ts";
 import { aosDir } from "../../src/store/paths.ts";
 import { findBinding, sessionFileName } from "../../src/store/sessions.ts";
@@ -304,6 +304,44 @@ describe("failing safe", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("payloadFailsafe", () => {
+  const err = new Error("hook payload has no session_id");
+  const site = (cwd: string | null, projectDir: string | null, command: string | null = "git push") => ({ cwd, projectDir, command });
+
+  test("denies a consequential command when .aos exists at or above the raw cwd", () => {
+    const sub = join(repo, "src", "deep");
+    mkdirSync(sub, { recursive: true });
+    expect(payloadFailsafe("pre-tool", site(sub, null), err)).toMatchObject({ kind: "deny", reason: expect.stringContaining("aos doctor") });
+  });
+
+  test("denies when only the project dir has .aos", () => {
+    const outside = tmpDir();
+    try {
+      expect(payloadFailsafe("pre-tool", site(outside, repo), err).kind).toBe("deny");
+      expect(payloadFailsafe("pre-tool", site(null, repo), err).kind).toBe("deny");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("passes through where AOS has no state", () => {
+    const fresh = tmpGitRepo();
+    try {
+      expect(payloadFailsafe("pre-tool", site(fresh, fresh), err)).toEqual(ALLOW);
+      expect(payloadFailsafe("pre-tool", site(null, null), err)).toEqual(ALLOW);
+      expect(existsSync(join(fresh, ".aos"))).toBe(false);
+    } finally {
+      rmSync(fresh, { recursive: true, force: true });
+    }
+  });
+
+  test("still fails open for harmless commands and other events", () => {
+    expect(payloadFailsafe("pre-tool", site(repo, null, "ls"), err)).toEqual(ALLOW);
+    expect(payloadFailsafe("pre-tool", site(repo, null, null), err)).toEqual(ALLOW);
+    expect(payloadFailsafe("stop", site(repo, null), err)).toEqual(ALLOW);
   });
 });
 

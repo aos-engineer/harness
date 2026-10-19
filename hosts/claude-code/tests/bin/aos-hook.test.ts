@@ -119,12 +119,28 @@ describe("bound sessions", () => {
 });
 
 describe("malformed payloads", () => {
-  test("a malformed payload with git push fails closed", () => {
-    const r = runHook("pre-tool-use", '{"tool_input":{"command":"git push"}}');
+  // Missing session_id: normalize rejects it, so only the raw cwd, the project dir, and the command are known.
+  const malformedPush = (cwd?: string) => JSON.stringify({ ...(cwd === undefined ? {} : { cwd }), tool_input: { command: "git push" } });
+
+  test("a malformed payload with git push fails closed where AOS has state", () => {
+    startRun(repo, "bounded");
+    const r = runHook("pre-tool-use", malformedPush(join(repo, "src")));
     expect(r.code).toBe(0);
     const out = json(r.stdout).hookSpecificOutput;
     expect(out.permissionDecision).toBe("deny");
     expect(out.permissionDecisionReason).toContain("aos doctor");
+  });
+
+  test("a malformed push is denied when only the project dir has AOS state", () => {
+    startRun(repo, "bounded");
+    const out = json(runHook("pre-tool-use", malformedPush(), { CLAUDE_PROJECT_DIR: repo }).stdout).hookSpecificOutput;
+    expect(out.permissionDecision).toBe("deny");
+  });
+
+  test("a malformed push passes through in a repo AOS never touched", () => {
+    expect(runHook("pre-tool-use", malformedPush(repo), { CLAUDE_PROJECT_DIR: repo })).toEqual({ stdout: "", code: 0 });
+    expect(runHook("pre-tool-use", malformedPush())).toEqual({ stdout: "", code: 0 });
+    expect(existsSync(join(repo, ".aos"))).toBe(false);
   });
 
   test("a malformed payload otherwise passes through", () => {

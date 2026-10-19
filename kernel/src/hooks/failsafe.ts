@@ -1,7 +1,8 @@
 // What a hook decides when the kernel itself failed. Consequential actions fail closed, so a broken run
 // can never let a push through; everything else fails open, so a kernel bug never breaks the session.
 import type { HookDecision, HookEvent } from "../types.ts";
-import { errorMessage } from "./report.ts";
+import { isAbsolute } from "node:path";
+import { errorMessage, nearestAosRoot } from "./report.ts";
 
 // Deliberately crude: these run when parsing, state, or the pack may be what failed, so they match the
 // raw text. A quoted mention such as `git commit -m "push"` is denied too, which is acceptable while
@@ -13,4 +14,23 @@ export function failsafeDecision(event: HookEvent, rawCommand: string | null, er
     return { kind: "deny", reason: `AOS error, run \`aos doctor\`: ${errorMessage(err)}` };
   }
   return { kind: "allow", notice: null };
+}
+
+/** What a host still knows about a payload it could not parse or normalize. */
+export interface PayloadSite { cwd: string | null; projectDir: string | null; command: string | null }
+
+/**
+ * The decision for a hook payload the host could not parse or normalize. Failing closed protects AOS state,
+ * so a consequential command is denied only when a .aos directory exists at or above the payload's cwd or
+ * the project dir. Anywhere else a change in the host's payload format must not block a push.
+ */
+export function payloadFailsafe(event: HookEvent, site: PayloadSite, err: unknown): HookDecision {
+  const root = aosRootOf(site);
+  return root === null ? { kind: "allow", notice: null } : failsafeDecision(event, site.command, err);
+}
+
+function aosRootOf(site: PayloadSite): string | null {
+  // A relative cwd would resolve against this process's own directory, which says nothing about the session.
+  const cwd = site.cwd !== null && isAbsolute(site.cwd) ? nearestAosRoot(site.cwd) : null;
+  return cwd ?? (site.projectDir !== null && isAbsolute(site.projectDir) ? nearestAosRoot(site.projectDir) : null);
 }
