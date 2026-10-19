@@ -182,3 +182,4 @@ export const withGaps = (gaps: Gap[], verdict: GateResult["verdict"] = "pending"
   ({ stage: "build", verdict, gaps, fingerprint: T1, weakFreshness: false });
 export const g1: Gap = { kind: "missing", who: "agent", requirement: "command:test", text: "No observed test run." };
 export const g2: Gap = { kind: "missing", who: "human", requirement: "approval", text: "Waiting on the human." };
+export const evaluated = (result: GateResult) => draft("gate.evaluated", KERNEL, result);
