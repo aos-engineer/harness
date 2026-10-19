@@ -18,6 +18,24 @@ test.each([
   ["card 4111 1111 1111 1111", "card [REDACTED]"],
   ["x first.last+tag@sub.example.org y", "x [REDACTED] y"],
   ["postgres://user:hunter2pass@db.example.com/x", "postgres://user:[REDACTED]/x"],
+  // Names around the key word, and an auth scheme before the value
+  ["GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789", "[REDACTED]"],
+  ["NPM_TOKEN=npm_abcdefghijklmnopqrstuvwxyz0123456789", "[REDACTED]"],
+  ["export AWS_SECRET_ACCESS_KEY=abcd1234abcd1234", "export [REDACTED]"],
+  ["AWS_ACCESS_KEY_ID=AKIAABCDEFGHIJKLMNOP", "[REDACTED]"],
+  ["private_key: abcdef123456", "[REDACTED]"],
+  ["Authorization: Basic dXNlcjpwYXNz", "[REDACTED]"],
+  // Well-known token prefixes, on their own
+  ["ghp_abcdefghijklmnopqrstuvwxyz0123456789 leaked", "[REDACTED] leaked"],
+  ["pat github_pat_11ABCDEFG0123456789_abcdefghijkl", "pat [REDACTED]"],
+  ["npm_abcdefghijklmnopqrstuvwxyz0123456789", "[REDACTED]"],
+  ["slack xoxb-123456789012-abcdefghijkl", "slack [REDACTED]"],
+  // Whole private-key blocks, including one cut off before its END line
+  ["-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAx1234567890abcdef\nZZZZbodyline2==\n-----END RSA PRIVATE KEY-----\nok", "[REDACTED]\nok"],
+  ["key:\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n", "key:\n[REDACTED]"],
+  // Lookalikes that are not secrets
+  ["Unexpected token } in JSON at position 12", "Unexpected token } in JSON at position 12"],
+  ["tokens: 1234", "tokens: 1234"],
 ])("redact(%j)", (input, want) => expect(redact(input)).toBe(want));
 
 test("redaction stays linear on a long run of letters and dots", () => {
