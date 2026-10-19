@@ -113,10 +113,11 @@ function satisfiesKind(req: Requirement, ev: StoredEvidence): boolean {
   }
 }
 
-// An unknown provenance from a newer log has no rank, so it never satisfies a requirement.
+// A provenance this kernel does not know (a newer log, or a prototype name like "constructor") has no
+// rank, on either side, so it never satisfies a requirement.
 function meetsProvenance(req: Requirement, ev: StoredEvidence): boolean {
-  const rank = PROVENANCE_RANK[ev.provenance];
-  return rank !== undefined && rank >= PROVENANCE_RANK[req.provenance];
+  if (!Object.hasOwn(PROVENANCE_RANK, ev.provenance) || !Object.hasOwn(PROVENANCE_RANK, req.provenance)) return false;
+  return PROVENANCE_RANK[ev.provenance] >= PROVENANCE_RANK[req.provenance];
 }
 
 function requirementLabel(req: Requirement): string {

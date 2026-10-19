@@ -197,6 +197,25 @@ describe("stage order", () => {
     expect(evaluateGate(build([cmd(0, T1)]), "design", { fingerprint: T1, weak: false }).gaps.map((g) => g.requirement)).toEqual(["approval"]));
 });
 
+describe("unknown provenance", () => {
+  const artifactGate = (provenance: string) => packWithGate("build", ruleGate(JSON.parse(JSON.stringify({ kind: "artifact", provenance, fresh: false, match: null }))));
+  const artifact = (provenance: string) => evidence(JSON.parse(JSON.stringify({
+    id: `a-${provenance}`, kind: "artifact", provenance, fingerprint: T1, changes: 0, stage: "build", agent: null, path: "docs/a.md", sha256: "sha256:00",
+  })));
+  // A newer log may carry a provenance this kernel does not know, and names like "constructor" exist on
+  // every object's prototype. Neither may rank, not even at the lowest bar.
+  test("evidence with an unknown provenance never satisfies a requirement", () => {
+    for (const provenance of ["notarized", "constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      expect(gate(build([artifact(provenance)], { pack: artifactGate("claimed") }), T1).verdict).toBe("pending");
+    }
+  });
+  test("a requirement with an unknown provenance cannot be satisfied", () => {
+    for (const provenance of ["notarized", "constructor", "__proto__"]) {
+      expect(gate(build([artifact("attested")], { pack: artifactGate(provenance) }), T1).verdict).toBe("pending");
+    }
+  });
+});
+
 describe("result shape", () => {
   test("carries the stage and the tree it was evaluated at", () =>
     expect(evaluateGate(build([cmd(0, T1)]), "verify", { fingerprint: T1, weak: false })).toMatchObject({ stage: "verify", fingerprint: T1, weakFreshness: false }));
