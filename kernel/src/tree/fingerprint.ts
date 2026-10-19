@@ -33,7 +33,9 @@ export function treeFingerprint(root: string, opts: { git: boolean; changes: num
   if (!opts.git) return { fingerprint: "counter:" + opts.changes, weak: true };
 
   // --path-format=absolute resolves a linked worktree's own index under the main repository's .git.
-  const index = runGit(root, ["rev-parse", "--path-format=absolute", "--git-path", "index"]);
+  // One rev-parse call answers both questions, so the top level costs no extra spawn.
+  const [index, top] = runGit(root, ["rev-parse", "--path-format=absolute", "--git-path", "index", "--show-toplevel"]).split("\n");
+  if (index === undefined || top === undefined) throw new TreeError(`git rev-parse gave no index path or top level in ${root}`);
   const tmp = join(tmpdir(), `aos-index-${process.pid}-${randomBytes(6).toString("hex")}`);
   try {
     try {
@@ -49,12 +51,24 @@ export function treeFingerprint(root: string, opts: { git: boolean; changes: num
     // enough once .aos/ content has been committed: the copied index already carries those entries, so they
     // are dropped first. Both pathspecs are root-relative, so a subdirectory `root` still covers the repository.
     runGit(root, ["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", ":(top).aos"], env);
+    // git refuses any pathspec that names an ignored path, an exclude pathspec included, so the exclude is
+    // passed only when .aos/ is not already ignored. An ignored .aos/ is skipped by `add -A` on its own.
+    const exclude = aosIgnored(top, env) ? [] : [":(top,exclude).aos"];
     // With autocrlf on, safecrlf would refuse a file with mixed line endings and fail the whole fingerprint.
-    runGit(root, ["-c", "core.safecrlf=false", "add", "-A", "--", ":/", ":(top,exclude).aos"], env);
+    runGit(root, ["-c", "core.safecrlf=false", "add", "-A", "--", ":/", ...exclude], env);
     return { fingerprint: "git:" + runGit(root, ["write-tree"], env), weak: false };
   } finally {
     // git removes its own lock on a clean exit or SIGTERM, but not when killed outright.
     rmSync(tmp, { force: true });
     rmSync(tmp + ".lock", { force: true });
   }
+}
+
+/** Whether .aos/ at the repository top level is ignored (by .gitignore, info/exclude, or core.excludesFile). */
+function aosIgnored(top: string, env: NodeJS.ProcessEnv): boolean {
+  const r = spawnGit(top, ["check-ignore", "-q", "--", join(top, ".aos")], env);
+  if (r.error !== undefined) throw new TreeError(`git check-ignore could not run in ${top}`, { cause: r.error });
+  if (r.status === 0) return true;
+  if (r.status === 1) return false;
+  throw new TreeError(`git check-ignore failed in ${top}: ${r.stderr.trim()}`);
 }
