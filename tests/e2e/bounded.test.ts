@@ -110,6 +110,12 @@ test("a bounded run goes from design through build and verify to completion", as
   const masked = s.bash("bun test 2>&1 | tail -3");
   expect(masked.code).toBe(0);
   expect(masked.post?.notice).toContain("hidden by a pipe");
+  // The gate agrees: with no other test run yet, the piped one leaves build pending, never passed.
+  const afterMasked = await s.mcp("aos_gate_check", { runId });
+  const maskedGate = afterMasked.body?.gate as { verdict: string; gaps: Array<{ requirement: string; text: string }> };
+  expect(maskedGate.verdict).not.toBe("pass");
+  expect(maskedGate.verdict).toBe("pending");
+  expect(maskedGate.gaps.find((g) => g.requirement === "command:test")?.text).toContain("hidden by a pipe");
 
   // 10. The real run fails, which blocks the stop with the exit status; fixing the code makes it pass.
   const failing = s.bash("bun test");
