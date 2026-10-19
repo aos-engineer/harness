@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aos": {
+      "command": "bun",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/aos-mcp.ts"],
+      "env": {
+        "AOS_PACK": "${CLAUDE_PLUGIN_ROOT}/../../packs/feature-delivery",
+        "AOS_HOST": "claude-code"
+      }
+    }
+  }
+}
