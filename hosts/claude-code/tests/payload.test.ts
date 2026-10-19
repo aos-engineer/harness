@@ -103,6 +103,16 @@ describe("normalize: failures", () => {
     expect(normalize("PostToolUseFailure", raw).result).toEqual({ exitCode: null, output: "Interrupted by user", raw: "Interrupted by user" });
   });
 
+  test("an interrupted failure has no exit code even when its error starts with Exit code N", () => {
+    const raw = { ...fx("post-tool-use-failure-bash-exit3"), error: "Exit code 130\nInterrupted", is_interrupt: true };
+    expect(normalize("PostToolUseFailure", raw).result).toEqual({ exitCode: null, output: "Exit code 130\nInterrupted", raw: "Exit code 130\nInterrupted" });
+  });
+
+  test("is_interrupt must be exactly true to clear the exit code", () => {
+    const raw = { ...fx("post-tool-use-failure-bash-exit3"), is_interrupt: "true" };
+    expect(normalize("PostToolUseFailure", raw).result?.exitCode).toBe(3);
+  });
+
   test("a failure whose error is not a string has no exit code and empty output", () => {
     const raw = { ...fx("post-tool-use-failure-bash-exit3"), error: { message: "Exit code 2" } };
     expect(normalize("PostToolUseFailure", raw).result).toEqual({ exitCode: null, output: "", raw: { message: "Exit code 2" } });

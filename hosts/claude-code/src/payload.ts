@@ -69,6 +69,8 @@ function resultOf(event: ClaudeEventName, raw: Obj, tool: HookTool | null): Hook
   if (event === "PostToolUseFailure") {
     const error = raw.error;
     if (typeof error !== "string") return { exitCode: null, output: "", raw: error ?? null };
+    // An interrupted run did not finish, so whatever status it reports says nothing about the code.
+    if (raw.is_interrupt === true) return { exitCode: null, output: error, raw: error };
     const m = EXIT_CODE_PREFIX.exec(error);
     return { exitCode: m ? Number(m[1]) : null, output: error, raw: error };
   }
