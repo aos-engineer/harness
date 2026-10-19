@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { RunLocation } from "../types.ts";
 import { RunNotFoundError } from "../util/errors.ts";
 import { sha256Hex } from "../util/hash.ts";
+import { fsyncDir } from "./fs-internal.ts";
 import { runPaths } from "./paths.ts";
 
 /**
@@ -17,7 +18,7 @@ export function writeArtifact(loc: RunLocation, content: string | Uint8Array): s
   const file = join(paths.artifacts, hex);
   if (existsSync(file)) return "sha256:" + hex;
 
-  mkdirSync(paths.artifacts, { recursive: true });
+  const created = mkdirSync(paths.artifacts, { recursive: true });
   const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   try {
     const fd = openSync(tmp, "wx");
@@ -31,6 +32,9 @@ export function writeArtifact(loc: RunLocation, content: string | Uint8Array): s
     }
     // Two writers of the same content race harmlessly: both renames install identical bytes.
     renameSync(tmp, file);
+    // The rename is durable only once the directory is synced, and a new artifacts directory needs its parent.
+    fsyncDir(paths.artifacts);
+    if (created !== undefined) fsyncDir(paths.dir);
   } catch (e) {
     rmSync(tmp, { force: true });
     throw e;

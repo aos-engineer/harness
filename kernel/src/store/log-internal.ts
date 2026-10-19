@@ -7,15 +7,12 @@ import { ChainError, LockTimeoutError, RunNotFoundError } from "../util/errors.t
 import { sha256Tag } from "../util/hash.ts";
 import { ulid } from "../util/ulid.ts";
 import { writeArtifact } from "./artifacts.ts";
+import { errCode } from "./fs-internal.ts";
 import { runPaths } from "./paths.ts";
 
 const NL = 0x0a;
 const TAIL_WINDOW = 64 * 1024;
 const STORE_ACTOR: Actor = { kind: "kernel", id: "store", agent: null };
-
-export function errCode(e: unknown): string | undefined {
-  return (e as NodeJS.ErrnoException | null)?.code;
-}
 
 function parses(line: string): boolean {
   try {

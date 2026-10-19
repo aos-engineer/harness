@@ -7,7 +7,7 @@ import type { Binding } from "../types.ts";
 import { OpError } from "../util/errors.ts";
 import { sha256Hex } from "../util/hash.ts";
 import { aosDir } from "./paths.ts";
-import { errCode } from "./log-internal.ts";
+import { errCode } from "./fs-internal.ts";
 
 function sessionsDir(root: string): string {
   return join(aosDir(root), "sessions");

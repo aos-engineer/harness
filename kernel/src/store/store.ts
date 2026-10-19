@@ -8,7 +8,8 @@ import { ChainError, OpError, RunNotFoundError } from "../util/errors.ts";
 import { sha256Tag } from "../util/hash.ts";
 import { withLock } from "./lock.ts";
 import { aosDir, runPaths } from "./paths.ts";
-import { appendLocked, checkChain, errCode, parseLines, readLogBytes, readStateFile, readTail, scanLog } from "./log-internal.ts";
+import { errCode, fsyncDir } from "./fs-internal.ts";
+import { appendLocked, checkChain, parseLines, readLogBytes, readStateFile, readTail, scanLog } from "./log-internal.ts";
 import type { Tail } from "./log-internal.ts";
 
 function project(projector: Projector, base: RunState | null, events: EventEnvelope[]): RunState | null {
@@ -59,6 +60,7 @@ function writeStateFile(loc: RunLocation, body: string): void {
   try {
     writeFileSync(tmp, body);
     renameSync(tmp, path);
+    fsyncDir(dirname(path));
   } catch (e) {
     rmSync(tmp, { force: true });
     // The events are already durable in the log, so the append succeeded. Reporting failure here would
@@ -68,9 +70,23 @@ function writeStateFile(loc: RunLocation, body: string): void {
   }
 }
 
+/**
+ * A new directory survives a crash only once its parent is synced. Syncs the parent of `dir`, and every
+ * ancestor up to the parent of `firstCreated` (what a recursive mkdir just made, if anything).
+ */
+function syncNewEntries(dir: string, firstCreated: string | undefined): void {
+  let d = dirname(dir);
+  fsyncDir(d);
+  if (firstCreated === undefined) return;
+  while (d !== dirname(firstCreated) && dirname(d) !== d) {
+    d = dirname(d);
+    fsyncDir(d);
+  }
+}
+
 export function createRun(loc: RunLocation, started: EventDraft<"run.started">, projector: Projector): StateFile {
   const paths = runPaths(loc);
-  mkdirSync(dirname(paths.dir), { recursive: true });
+  const firstCreated = mkdirSync(dirname(paths.dir), { recursive: true });
   try {
     mkdirSync(paths.dir);
   } catch (e) {
@@ -78,7 +94,11 @@ export function createRun(loc: RunLocation, started: EventDraft<"run.started">, 
     throw e;
   }
   try {
-    return appendEvents(loc, [started], projector).file;
+    syncNewEntries(paths.dir, firstCreated);
+    const { file } = appendEvents(loc, [started], projector);
+    // The snapshot rename syncs this directory too, but it can be skipped; the log's own entry must last.
+    fsyncDir(paths.dir);
+    return file;
   } catch (e) {
     // The directory is ours alone (the exclusive mkdir above), so a failed start leaves nothing behind.
     rmSync(paths.dir, { recursive: true, force: true });
