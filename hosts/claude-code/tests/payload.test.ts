@@ -18,9 +18,33 @@ describe("normalize: Bash results", () => {
     expect(normalize("PostToolUse", raw).result?.output).toBe("ok\n");
   });
 
-  test("a numeric exit_code in the Bash response wins", () => {
-    const raw = { ...fx("post-tool-use-bash-true"), tool_response: { stdout: "", stderr: "", interrupted: false, exit_code: 7 } };
-    expect(normalize("PostToolUse", raw).result?.exitCode).toBe(7);
+  function bashWith(response: Record<string, unknown>): Record<string, unknown> {
+    const raw = fx("post-tool-use-bash-true");
+    raw.tool_response = { ...(raw.tool_response as Record<string, unknown>), ...response };
+    return raw;
+  }
+
+  test("a non-zero exit the Bash tool reports as a normal result has no exit code", () => {
+    expect(normalize("PostToolUse", fx("post-tool-use-bash-grep-no-match")).result?.exitCode).toBeNull();
+    for (const text of ["Condition is false", "Files differ", ""]) {
+      expect(normalize("PostToolUse", bashWith({ returnCodeInterpretation: text })).result?.exitCode).toBeNull();
+    }
+  });
+
+  test("a non-zero or non-numeric exit_code in a PostToolUse response has no exit code", () => {
+    expect(normalize("PostToolUse", bashWith({ exit_code: 7 })).result?.exitCode).toBeNull();
+    expect(normalize("PostToolUse", bashWith({ exit_code: "0" })).result?.exitCode).toBeNull();
+  });
+
+  test("an exit_code of 0 on the plain foreground shape is exit 0", () => {
+    expect(normalize("PostToolUse", bashWith({ exit_code: 0 })).result?.exitCode).toBe(0);
+  });
+
+  test("a response that does not say interrupted is false has no exit code", () => {
+    const raw = bashWith({});
+    delete (raw.tool_response as Record<string, unknown>).interrupted;
+    expect(normalize("PostToolUse", raw).result?.exitCode).toBeNull();
+    expect(normalize("PostToolUse", bashWith({ interrupted: "false" })).result?.exitCode).toBeNull();
   });
 
   test("a background Bash run has no exit code, since PostToolUse fires before it finishes", () => {

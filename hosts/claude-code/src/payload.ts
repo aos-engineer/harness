@@ -81,15 +81,17 @@ function resultOf(event: ClaudeEventName, raw: Obj, tool: HookTool | null): Hook
   if (!isObj(response)) throw new PayloadError("Bash PostToolUse payload has no tool_response object");
   const stdout = typeof response.stdout === "string" ? response.stdout : "";
   const stderr = typeof response.stderr === "string" ? response.stderr : "";
+  // Only the plain foreground shape counts as exit 0. The Bash tool also reports some non-zero exits
+  // as normal results (grep with no match, diff finding differences, test evaluating false) and
+  // explains them in returnCodeInterpretation. Those, backgrounded runs, interrupts, and any shape
+  // not recognized here get no exit code rather than a guessed one.
   const code = response.exit_code;
-  // Claude Code fires PostToolUse only for a Bash call that succeeded, so a missing code means 0
-  // unless the call was interrupted or backgrounded.
-  const exitCode =
-    isBackgrounded(tool.input, response) ? null
-    : typeof code === "number" && Number.isInteger(code) ? code
-    : response.interrupted === true ? null
-    : 0;
-  return { exitCode, output: stderr === "" ? stdout : `${stdout}\n${stderr}`, raw: response };
+  const plain =
+    response.interrupted === false &&
+    (response.returnCodeInterpretation === undefined || response.returnCodeInterpretation === null) &&
+    (code === undefined || code === null || code === 0) &&
+    !isBackgrounded(tool.input, response);
+  return { exitCode: plain ? 0 : null, output: stderr === "" ? stdout : `${stdout}\n${stderr}`, raw: response };
 }
 
 // A backgrounded command's PostToolUse fires as soon as it starts, before any result exists. The
