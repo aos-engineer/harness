@@ -44,6 +44,25 @@ test("ignores .aos even when .aos is not gitignored", () => {
   expect(fp(repo)).toBe(a);
 });
 
+test("ignores .aos even after .aos content was committed", () => {
+  writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n");
+  const a = fp(repo);
+  git(repo, "add", "-A");
+  git(repo, "commit", "-qm", "with log");
+  expect(fp(repo)).toBe(a);
+  writeFile(repo, ".aos/runs/R/log.jsonl", "{}\n{}\n");
+  expect(fp(repo)).toBe(a);
+  git(repo, "add", "-A");
+  git(repo, "commit", "-qm", "append");
+  expect(fp(repo)).toBe(a);
+});
+
+test("covers the whole repository when called from a subdirectory", () => {
+  mkdirSync(join(repo, "sub"));
+  writeFile(repo, "top.ts", "x");
+  expect(fp(join(repo, "sub"))).toBe(fp(repo));
+});
+
 test("excludes only .aos itself, not names that start with it", () => {
   const a = fp(repo);
   writeFile(repo, ".aosx/a", "x");

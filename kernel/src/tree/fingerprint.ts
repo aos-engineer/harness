@@ -24,8 +24,8 @@ export function gitRoot(cwd: string): string | null {
 }
 
 /**
- * The git tree hash of the working tree at `root` (the repository's top level), or a weak change counter
- * when the run is not in a git repository.
+ * The git tree hash of the working tree of the repository containing `root`, or a weak change counter when
+ * the run is not in a git repository.
  *
  * It stages everything into a copy of the real index and writes a tree from that copy, so the user's own
  * staging is never touched and unchanged files keep their cached stat data (only changed files rehash).
@@ -49,8 +49,11 @@ export function treeFingerprint(root: string, opts: { git: boolean; changes: num
       }
     }
     const env = { ...process.env, GIT_INDEX_FILE: tmp };
-    // The exclude pathspec holds even when .aos/ is not gitignored, so log appends never change the tree.
-    git(root, ["add", "-A", "--", ".", ":(exclude).aos"], env);
+    // .aos/ must never reach the tree, or every log append would change it. Excluding it from `add` is not
+    // enough once .aos/ content has been committed: the copied index already carries those entries, so they
+    // are dropped first. Both pathspecs are root-relative, so a subdirectory `root` still covers the repository.
+    git(root, ["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--", ":(top).aos"], env);
+    git(root, ["add", "-A", "--", ":/", ":(top,exclude).aos"], env);
     return { fingerprint: "git:" + git(root, ["write-tree"], env), weak: false };
   } finally {
     rmSync(tmp, { force: true });
