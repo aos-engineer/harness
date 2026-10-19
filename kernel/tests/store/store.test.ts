@@ -11,7 +11,7 @@ import { writeArtifact } from "../../src/store/artifacts.ts";
 import { ChainError, LockTimeoutError, OpError, RunNotFoundError } from "../../src/util/errors.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
 import { tmpDir } from "../helpers.ts";
-import { appendRawBytes, deleteLine, mutateLine, range, startedDraft, stripFinalNewline, worktreeDraft } from "./fixtures.ts";
+import { appendRawBytes, deleteLine, mutateLine, range, startedDraft, stripFinalNewline, worktreeDraft, writeStale } from "./fixtures.ts";
 import { testProjector } from "./test-projector.ts";
 
 let root: string;
@@ -24,13 +24,6 @@ beforeEach(() => {
 
 function stateOnDisk(): StateFile {
   return JSON.parse(readFileSync(runPaths(loc).state, "utf8")) as StateFile;
-}
-
-/** Rewrites state.json as if it had been written after event `seq`, which makes it lag the log. */
-function writeStale(at: RunLocation, seq: number): void {
-  const cur = JSON.parse(readFileSync(runPaths(at).state, "utf8")) as StateFile;
-  const head = seq === 0 ? GENESIS_PREV : sha256Tag(readLog(at).lines[seq - 1]);
-  writeFileSync(runPaths(at).state, JSON.stringify({ ...cur, seq, head, state: { ...cur.state, seq } }));
 }
 
 function logSize(): number {

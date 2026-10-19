@@ -1,6 +1,8 @@
 // Shared builders and log-tampering tools for the store tests.
 import { appendFileSync, readFileSync, statSync, truncateSync, writeFileSync } from "node:fs";
-import type { Actor, EventDraft, ResolvedPack, RunLocation } from "../../src/types.ts";
+import { GENESIS_PREV } from "../../src/types.ts";
+import type { Actor, EventDraft, ResolvedPack, RunLocation, StateFile } from "../../src/types.ts";
+import { sha256Tag } from "../../src/util/hash.ts";
 import { runPaths } from "../../src/store/paths.ts";
 
 export const hookActor: Actor = { kind: "hook", id: "test:PostToolUse", agent: null };
@@ -76,4 +78,15 @@ export function appendRawBytes(loc: RunLocation, text: string): void {
 export function stripFinalNewline(loc: RunLocation): void {
   const path = runPaths(loc).log;
   truncateSync(path, statSync(path).size - 1);
+}
+
+/** Rewrites state.json as if it had been written after event `seq`, which makes it lag the log. */
+export function writeStale(at: RunLocation, seq: number): void {
+  const cur = JSON.parse(readFileSync(runPaths(at).state, "utf8")) as StateFile;
+  const head = seq === 0 ? GENESIS_PREV : sha256Tag(logLines(at)[seq - 1]);
+  writeFileSync(runPaths(at).state, JSON.stringify({ ...cur, seq, head, state: { ...cur.state, seq } }));
+}
+
+export function taskDraft(i: number): EventDraft<"task.added"> {
+  return { type: "task.added", actor: { kind: "agent", id: "test", agent: null }, data: { task: `t${i}`, stage: "build", title: `task ${i}` } };
 }
