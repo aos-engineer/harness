@@ -1,16 +1,20 @@
-// Stub: real implementation lands later; signatures are the agreed contract.
-import { notImplemented } from "../util/errors.ts";
+// Quote-aware splitting of a shell command line. The scanning rules live in lexer.ts and the
+// unwrapping rules in leaves.ts; this module is the public surface.
+import { walk } from "./leaves.ts";
+import { lex } from "./lexer.ts";
 
+/** Top-level simple commands and the operators between them (`&&`, `||`, `|`, `;`, newline, `&`). */
 export function splitCommand(cmd: string): { segments: string[]; operators: string[] } {
-  return notImplemented("D");
+  const { segments, operators } = lex(cmd);
+  return { segments: segments.map((s) => s.text), operators };
 }
 
-// quotes removed, escapes applied
+/** Words of a command with quotes removed and escapes applied. Substitutions stay as written. */
 export function shellWords(segment: string): string[] {
-  return notImplemented("D");
+  return lex(segment).segments.flatMap((s) => s.words.map((w) => w.value));
 }
 
-// env-stripped, cd-free, bash -c unwrapped
+/** The simple commands that actually run: env assignments stripped, `cd` dropped, `bash -c` and `eval` unwrapped. */
 export function leafSegments(cmd: string): string[] {
-  return notImplemented("D");
+  return walk(cmd).leaves.map((l) => l.text);
 }
