@@ -8,7 +8,7 @@ import { findBinding, sessionFileName } from "../../src/store/sessions.ts";
 import type { HookEvent, HookInput, HookTool, RunLocation, TreeState } from "../../src/types.ts";
 import { ulid } from "../../src/util/ulid.ts";
 import { tmpDir, tmpGitRepo } from "../helpers.ts";
-import { ALLOW, HOST, SESSION, append, bashTool, bound, breakRun, input, mcpTool, startRun, types, writeTool } from "./helpers.ts";
+import { ALLOW, HOST, SESSION, append, bashTool, bound, breakRun, input, linkTo, mcpTool, startRun, types, writeTool } from "./helpers.ts";
 
 let repo: string;
 let run: string;
@@ -82,6 +82,19 @@ describe("binding on aos_run_start", () => {
     mkdirSync(sub);
     handleHook(runStartPost(shapes["a content array"]!(run), sub));
     expect(findBinding(repo, HOST, SESSION)?.root).toBe(repo);
+  });
+
+  test("a run outside git, reached through a symlink, binds at its real path", () => {
+    const plain = tmpDir();
+    const { dir, path: logical } = linkTo(plain);
+    try {
+      const other = startRun(plain, "bounded");
+      handleHook(runStartPost(shapes["a content array"]!(other), logical));
+      expect(findBinding(logical, HOST, SESSION)?.root).toBe(plain);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(plain, { recursive: true, force: true });
+    }
   });
 
   test("a run id with no run behind it binds nothing", () => {

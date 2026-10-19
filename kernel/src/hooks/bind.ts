@@ -1,7 +1,6 @@
 // The MCP server never sees the host's session id, so the session is bound here instead: after
 // aos_run_start succeeds, this hook reads the new run's id out of the tool response.
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 import { projector } from "../projection.ts";
 import { runPaths } from "../store/paths.ts";
 import { bindSession } from "../store/sessions.ts";
@@ -9,6 +8,7 @@ import { appendEvents, loadState } from "../store/store.ts";
 import { gitRoot } from "../tree/fingerprint.ts";
 import type { HookDecision, HookInput } from "../types.ts";
 import { allow, hookActor } from "./context.ts";
+import { physicalPath } from "./paths.ts";
 
 // The response shape is undocumented and may nest the result as JSON text inside JSON, so the id is found
 // in the serialized response, with or without escaped quotes. The closing quote rejects a longer id.
@@ -19,8 +19,10 @@ export function bindOnRunStart(input: HookInput): HookDecision | null {
   if (input.event !== "post-tool" || input.tool?.kind !== "aos-mcp" || input.tool.aosTool !== "aos_run_start") return null;
   const run = runIdIn(input.result?.raw);
   if (run === null) return null;
-  // The same root the MCP server resolves for a run, so a session in a subdirectory binds at the top.
-  const root = gitRoot(input.cwd) ?? resolve(input.cwd);
+  // The same root the MCP server resolves for a run, so a session in a subdirectory binds at the top. git
+  // already reports a physical path; outside git the cwd is resolved the same way, so the binding's root
+  // compares equal to the run's however the session reached the directory.
+  const root = gitRoot(input.cwd) ?? physicalPath(input.cwd);
   const loc = { root, run };
   if (!existsSync(runPaths(loc).log)) return null;
   const { state } = loadState(loc, projector);

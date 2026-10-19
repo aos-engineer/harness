@@ -1,6 +1,6 @@
 // Builders for the hook tests: real runs on disk (store, projector, and the reference pack), host-agnostic
 // HookInputs, and shortcuts that move a run to the state a test needs.
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { loadPack } from "../../src/pack/load.ts";
 import { projector } from "../../src/projection.ts";
@@ -14,6 +14,7 @@ import type {
   StoredEvidence, Tier,
 } from "../../src/types.ts";
 import { ulid } from "../../src/util/ulid.ts";
+import { tmpDir } from "../helpers.ts";
 
 export const HOST = "claude-code";
 export const SESSION = "S1";
@@ -45,6 +46,14 @@ export function startRun(repo: string, tier: Tier): string {
   if (first === undefined) throw new Error(`the reference pack has no ${tier} stages`);
   append(loc, { type: "stage.entered", actor: SETUP, data: { stage: first, index: 0 } });
   return run;
+}
+
+/** A symlink to `target` in a fresh temp dir, so a test can reach the repo by a path git does not report. */
+export function linkTo(target: string): { path: string; dir: string } {
+  const dir = tmpDir("aos-link-");
+  const path = join(dir, "link");
+  symlinkSync(target, path);
+  return { path, dir };
 }
 
 /** Binds session S1 of the test host to `run`. */

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { handleHook } from "../../src/hooks/handle.ts";
 import type { HookDecision, HookInput, HookTool, RunLocation } from "../../src/types.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
 import { tmpDir, tmpGitRepo, writeFile } from "../helpers.ts";
 import {
-  ALLOW, at, bashTool, bound, complete, events, fp, input, lastEvent, lastEvidence, mcpTool, skillTool, startRun, state, writeTool,
+  ALLOW, at, bashTool, bound, complete, events, fp, input, lastEvent, lastEvidence, linkTo, mcpTool, skillTool, startRun, state, writeTool,
 } from "./helpers.ts";
 
 const MASKED = "AOS: this test run's exit status was hidden by a pipe or chain, so it does not count as evidence. Re-run the test command on its own.";
@@ -120,6 +121,16 @@ describe("file writes", () => {
     expect(lastEvent(loc)).toMatchObject({ type: "worktree.changed", data: { path: "src/a.ts", tool: "Write" } });
     post(toolOnly(writeTool("src/b.ts", "Edit")));
     expect(state(loc).changes).toBe(2);
+  });
+
+  test("a write through a symlink to the repo counts at its real repo-relative path", () => {
+    const { dir, path: logical } = linkTo(repo);
+    try {
+      post(toolOnly(writeTool(join(logical, "src/a.ts"))), { cwd: logical });
+      expect(lastEvent(loc)).toMatchObject({ type: "worktree.changed", data: { path: "src/a.ts" } });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("writes outside the root are not counted", () => {

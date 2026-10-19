@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { handleHook, type HookDeps } from "../../src/hooks/handle.ts";
 import type { HookDecision, HookTool, RunLocation, TreeState } from "../../src/types.ts";
 import { tmpDir, tmpGitRepo, writeFile } from "../helpers.ts";
-import { ALLOW, at, bashTool, bound, complete, events, input, lastEvent, pass, startRun, writeTool } from "./helpers.ts";
+import { ALLOW, at, bashTool, bound, complete, events, input, lastEvent, linkTo, pass, startRun, writeTool } from "./helpers.ts";
 
 const AOS_DIR = "AOS: .aos/ is kernel-owned. Read run state with the aos_status tool.";
 
@@ -74,6 +74,50 @@ describe("file writes", () => {
     try {
       expect(pre(writeTool(join(outside, "scratch.md")))).toEqual(ALLOW);
       expect(pre(writeTool("../elsewhere/x.ts"))).toEqual(ALLOW);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("symlinked paths", () => {
+  // git reports the run root with symlinks resolved; payload paths may not be.
+  let linkDir: string;
+  let logical: string;
+  beforeEach(() => {
+    ({ dir: linkDir, path: logical } = linkTo(repo));
+  });
+  afterEach(() => rmSync(linkDir, { recursive: true, force: true }));
+
+  test("a write through a symlink to the repo gets the stage's scope", () => {
+    expect(denied(pre(writeTool(join(logical, "src/x.ts")), logical))).toContain('stage "design"');
+    expect(pre(writeTool(join(logical, "docs/specs/x.md")), logical)).toEqual(ALLOW);
+  });
+
+  test("a write to .aos through a symlink to the repo is denied", () => {
+    at(loc, "build");
+    expect(denied(pre(writeTool(join(logical, ".aos/runs/x/log.jsonl")), logical))).toBe(AOS_DIR);
+  });
+
+  test.skipIf(process.platform !== "darwin")("the unresolved macOS temp spelling gets the same checks", () => {
+    const unresolved = repo.replace(/^\/private\//, "/");
+    expect(unresolved).not.toBe(repo);
+    expect(pre(writeTool(join(unresolved, "src/x.ts")), unresolved).kind).toBe("deny");
+    at(loc, "build");
+    expect(denied(pre(writeTool(join(unresolved, ".aos/runs/x/log.jsonl")), unresolved))).toBe(AOS_DIR);
+  });
+
+  test("a symlink inside the repo that points into .aos is denied", () => {
+    at(loc, "build");
+    symlinkSync(join(repo, ".aos"), join(repo, "sneaky"));
+    expect(denied(pre(writeTool("sneaky/runs/x/log.jsonl")))).toBe(AOS_DIR);
+  });
+
+  test("a symlink inside the repo that points outside it is outside the root", () => {
+    const outside = tmpDir();
+    try {
+      symlinkSync(outside, join(repo, "out"));
+      expect(pre(writeTool("out/x.ts"))).toEqual(ALLOW);
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }

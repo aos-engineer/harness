@@ -1,12 +1,12 @@
 // PostToolUse and PostToolUseFailure: the only place observed evidence comes from. Role-matched commands
 // become command evidence, file writes become worktree changes, and skill calls become skill evidence.
 // It runs on completed runs too, so a test run after completion can still block or re-open a push.
-import { isAbsolute, relative, sep } from "node:path";
 import { matchRole } from "../shell/match.ts";
 import { captureOutput, redact } from "../shell/redact.ts";
 import type { CommandEvidence, Evidence, HookDecision, HookTool, SkillEvidence } from "../types.ts";
 import { ulid } from "../util/ulid.ts";
 import { allow, type HookContext } from "./context.ts";
+import { rootRelative } from "./paths.ts";
 
 const MASKED_TEXT = "AOS: this test run's exit status was hidden by a pipe or chain, so it does not count as evidence. Re-run the test command on its own.";
 const NO_EXIT_CODE_TEXT =
@@ -52,8 +52,8 @@ function observeCommand(ctx: HookContext, tool: HookTool): HookDecision {
 
 function observeWrite(ctx: HookContext, tool: HookTool): HookDecision {
   if (tool.path === null) return allow();
-  const rel = relative(ctx.state.root, tool.path).split(sep).join("/");
-  if (rel === ".." || rel.startsWith("../") || isAbsolute(rel)) return allow();
+  const rel = rootRelative(ctx.state.root, tool.path);
+  if (rel === null) return allow();
   ctx.append([{ type: "worktree.changed", actor: ctx.actor, data: { path: rel, tool: tool.name } }]);
   return allow();
 }

@@ -1,13 +1,13 @@
 // PreToolUse: decides whether a tool call may run. File writes are checked against the stage's write
 // scope; Bash commands against human-only commands, `.aos/`, and the pack's action policies. The first
 // deny wins and is logged as action.blocked; an allowed guarded action is logged as action.allowed.
-import { isAbsolute, relative, sep } from "node:path";
 import { evaluateGate } from "../gates/evaluate.ts";
 import { formatGate } from "../gates/format.ts";
 import { stageDef } from "../projection.ts";
 import { matchAction, matchHumanOnly, mentionsAosDir } from "../shell/match.ts";
 import type { ActionName, EventDataMap, HookDecision, HookTool } from "../types.ts";
 import { allow, type HookContext } from "./context.ts";
+import { rootRelative } from "./paths.ts";
 import { logHookError } from "./report.ts";
 
 const AOS_DIR_TEXT = "AOS: .aos/ is kernel-owned. Read run state with the aos_status tool.";
@@ -28,9 +28,9 @@ function guardWrite(ctx: HookContext, tool: HookTool): HookDecision {
   const { state } = ctx;
   // A write tool call with no path names nothing to check; the hook entry for file tools fails open anyway.
   if (tool.path === null) return allow();
-  const rel = relative(state.root, tool.path).split(sep).join("/");
+  const rel = rootRelative(state.root, tool.path);
   // Paths outside the root are not AOS's concern.
-  if (rel === ".." || rel.startsWith("../") || isAbsolute(rel)) return allow();
+  if (rel === null) return allow();
   if (AOS_PATH.test(rel)) return deny(ctx, tool, "aos-dir", AOS_DIR_TEXT);
   // A completed run keeps guarding actions, but its stages are over, so their write scopes no longer apply.
   if (state.status !== "active") return allow();
