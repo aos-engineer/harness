@@ -11,20 +11,37 @@ test("incremental apply equals full projection for 200 random logs", () => {
     const evs = genEvents(seed, LENGTH);
     const before = structuredClone(evs);
     const inc = evs.reduce<RunState | null>((s, e) => applyEvent(s, e), null);
-    expect(inc).toEqual(project(evs));
-    expect(evs).toEqual(before); // neither pass may write into the events it read
+    expect(inc).toStrictEqual(project(evs));
+    expect(evs).toStrictEqual(before); // neither pass may write into the events it read
   }
 });
 
-// Hooks load state.json and apply only the new events, so the projection must survive a JSON round
-// trip at any point in the log and still land on the same state as a full replay.
-test("resuming from a JSON snapshot at any point equals full projection", () => {
+const roundTrip = (s: RunState): RunState => JSON.parse(JSON.stringify(s));
+
+// Hooks load state.json and apply only the new events, so every intermediate state must survive a
+// JSON round trip unchanged. Strict equality catches what loose equality forgives: undefined-valued
+// keys, Dates, and other values JSON cannot carry.
+test("every intermediate state survives a JSON round trip, and resuming from one matches", () => {
   for (let seed = 1; seed <= SEEDS; seed++) {
-    const evs = genEvents(seed, LENGTH);
-    const cut = 1 + (seed % (LENGTH - 1));
-    const snapshot: RunState = JSON.parse(JSON.stringify(project(evs.slice(0, cut))));
-    const resumed = evs.slice(cut).reduce((s, e) => applyEvent(s, e), snapshot);
-    expect(resumed).toEqual(project(evs));
+    let inc: RunState | null = null;
+    let resumed: RunState | null = null;
+    for (const e of genEvents(seed, LENGTH)) {
+      inc = applyEvent(inc, e);
+      resumed = roundTrip(applyEvent(resumed, e));
+      expect(resumed).toStrictEqual(inc);
+    }
+  }
+});
+
+test("applying an event never changes the state it was given", () => {
+  for (let seed = 1; seed <= SEEDS; seed++) {
+    let s: RunState | null = null;
+    for (const e of genEvents(seed, LENGTH)) {
+      const before = s === null ? null : structuredClone(s);
+      const next = applyEvent(s, e);
+      expect(s).toStrictEqual(before);
+      s = next;
+    }
   }
 });
 
