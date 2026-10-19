@@ -140,4 +140,6 @@ test.each([
   ['git commit -m "feat: x" -m "Run logs live under repo/.aos/runs."', false],
   // Whitespace inside a substitution does not make the path around it prose
   ['cat "$(git rev-parse --show-toplevel)/.aos/runs/x"', true], ["cat $(echo .aos/x)", true],
+  // Default macOS filesystems fold case, so .AOS reaches the same kernel files
+  ["cat .AOS/runs/x/state.json", true], ["rm -rf /repo/.Aos", true], ["ls .AOSX", false],
 ])("mentionsAosDir(%j)", (cmd, want) => expect(mentionsAosDir(cmd)).toBe(want));

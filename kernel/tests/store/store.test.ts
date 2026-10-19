@@ -293,3 +293,34 @@ describe("property: any single-event mutation breaks the chain", () => {
     expect(verifyChain(loc).ok).toBe(false);
   });
 });
+
+// Operations validate against the state under the lock, so a concurrent writer cannot slip between an
+// operation's read and its append (for example a human cancel landing during an agent's stage advance).
+describe("appendEvents precondition", () => {
+  beforeEach(() => {
+    createRun(loc, startedDraft(), testProjector);
+    appendEvents(loc, [worktreeDraft()], testProjector);
+  });
+
+  test("a precondition that throws leaves the log and the snapshot untouched", () => {
+    const log = readFileSync(runPaths(loc).log, "utf8");
+    const snap = readFileSync(runPaths(loc).state, "utf8");
+    const refuse = () => { throw new OpError("refused", "the run changed"); };
+    expect(() => appendEvents(loc, [worktreeDraft(1)], testProjector, { precondition: refuse })).toThrow("the run changed");
+    expect(readFileSync(runPaths(loc).log, "utf8")).toBe(log);
+    expect(readFileSync(runPaths(loc).state, "utf8")).toBe(snap);
+  });
+
+  test("the precondition sees the locked state, including appends made after the caller last read", () => {
+    const readEarlier = loadState(loc, testProjector).state.seq;
+    appendEvents(loc, [worktreeDraft(2)], testProjector);
+    const seen: number[] = [];
+    appendEvents(loc, [worktreeDraft(3)], testProjector, { precondition: (s) => void seen.push(s.seq) });
+    expect(readEarlier).toBe(2);
+    expect(seen).toEqual([3]);
+  });
+
+  test("a passing precondition appends normally", () => {
+    expect(appendEvents(loc, [worktreeDraft(4)], testProjector, { precondition: () => {} }).file.seq).toBe(3);
+  });
+});
