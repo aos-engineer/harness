@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { evaluateGate, gapKey, hasAgentGaps } from "../../src/gates/evaluate.ts";
 import type { GateDef, Requirement, RunState } from "../../src/types.ts";
 import {
-  RUN, T1, T2, build, cmd, completed, deniedA, design, entered, evidence, g1, g2, grantedA, packWithGate, reenter, requestedA, review,
+  AGENT, HOOK, KERNEL, RUN, T1, T2, build, cmd, completed, deniedA, design, entered, evidence, g1, g2, grantedA, packWithGate, reenter, requestedA, review,
   taskAdded, taskCompleted, verify, withGaps, worktreeChanged,
 } from "./fixtures.ts";
 
@@ -111,6 +111,17 @@ describe("human decider", () => {
     expect(gate(design([requestedA("r1"), grantedA("r1")]), T1).verdict).toBe("pass");
     expect(gate(design([requestedA("r1"), deniedA("r1")]), T1).verdict).toBe("fail");
     expect(gate(design([requestedA("r1"), deniedA("r1"), requestedA("r2")]), T1).gaps[0]?.who).toBe("human");
+  });
+  test("a grant by anyone but a human leaves the gate waiting on the human", () => {
+    for (const actor of [AGENT, KERNEL, HOOK]) {
+      const s = design([requestedA("r1"), { type: "approval.granted", actor, data: { request: "r1", stage: "design", reason: null } }]);
+      expect(gate(s, T1)).toMatchObject({ verdict: "pending", gaps: [{ kind: "missing", who: "human", requirement: "approval" }] });
+      expect(gate(s, T1).gaps[0]?.text).toStartWith("Waiting on the human.");
+    }
+  });
+  test("a denial by anyone but a human does not count either", () => {
+    const s = design([requestedA("r1"), { type: "approval.denied", actor: AGENT, data: { request: "r1", stage: "design", reason: "self-denied" } }]);
+    expect(gate(s, T1)).toMatchObject({ verdict: "pending", gaps: [{ kind: "missing", who: "human" }] });
   });
   test("a newer request outranks an older grant", () =>
     expect(gate(design([requestedA("r1"), grantedA("r1"), requestedA("r2")]), T1).verdict).toBe("pending"));

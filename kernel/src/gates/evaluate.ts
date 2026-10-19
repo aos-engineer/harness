@@ -83,11 +83,14 @@ function checkApproval(state: RunState, stage: string): Gap | null {
   if (request === null) {
     return gap("missing", "agent", `Approval not requested. Present the ${stage} to the human, then call aos_request_approval.`);
   }
-  if (request.decision === null) {
+  // Only a human decides. A decision logged by any other actor is treated as no decision at all, so
+  // a forged grant cannot pass the gate and a forged denial cannot stand in for the human's answer.
+  const decision = request.decision?.actor.kind === "human" ? request.decision : null;
+  if (decision === null) {
     return gap("missing", "human", `Waiting on the human. They approve with: aos approve ${state.run} ${stage} --root ${shellQuote(state.root)}`);
   }
-  if (!request.decision.granted) {
-    const reason = trimPeriod(oneLine(request.decision.reason ?? ""));
+  if (!decision.granted) {
+    const reason = trimPeriod(oneLine(decision.reason ?? ""));
     const detail = reason === "" ? "" : `: ${reason}`;
     return gap("failed", "agent", `The human denied approval${detail}. Revise, then request approval again.`);
   }
