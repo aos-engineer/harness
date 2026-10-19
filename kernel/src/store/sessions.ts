@@ -1,9 +1,10 @@
 // Session bindings tie a host session to its active run, so a hook that knows only its session id and
 // cwd can find the run. findBinding runs on every hook call, so it uses stat and one read, never git.
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, linkSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Binding } from "../types.ts";
+import { OpError } from "../util/errors.ts";
 import { sha256Hex } from "../util/hash.ts";
 import { aosDir } from "./paths.ts";
 import { errCode } from "./log-internal.ts";
@@ -26,17 +27,29 @@ export function sessionFileName(host: string, session: string): string {
   return `${safe(host, 40)}-${safe(session, 80)}-${sha256Hex(host + "\0" + session).slice(0, 12)}.json`;
 }
 
-function parseBinding(raw: string): Binding | null {
+/** Throws OpError("invalid") when `raw` is not a binding, keeping the parse failure as its cause. */
+function parseBinding(raw: string, file: string): Binding {
+  let b: Partial<Binding> | null;
   try {
-    const b = JSON.parse(raw) as Partial<Binding> | null;
-    if (b && typeof b.host === "string" && typeof b.session === "string" && typeof b.run === "string"
-      && typeof b.root === "string" && typeof b.boundAt === "string") {
-      return { host: b.host, session: b.session, run: b.run, root: b.root, boundAt: b.boundAt };
-    }
-  } catch {
-    // Falls through to null; callers decide whether unreadable means skip or fail.
+    b = JSON.parse(raw) as Partial<Binding> | null;
+  } catch (e) {
+    throw new OpError("invalid", `unreadable session binding at ${file}; delete it to unbind the session`, { cause: e });
   }
-  return null;
+  if (b && typeof b.host === "string" && typeof b.session === "string" && typeof b.run === "string"
+    && typeof b.root === "string" && typeof b.boundAt === "string") {
+    return { host: b.host, session: b.session, run: b.run, root: b.root, boundAt: b.boundAt };
+  }
+  throw new OpError("invalid", `${file} is not a session binding; delete it to unbind the session`);
+}
+
+/** The binding in `file`, or null when it is gone or unreadable. */
+function tryRead(file: string): Binding | null {
+  try {
+    return parseBinding(readFileSync(file, "utf8"), file);
+  } catch (e) {
+    if (e instanceof OpError || errCode(e) === "ENOENT") return null;
+    throw e;
+  }
 }
 
 export function bindSession(root: string, host: string, session: string, run: string): Binding {
@@ -73,8 +86,7 @@ export function findBinding(cwd: string, host: string, session: string): Binding
         if (errCode(e) !== "ENOENT") throw e;
       }
       if (raw !== null) {
-        const b = parseBinding(raw);
-        if (b === null) throw new Error(`unreadable session binding at ${file}; delete it to unbind the session`);
+        const b = parseBinding(raw, file);
         if (b.host === host && b.session === session) return b;
       }
     }
@@ -96,16 +108,30 @@ export function unbindRun(root: string, run: string): number {
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     const file = join(dir, name);
-    let b: Binding | null;
+    if (tryRead(file)?.run !== run) continue;
+    // The session may be rebinding to a new run right now. Claim the file by renaming it, so the copy that is
+    // compared is the copy that is deleted; a re-read before unlinking would still delete a rebind landing in
+    // between. A rebound binding is put back, unless an even newer one has already taken its place.
+    const claimed = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.unbind`;
     try {
-      b = parseBinding(readFileSync(file, "utf8"));
+      renameSync(file, claimed);
     } catch (e) {
       if (errCode(e) === "ENOENT") continue;
       throw e;
     }
-    if (b?.run !== run) continue;
-    rmSync(file, { force: true });
-    removed++;
+    try {
+      if (tryRead(claimed)?.run === run) {
+        removed++; // the claimed file is deleted by the finally below
+        continue;
+      }
+      try {
+        linkSync(claimed, file);
+      } catch (e) {
+        if (errCode(e) !== "EEXIST") renameSync(claimed, file);
+      }
+    } finally {
+      rmSync(claimed, { force: true });
+    }
   }
   return removed;
 }

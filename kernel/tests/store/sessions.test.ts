@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { bindSession, findBinding, sessionFileName, unbindRun } from "../../src/store/sessions.ts";
+import { OpError } from "../../src/util/errors.ts";
 import { tmpDir } from "../helpers.ts";
 
 const run = "01JRUN0000000000000000000A";
@@ -93,12 +94,37 @@ test("unbindRun skips files it cannot read and returns 0 with no sessions dir", 
   expect(existsSync(join(root, ".aos/sessions/junk.json"))).toBe(true);
 });
 
+function findError(): unknown {
+  try {
+    findBinding(root, "claude-code", "s1");
+  } catch (e) {
+    return e;
+  }
+  return null;
+}
+
 test("findBinding fails loudly on a corrupt binding instead of reporting no run", () => {
   mkdirSync(join(root, ".aos/sessions"), { recursive: true });
-  writeFileSync(join(root, ".aos/sessions", sessionFileName("claude-code", "s1")), "{");
-  expect(() => findBinding(root, "claude-code", "s1")).toThrow(/binding/);
-  writeFileSync(join(root, ".aos/sessions", sessionFileName("claude-code", "s1")), "");
-  expect(() => findBinding(root, "claude-code", "s1")).toThrow(/binding/);
+  const file = join(root, ".aos/sessions", sessionFileName("claude-code", "s1"));
+  writeFileSync(file, "{");
+  const parseFailure = findError();
+  expect(parseFailure).toBeInstanceOf(OpError);
+  expect(parseFailure).toMatchObject({ code: "invalid", message: expect.stringMatching(/binding/) });
+  expect((parseFailure as Error).cause).toBeInstanceOf(SyntaxError);
+  writeFileSync(file, "");
+  expect(findError()).toBeInstanceOf(OpError);
+  writeFileSync(file, JSON.stringify({ run: 5 }));
+  expect(findError()).toMatchObject({ code: "invalid" });
+});
+
+test("unbindRun leaves bindings for other runs byte for byte as they were", () => {
+  bindSession(root, "claude-code", "s1", run);
+  bindSession(root, "claude-code", "s2", "R2");
+  const keep = join(root, ".aos/sessions", sessionFileName("claude-code", "s1"));
+  const before = readFileSync(keep, "utf8");
+  expect(unbindRun(root, "R2")).toBe(1);
+  expect(readFileSync(keep, "utf8")).toBe(before);
+  expect(readdirSync(join(root, ".aos/sessions"))).toEqual([sessionFileName("claude-code", "s1")]);
 });
 
 test("bindSession leaves no temp files behind", () => {
