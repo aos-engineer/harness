@@ -16,3 +16,8 @@ export function fixtureNames(): string[] {
 export function fx(name: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(dir, `${name}.json`), "utf8")) as Record<string, unknown>;
 }
+
+/** A PostToolUse payload for an arbitrary tool, for tool names no fixture covers yet. */
+export function withTool(toolName: string, toolInput: Record<string, unknown> = {}, toolResponse: unknown = {}): Record<string, unknown> {
+  return { ...fx("post-tool-use-write"), tool_name: toolName, tool_input: toolInput, tool_response: toolResponse };
+}
