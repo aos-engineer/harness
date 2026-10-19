@@ -71,7 +71,8 @@ export function matchHumanOnly(cmd: string): string | null {
   return null;
 }
 
-const AOS_DIR = /(^|\/|>)\.aos(\/|$)/;
+// Case-insensitive: default macOS filesystems fold case, so `.AOS/runs` reaches the same kernel files.
+const AOS_DIR = /(^|\/|>)\.aos(\/|$)/i;
 
 /** True when any word of any segment, including `cd` targets, assignments, and redirect targets, names `.aos`. */
 export function mentionsAosDir(cmd: string): boolean {
