@@ -10,13 +10,13 @@
 - `packs/feature-delivery/`: the reference methodology pack. Data only.
 - `cli/`: the `aos` CLI (`approve`, `status`, `doctor`, `run cancel`, `mcp`).
 - `core/`: 0.x agent, profile, and domain content, kept because the docs site reads it at build time.
-- `site/`: the docs site (Astro). Its own package and lockfile; not a workspace member.
+- `site/`: the docs site (Astro). Its own package, not a workspace member. `site/bun.lock` is gitignored, so site installs are not pinned.
 
 ## Commands
 
 - Install: `bun install`. Inside the Claude Code sandbox: `BUN_TMPDIR="$TMPDIR" BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache" bun install`.
 - All tests: `bun run test`. One area: `bun test ./kernel/tests/store` (always a `./` path).
-- Lint and typecheck: `bun run lint`.
+- Lint and typecheck: `bun run lint` (the typecheck runs twice: the whole workspace, then `kernel/src` with only Node types).
 - The CLI from source: `bun cli/src/index.ts <command>`.
 - The plugin, locally: `claude --plugin-dir hosts/claude-code`.
 
