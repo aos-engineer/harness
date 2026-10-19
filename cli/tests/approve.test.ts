@@ -139,6 +139,24 @@ describe("aos approve", () => {
     expect(loadState(loc, projector).state.approvals.find((a) => a.request === newer)?.decision).toBeNull();
   });
 
+  test("a request replaced while the human types is not denied either", async () => {
+    request(loc, "design", "the summary the human reads");
+    let newer = "";
+    let afterRace = 0;
+    const io = fakeIO({
+      argv: ["approve", run, "--deny", "--reason", "split it"], cwd: root, isTTY: true,
+      answers: [() => {
+        newer = request(loc, "design", "a summary the human never saw");
+        afterRace = types(loc).length;
+        return "design";
+      }],
+    });
+    expect(await approveCommand(io)).toBe(1);
+    expect(io.stderr).toContain("Not denied: request");
+    expect(types(loc).length).toBe(afterRace);
+    expect(loadState(loc, projector).state.approvals.find((a) => a.request === newer)?.decision).toBeNull();
+  });
+
   // Request text comes from the agent. Escape sequences could repaint the terminal to hide what is approved.
   test("terminal control characters in the summary are shown, not interpreted", async () => {
     request(loc, "design", "safe text\u001b[2J\u001b[Hrewritten\rover\u202eesrever\u061c\u2028\u2029\u200b\ufeff end");

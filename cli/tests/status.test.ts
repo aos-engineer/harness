@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { Actor, RunLocation } from "@aos-harness/kernel";
@@ -197,5 +197,22 @@ describe("aos status <run> on an ended run", () => {
     const io = fakeIO({ argv: ["status", run, "--json"], cwd: root });
     await statusCommand(io);
     expect(JSON.parse(io.stdout).final).toBe(false);
+  });
+});
+
+// Status is read-only: listing, summarizing, and evaluating the tree must not touch the run's files.
+describe("aos status changes nothing", () => {
+  const files = (l: RunLocation) => [runPaths(l).log, runPaths(l).state].map((f) => readFileSync(f));
+
+  test("log.jsonl and state.json stay byte-identical", async () => {
+    const repo = tmpGitRepo();
+    const inRepo = newRun(repo, { git: true });
+    request(inRepo);
+    const before = files(inRepo);
+    for (const argv of [["status"], ["status", "--json"], ["status", inRepo.run], ["status", inRepo.run, "--json"]]) {
+      expect(await statusCommand(fakeIO({ argv, cwd: repo }))).toBe(0);
+    }
+    const after = files(inRepo);
+    expect(after.map((b, i) => b.equals(before[i]))).toEqual([true, true]);
   });
 });

@@ -216,6 +216,14 @@ describe("deny", () => {
   test("with nothing pending is not_found", () => {
     expect(() => deny(loc, { actor: humanActor(), reason: "no" })).toThrow(code("not_found"));
   });
+
+  test("pinned to the request the human saw refuses once a newer request replaced it", () => {
+    const seen = request();
+    request("design", "a different summary the human never read");
+    const before = events().length;
+    expect(() => deny(loc, { actor: humanActor(), reason: "no", request: seen })).toThrow(code("not_found"));
+    expect(events().length).toBe(before);
+  });
 });
 
 describe("cancelRun", () => {

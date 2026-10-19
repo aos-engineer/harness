@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, copyFileSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { RunLocation } from "@aos-harness/kernel";
@@ -223,6 +223,20 @@ describe("aos doctor", () => {
     const io = doctor();
     expect(await doctorCommand(io)).toBe(0);
     expect(io.stdout).toMatch(/^WARN could not read .aos\/hook-errors\.log/m);
+  });
+
+  // Doctor reports damage; repairing it belongs to writers holding the run lock.
+  test("leaves log.jsonl and state.json byte-identical, even when a writer would repair them", async () => {
+    const saved = join(tmpDir(), "state.json");
+    copyFileSync(runPaths(loc).state, saved);
+    request(loc);
+    copyFileSync(saved, runPaths(loc).state); // a lagging snapshot
+    appendRawBytes(loc, '{"v":1,"seq":4'); // a torn tail
+    const files = () => [runPaths(loc).log, runPaths(loc).state].map((f) => readFileSync(f));
+    const before = files();
+    await doctorCommand(doctor());
+    const after = files();
+    expect(after.map((b, i) => b.equals(before[i]))).toEqual([true, true]);
   });
 
   test("an unknown flag is a usage error", async () => {
