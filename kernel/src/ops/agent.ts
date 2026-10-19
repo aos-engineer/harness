@@ -1,15 +1,20 @@
 // Operations the agent drives through MCP tools. Each one reads the run, checks it against policy, and
 // appends events; none of them can approve, waive, lower a tier, or record observed evidence, because
 // those belong to the human and to the hooks. Failures are OpErrors so the MCP layer can relay the class.
+import { createHash } from "node:crypto";
+import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { evaluateGate } from "../gates/evaluate.ts";
 import { formatGate, renderSummary } from "../gates/format.ts";
 import { classifyTier } from "../pack/classify.ts";
 import { loadPack } from "../pack/load.ts";
-import { projector } from "../projection.ts";
+import { projector, stageDef } from "../projection.ts";
+import { writeArtifact } from "../store/artifacts.ts";
 import { appendEvents, createRun, loadState } from "../store/store.ts";
-import type { EventDraft, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier } from "../types.ts";
+import type { EventDraft, Evidence, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier } from "../types.ts";
 import { TIER_RANK } from "../types.ts";
-import { notImplemented, OpError, RunNotFoundError } from "../util/errors.ts";
+import { OpError, RunNotFoundError } from "../util/errors.ts";
+import { sha256Tag } from "../util/hash.ts";
 import { ulid } from "../util/ulid.ts";
 import { agentActor } from "./context.ts";
 import type { OpContext } from "./context.ts";
@@ -112,20 +117,98 @@ export function stageAdvance(ctx: OpContext, p: { runId: string }): StageAdvance
   return { advanced: true, completed: false, gate, stage: next, instructions: instructionsFor(state.pack, state.tier, next), message: null };
 }
 
+const MAX_TITLE_CHARS = 500;
+const MAX_SUMMARY_CHARS = 4000;
+const MAX_FEEDBACK_CHARS = 8000;
+const MAX_NOTE_CHARS = 2000;
+const MAX_NAME_CHARS = 200;
+const MAX_TASK_EVIDENCE = 50;
+// Larger artifacts are hashed but not copied, so one big file cannot bloat every run directory.
+const COPY_LIMIT_BYTES = 1024 * 1024;
+const REVIEW_STATUSES: readonly string[] = ["approved", "rejected", "needs-revision"];
+
 export function taskAdd(ctx: OpContext, p: { runId: string; title: string }): { task: string; stage: string } {
-  return notImplemented("F");
+  const { loc, state } = readActive(ctx, p.runId);
+  const title = text(p.title, "title", MAX_TITLE_CHARS);
+  // Ids count across the whole run, so a task id never means two different tasks.
+  const task = `t${state.tasks.length + 1}`;
+  const stage = state.current.stage;
+  append(loc, [{ type: "task.added", actor: agentActor("aos_task_add"), data: { task, stage, title } }]);
+  return { task, stage };
 }
 
 export function taskComplete(ctx: OpContext, p: { runId: string; task: string; evidence?: string[] }): { task: string; open: number } {
-  return notImplemented("F");
+  const { loc, state } = readActive(ctx, p.runId);
+  const stage = state.current.stage;
+  const task = state.tasks.find((t) => t.id === p.task);
+  if (task === undefined) throw new OpError("invalid", `No task ${JSON.stringify(p.task)} in run ${state.run}. Add it with aos_task_add first.`);
+  if (task.done) throw new OpError("invalid", `Task ${task.id} is already completed.`);
+  if (task.stage !== stage) throw new OpError("invalid", `Task ${task.id} belongs to the ${task.stage} stage; the run is at ${stage}.`);
+  const evidence = p.evidence ?? [];
+  if (!Array.isArray(evidence) || evidence.length > MAX_TASK_EVIDENCE) {
+    throw new OpError("invalid", `evidence must be a list of at most ${MAX_TASK_EVIDENCE} evidence ids`);
+  }
+  // A task may cite only evidence the run holds, so a completion cannot point at proof that does not exist.
+  const known = new Set(state.evidence.map((e) => e.id));
+  const unknown = evidence.filter((id) => typeof id !== "string" || !known.has(id));
+  if (unknown.length > 0) throw new OpError("invalid", `Unknown evidence ids: ${unknown.map((id) => JSON.stringify(id)).join(", ")}. Use ids returned by aos_evidence_record.`);
+
+  append(loc, [{ type: "task.completed", actor: agentActor("aos_task_complete"), data: { task: task.id, evidence: [...evidence] } }]);
+  const open = state.tasks.filter((t) => t.stage === stage && !t.done && t.id !== task.id).length;
+  return { task: task.id, open };
 }
 
 export function evidenceRecord(ctx: OpContext, p: EvidenceInput & { runId: string }): { evidenceId: string; fingerprint: string } {
-  return notImplemented("F");
+  const { loc, state } = readActive(ctx, p.runId);
+  const { fingerprint } = ctx.tree(state.root, { git: state.git, changes: state.changes });
+  // Provenance is fixed here, not taken from input: only hooks observe, and agents can only claim.
+  const base = { id: ulid(), provenance: "claimed" as const, fingerprint, changes: state.changes, stage: state.current.stage, agent: null };
+  let data: Evidence;
+  switch (p.kind) {
+    case "artifact": {
+      const file = insideRoot(state.root, p.path);
+      const { sha256, small } = hashFile(file.abs);
+      if (small !== null) writeArtifact(loc, small);
+      data = { ...base, kind: "artifact", path: file.rel, sha256 };
+      break;
+    }
+    case "citation": {
+      const file = insideRoot(state.root, p.path);
+      if (!Number.isInteger(p.line) || p.line < 1) throw new OpError("invalid", `line must be a whole number of at least 1 (got ${JSON.stringify(p.line)})`);
+      const lines = lineCount(file.abs);
+      if (p.line > lines) throw new OpError("invalid", `${file.rel} has ${lines} lines; line ${p.line} does not exist`);
+      data = { ...base, kind: "citation", path: file.rel, line: p.line, note: text(p.note ?? "", "note", MAX_NOTE_CHARS, { allowEmpty: true }) };
+      break;
+    }
+    case "review": {
+      if (!REVIEW_STATUSES.includes(p.status)) throw new OpError("invalid", `status must be one of ${REVIEW_STATUSES.join(", ")}`);
+      // An empty review cannot be weighed by anyone later, so it does not count as one.
+      data = { ...base, kind: "review", status: p.status, feedback: text(p.feedback, "feedback", MAX_FEEDBACK_CHARS), reviewer: text(p.reviewer, "reviewer", MAX_NAME_CHARS) };
+      break;
+    }
+    case "skill":
+      data = { ...base, kind: "skill", skill: text(p.skill, "skill", MAX_NAME_CHARS) };
+      break;
+    default:
+      throw new OpError("invalid", `kind must be artifact, citation, review, or skill (got ${JSON.stringify((p as { kind: unknown }).kind)}). Test runs are observed by AOS automatically.`);
+  }
+  append(loc, [{ type: "evidence.recorded", actor: agentActor("aos_evidence_record"), data }]);
+  return { evidenceId: data.id, fingerprint };
 }
 
 export function requestApproval(ctx: OpContext, p: { runId: string; summary: string }): { request: string; stage: string; instructions: string } {
-  return notImplemented("F");
+  const { loc, state } = readActive(ctx, p.runId);
+  const stage = state.current.stage;
+  if (stageDef(state, stage).gate.decider !== "human") {
+    throw new OpError("invalid", `The ${stage} gate is decided by rules, not by a human. Call aos_gate_check to see what it needs.`);
+  }
+  const summary = text(p.summary, "summary", MAX_SUMMARY_CHARS);
+  const request = ulid();
+  append(loc, [{ type: "approval.requested", actor: agentActor("aos_request_approval"), data: { request, stage, summary } }]);
+  return {
+    request, stage,
+    instructions: `Ask the human to run, in their own terminal: aos approve ${state.run} ${stage} --root ${shellQuote(state.root)}. Then stop and wait; do not run it yourself.`,
+  };
 }
 
 // ---- helpers ----
@@ -169,11 +252,70 @@ function instructionsFor(pack: ResolvedPack, tier: Tier, stage: string): string 
   return pack.instructions[`${tier}/${stage}`] ?? "";
 }
 
-function text(value: unknown, field: string, max: number): string {
+function text(value: unknown, field: string, max: number, o: { allowEmpty?: boolean } = {}): string {
   if (typeof value !== "string") throw new OpError("invalid", `${field} must be a string`);
   const trimmed = value.trim();
-  if (trimmed.length === 0 || trimmed.length > max) {
-    throw new OpError("invalid", `${field} must be 1 to ${max} characters after trimming (got ${trimmed.length})`);
+  const min = o.allowEmpty === true ? 0 : 1;
+  if (trimmed.length < min || trimmed.length > max) {
+    throw new OpError("invalid", `${field} must be ${min} to ${max} characters after trimming (got ${trimmed.length})`);
   }
   return trimmed;
+}
+
+/**
+ * Resolves an agent-supplied path to a regular file inside the run root and outside .aos/. Symlinks are
+ * resolved before the check, so a link cannot pass off a file from elsewhere (or the run log) as evidence.
+ * The recorded path stays the one the agent named, made root-relative, because packs match on it.
+ */
+function insideRoot(root: string, path: unknown): { abs: string; rel: string } {
+  if (typeof path !== "string" || path.trim() === "") throw new OpError("invalid", "path must be a non-empty string");
+  const abs = resolve(root, path);
+  const rel = relative(root, abs);
+  // Policy first, on the path as named, so a missing file under .aos/ is still refused rather than "missing".
+  const policy = (r: string) => {
+    if (isOutside(r)) throw new OpError("refused", `${path} is outside the repository at ${root}; evidence must come from inside it.`);
+    if (underAos(r)) throw new OpError("refused", `${path} is under .aos/, which holds AOS's own records and cannot be evidence.`);
+  };
+  policy(rel);
+  let real: string;
+  try {
+    real = realpathSync(abs);
+  } catch (e) {
+    throw new OpError("invalid", `${rel} does not exist`, { cause: e });
+  }
+  policy(relative(realpathSync(root), real));
+  if (!statSync(real).isFile()) throw new OpError("invalid", `${rel} is not a regular file`);
+  return { abs: real, rel: rel.split(sep).join("/") };
+}
+
+const isOutside = (rel: string) => rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel);
+// Compared without case: macOS and Windows file systems usually are, so .AOS/ is the same directory.
+const underAos = (rel: string) => (rel.split(sep)[0] ?? "").toLowerCase() === ".aos";
+
+function hashFile(path: string): { sha256: string; small: Uint8Array | null } {
+  if (statSync(path).size < COPY_LIMIT_BYTES) {
+    const bytes = readFileSync(path);
+    return { sha256: sha256Tag(bytes), small: bytes };
+  }
+  const hash = createHash("sha256");
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(COPY_LIMIT_BYTES);
+    for (let n = readSync(fd, buf); n > 0; n = readSync(fd, buf)) hash.update(buf.subarray(0, n));
+  } finally {
+    closeSync(fd);
+  }
+  return { sha256: "sha256:" + hash.digest("hex"), small: null };
+}
+
+function lineCount(path: string): number {
+  const content = readFileSync(path, "utf8");
+  if (content === "") return 0;
+  const breaks = content.split("\n").length - 1;
+  return content.endsWith("\n") ? breaks : breaks + 1;
+}
+
+// The command is meant to be pasted into a shell, so it is quoted the way the gate's own text quotes it.
+function shellQuote(path: string): string {
+  return /["$`\\!]/.test(path) ? `'${path.replace(/'/g, `'\\''`)}'` : `"${path}"`;
 }
