@@ -147,6 +147,8 @@ test("a bounded run goes from design through build and verify to completion", as
 
   // 15. The log's hash chain is intact.
   expect(verifyChain(s.loc)).toMatchObject({ ok: true, badSeq: null });
+  // An empty stdout read as an allow above only if no hook crashed into its fail-open path.
+  expect(s.hookErrors()).toBe("");
 
   if (process.env.AOS_GOLDEN_WRITE === "1") {
     writeFileSync(join(import.meta.dirname, "../../kernel/tests/golden/logs/bounded.jsonl"), sanitizeLog(s.logLines(), { root: s.repo }).join("\n") + "\n");

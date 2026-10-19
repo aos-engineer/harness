@@ -4,7 +4,7 @@
 // PostToolUse, so test runs, commits, and pushes touch a real git repository.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { approve, humanActor, runPaths, type RunLocation } from "@aos-harness/kernel";
 import { createAosMcpServer } from "@aos-harness/kernel/mcp";
@@ -72,6 +72,11 @@ export interface Session {
   nextPrompt(): void;
   human: { approve(stage: string): { request: string; stage: string } };
   logLines(): string[];
+  /**
+   * The repo's .aos/hook-errors.log, or "" when there is none. A crashed hook can print nothing, which
+   * reads as an allow, so a scenario is only clean when this is empty.
+   */
+  hookErrors(): string;
   close(): Promise<void>;
 }
 
@@ -232,6 +237,11 @@ export async function session(repo: string): Promise<Session> {
     },
 
     logLines: () => readFileSync(runPaths(loc()).log, "utf8").split("\n").filter((l) => l !== ""),
+
+    hookErrors() {
+      const log = join(repo, ".aos", "hook-errors.log");
+      return existsSync(log) ? readFileSync(log, "utf8") : "";
+    },
 
     async close() {
       await client.close();

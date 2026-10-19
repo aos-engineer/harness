@@ -63,6 +63,8 @@ test("a spike run allows throwaway commits but never a push or a PR", async () =
   const done = await s.mcp("aos_stage_advance", { runId });
   expect(done.body).toMatchObject({ advanced: true, completed: true });
   expect(verifyChain(s.loc)).toMatchObject({ ok: true, badSeq: null });
+  // An empty stdout read as an allow above only if no hook crashed into its fail-open path.
+  expect(s.hookErrors()).toBe("");
 
   if (process.env.AOS_GOLDEN_WRITE === "1") {
     writeFileSync(join(import.meta.dirname, "../../kernel/tests/golden/logs/spike.jsonl"), sanitizeLog(s.logLines(), { root: s.repo }).join("\n") + "\n");
