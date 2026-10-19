@@ -107,7 +107,7 @@
       "properties": {
         "name": { "$ref": "#/definitions/name" },
         "writes": {
-          "description": "\"any\" for anywhere except .aos/, or a list of relative path prefixes ending in /. An empty list allows no file writes.",
+          "description": "\"any\" for anywhere except .aos/, or a list of relative path prefixes ending in /. Prefixes use forward slashes, with no empty, \".\", or \"..\" segment, and cannot start at .aos/. An empty list allows no file writes.",
           "if": { "type": "string" },
           "then": { "const": "any" },
           "else": {
@@ -115,7 +115,7 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$)).+/$"
+              "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.aos/)(?!(?:.*/)?\\.\\.?/)(?!.*//)[^\\\\]+/$"
             }
           }
         },

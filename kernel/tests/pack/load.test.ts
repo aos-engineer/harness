@@ -153,14 +153,20 @@ describe("schema tightening for path safety", () => {
     expect(issuesOf(validWith("- name: build", "- name: ../../etc/passwd"))).toEqual(
       expect.arrayContaining([expect.stringContaining("tiers.bounded.stages[0].name")])));
 
-  for (const prefix of ["docs/specs", "/etc/", "../outside/", "docs/../../x/"])
+  for (const prefix of [
+    "docs/specs", "/etc/", "C:/x/", "../outside/", "docs/../../x/", "docs/../", "./docs/", "docs/./x/", "./",
+    "docs//specs/", "docs\\specs/", ".aos/", ".aos/runs/", "./.aos/",
+  ])
     test(`write prefix ${JSON.stringify(prefix)} is rejected`, () =>
-      expect(issuesOf(validWith("writes: any", `writes: ["${prefix}"]`))).toEqual(
+      expect(issuesOf(validWith("writes: any", `writes: ['${prefix}']`))).toEqual(
         expect.arrayContaining([expect.stringContaining("tiers.bounded.stages[0].writes")])));
 
   test("an empty write list and relative prefixes ending in / are accepted", () => {
     expect(loadPack(validWith("writes: any", "writes: []")).tiers.bounded!.stages[0]!.writes).toEqual([]);
     expect(loadPack(validWith("writes: any", 'writes: ["docs/specs/"]')).tiers.bounded!.stages[0]!.writes).toEqual(["docs/specs/"]);
+    // A segment that merely starts with a dot is a name, not "." or "..".
+    expect(loadPack(validWith("writes: any", 'writes: [".github/workflows/", "docs/.well-known/", "x.aos/"]')).tiers.bounded!.stages[0]!.writes)
+      .toEqual([".github/workflows/", "docs/.well-known/", "x.aos/"]);
   });
 
   test("every action must be declared", () =>
