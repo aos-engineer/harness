@@ -1,7 +1,9 @@
 // Operations only a human may perform: deciding an approval request and cancelling a run. The CLI gates
-// them behind a terminal check, but the kernel refuses any other actor itself, so no other caller (an MCP
-// tool, a hook, a script importing the kernel) can approve on a human's behalf. Neither check is a
-// security boundary against an agent with unrestricted shell access; both stop lazy or accidental bypass.
+// them behind a terminal check, and the kernel refuses any caller that passes a non-human actor. The kernel
+// cannot tell who its caller really is, so a caller that passes a human actor is believed; the MCP server and
+// the hooks, which act for the agent, never import these functions, and a test keeps it that way. Neither
+// check is a security boundary against an agent with unrestricted shell access; both stop lazy or
+// accidental bypass.
 import { userInfo } from "node:os";
 import { projector } from "../projection.ts";
 import { verifyChain } from "../store/log.ts";
