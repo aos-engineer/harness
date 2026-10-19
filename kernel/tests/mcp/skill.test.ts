@@ -49,6 +49,6 @@ test("it forbids human-only commands and touching .aos/", () => {
 
 test("plain public text: no em dashes and no internal planning references", () => {
   const src = readFileSync(SKILL, "utf8");
-  expect(src).not.toContain("—");
+  expect(src).not.toContain(String.fromCodePoint(0x2014));
   expect(src).not.toMatch(/\bM\d\b|\bspec\b|\bsection \d|\bD\d+\b|\bRF ?\d|\blane\b|\binvariant\b/i);
 });
