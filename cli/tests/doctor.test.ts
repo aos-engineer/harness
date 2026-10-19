@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { copyFileSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { RunLocation } from "@aos-harness/kernel";
@@ -198,6 +198,31 @@ describe("aos doctor", () => {
     const io = doctor();
     expect(await doctorCommand(io)).toBe(0);
     expect(io.stdout).toMatch(/^WARN .*claude-code-S1-abc\.json/m);
+  });
+
+  // A check that cannot read what it needs reports that and lets the rest of the report run.
+  for (const dir of ["runs", "sessions"]) {
+    test(`an unreadable .aos/${dir} is one FAIL line, and the report still finishes`, async () => {
+      const path = join(repo, ".aos", dir);
+      mkdirSync(path, { recursive: true });
+      chmodSync(path, 0o000);
+      try {
+        const io = doctor();
+        expect(await doctorCommand(io)).toBe(1);
+        expect(io.stdout).toMatch(new RegExp(`^FAIL could not list .aos/${dir} \\(.*EACCES`, "m"));
+        expect(io.stdout).toMatch(/^OK +no hook errors logged$/m);
+        expect(io.stdout).toMatch(/^\d+ FAIL, \d+ WARN, \d+ OK\.$/m);
+      } finally {
+        chmodSync(path, 0o755);
+      }
+    });
+  }
+
+  test("a hook error log that cannot be read is a WARN, not a clean bill", async () => {
+    mkdirSync(join(repo, ".aos", "hook-errors.log"), { recursive: true });
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN could not read .aos\/hook-errors\.log/m);
   });
 
   test("an unknown flag is a usage error", async () => {

@@ -47,11 +47,21 @@ export const doctorCommand: CommandFn = async (io) => {
   const root = resolveRoot(io, flags);
   const packDir = resolve(io.cwd, flags.pack ?? io.env.AOS_PACK ?? DEFAULT_PACK);
 
-  const findings: Finding[] = [checkBun(), checkGit(io), checkClaude(io), ...checkRepo(io, root)];
-  const pack = checkPack(packDir);
-  findings.push(pack.finding);
-  if (pack.pack !== null) findings.push(...checkSkills(io, pack.pack));
-  findings.push(...checkRuns(root), ...checkBindings(root), checkHookErrors(root));
+  const findings: Finding[] = [
+    ...guarded("Bun", () => [checkBun()]),
+    ...guarded("git", () => [checkGit(io)]),
+    ...guarded("Claude Code", () => [checkClaude(io)]),
+    ...guarded("repository", () => checkRepo(io, root)),
+  ];
+  // checkPack reports every load error as its own finding, so it needs no guard.
+  const { finding, pack } = checkPack(packDir);
+  findings.push(finding);
+  if (pack !== null) findings.push(...guarded("bound skills", () => checkSkills(io, pack)));
+  findings.push(
+    ...guarded("runs", () => checkRuns(root)),
+    ...guarded("session bindings", () => checkBindings(root)),
+    ...guarded("hook errors", () => [checkHookErrors(root)]),
+  );
 
   io.out(printable(`AOS doctor: ${root}`));
   // Findings quote log lines, file names, pack issues, and tool output, so every one is made printable here.
@@ -63,6 +73,15 @@ export const doctorCommand: CommandFn = async (io) => {
   io.out(`${count("FAIL")} FAIL, ${count("WARN")} WARN, ${count("OK")} OK.`);
   return count("FAIL") > 0 ? 1 : 0;
 };
+
+// One check that throws must not cut the report short: the checks after it are often the ones that explain why.
+function guarded(name: string, check: () => Finding[]): Finding[] {
+  try {
+    return check();
+  } catch (e) {
+    return [{ level: "FAIL", text: `the ${name} check could not finish (${message(e)})`, fix: "fix the error above, then run aos doctor again" }];
+  }
+}
 
 /** True when dotted version `have` is at least `want`, compared numerically. A pre-release suffix is ignored. */
 export function versionAtLeast(have: string, want: string): boolean {
@@ -177,7 +196,12 @@ function dirNames(dir: string): string[] {
 }
 
 function checkRuns(root: string): Finding[] {
-  const runs = listRuns(root);
+  let runs: string[];
+  try {
+    runs = listRuns(root);
+  } catch (e) {
+    return [{ level: "FAIL", text: `could not list .aos/runs (${message(e)})`, fix: "check the permissions on .aos/runs" }];
+  }
   if (runs.length === 0) return [{ level: "OK", text: `no runs under ${root}` }];
   const found: Finding[] = [];
   for (const run of runs) {
@@ -288,7 +312,10 @@ function checkHookErrors(root: string): Finding {
   let lines: string[];
   try {
     lines = readFileSync(path, "utf8").split("\n").filter((l) => l.trim() !== "");
-  } catch {
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      return { level: "WARN", text: `could not read .aos/hook-errors.log (${message(e)})`, fix: "make it a readable file so hook failures are not hidden" };
+    }
     lines = [];
   }
   if (lines.length === 0) return { level: "OK", text: "no hook errors logged" };
