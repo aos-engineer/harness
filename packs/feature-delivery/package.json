@@ -1,0 +1,11 @@
+{
+  "name": "@aos-harness/pack-feature-delivery",
+  "version": "1.0.0-next.0",
+  "private": true,
+  "license": "MIT",
+  "files": [
+    "pack.yaml",
+    "stages/",
+    "README.md"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "types": [
+      "bun",
+      "node"
+    ]
+  },
+  "include": [
+    "kernel/src/**/*.ts",
+    "kernel/tests/**/*.ts",
+    "hosts/*/src/**/*.ts",
+    "hosts/*/bin/**/*.ts",
+    "hosts/*/tests/**/*.ts",
+    "hosts/*/tools/**/*.ts",
+    "cli/src/**/*.ts",
+    "cli/tests/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/bench-hook.ts"
+  ]
+}

@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 bun.lock
+# The root lockfile is tracked so every lane worktree and CI resolve the same versions.
+!/bun.lock
 
 # AOS session data
 .aos/
@@ -27,4 +29,3 @@ dist/
 *.pem
 *.key
 *.p8
-.worktrees/

@@ -1,0 +1,17 @@
+{
+  "name": "@aos-harness/kernel",
+  "version": "1.0.0-next.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mcp": "./src/mcp/index.ts",
+    "./schema/pack.schema.json": "./schema/pack.schema.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ajv": "^8.20.0",
+    "js-yaml": "^4.1.1"
+  }
+}

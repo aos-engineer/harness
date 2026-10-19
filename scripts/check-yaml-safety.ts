@@ -18,7 +18,7 @@ function parseArgs(argv: string[]): { root: string; scan: string[] } {
   const absRoot = resolve(root);
   return {
     root: absRoot,
-    scan: ["cli", "runtime", "adapters", "core", "src"].map((d) => join(absRoot, d)),
+    scan: ["cli", "kernel", "hosts", "packs"].map((d) => join(absRoot, d)),
   };
 }
 
