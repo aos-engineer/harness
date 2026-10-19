@@ -1,7 +1,10 @@
-// Stub: real implementation lands later; signatures are the agreed contract.
-import { notImplemented } from "../util/errors.ts";
+import { integrityOf, readPack } from "./files.ts";
 
-// "sha256:<hex>"
+/**
+ * "sha256:<hex>" over every file in the pack, keyed by relative path, so any added, removed, renamed, or
+ * edited file changes it while the pack's location on disk does not. CRLF and LF line endings in .yaml
+ * and .md files hash the same. Throws PackError if the directory cannot be read.
+ */
 export function packIntegrity(dir: string): string {
-  return notImplemented("C");
+  return integrityOf(readPack(dir));
 }
