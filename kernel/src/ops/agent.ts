@@ -11,6 +11,7 @@ import { loadPack } from "../pack/load.ts";
 import { projector, stageDef } from "../projection.ts";
 import { writeArtifact } from "../store/artifacts.ts";
 import { appendEvents, createRun, loadState } from "../store/store.ts";
+import { spawnGit } from "../tree/git.ts";
 import type { EventDraft, Evidence, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier, TreeState } from "../types.ts";
 import { TIER_RANK } from "../types.ts";
 import { OpError, RunNotFoundError } from "../util/errors.ts";
@@ -199,7 +200,9 @@ function planEvidence(ctx: OpContext, state: RunState, loc: RunLocation, p: Evid
     case "artifact": {
       const file = insideRoot(state.root, p.path);
       const { sha256, small } = hashFile(file.abs);
-      if (small !== null) writeArtifact(loc, small);
+      // An ignored file is often a secret (.env, credentials), and a copy under .aos/runs would outlive it
+      // unredacted. Its hash still proves what was claimed.
+      if (small !== null && !ignoredByGit(state, file.realRel)) writeArtifact(loc, small);
       data = { ...base, kind: "artifact", path: file.rel, sha256 };
       break;
     }
@@ -339,18 +342,20 @@ function text(value: unknown, field: string, max: number, o: { allowEmpty?: bool
 }
 
 /**
- * Resolves an agent-supplied path to a regular file inside the run root and outside .aos/. Symlinks are
- * resolved before the check, so a link cannot pass off a file from elsewhere (or the run log) as evidence.
+ * Resolves an agent-supplied path to a regular file inside the run root and outside .aos/ and .git/. Symlinks
+ * are resolved before the check, so a link cannot pass off a file from elsewhere (or the run log) as evidence.
  * The recorded path stays the one the agent named, made root-relative, because packs match on it.
  */
-function insideRoot(root: string, path: unknown): { abs: string; rel: string } {
+function insideRoot(root: string, path: unknown): { abs: string; rel: string; realRel: string } {
   if (typeof path !== "string" || path.trim() === "") throw new OpError("invalid", "path must be a non-empty string");
   const abs = resolve(root, path);
   const rel = relative(root, abs);
   // Policy first, on the path as named, so a missing file under .aos/ is still refused rather than "missing".
   const policy = (r: string) => {
     if (isOutside(r)) throw new OpError("refused", `${path} is outside the repository at ${root}; evidence must come from inside it.`);
-    if (underAos(r)) throw new OpError("refused", `${path} is under .aos/, which holds AOS's own records and cannot be evidence.`);
+    const top = topDir(r);
+    if (top === ".aos") throw new OpError("refused", `${path} is under .aos/, which holds AOS's own records and cannot be evidence.`);
+    if (top === ".git") throw new OpError("refused", `${path} is under .git/, which is git's own store and cannot be evidence.`);
   };
   policy(rel);
   let real: string;
@@ -359,14 +364,30 @@ function insideRoot(root: string, path: unknown): { abs: string; rel: string } {
   } catch (e) {
     throw new OpError("invalid", `${rel} does not exist`, { cause: e });
   }
-  policy(relative(realpathSync(root), real));
+  const realRoot = realpathSync(root);
+  const realRel = relative(realRoot, real);
+  policy(realRel);
   if (!statSync(real).isFile()) throw new OpError("invalid", `${rel} is not a regular file`);
-  return { abs: real, rel: rel.split(sep).join("/") };
+  return { abs: real, rel: rel.split(sep).join("/"), realRel };
 }
 
 const isOutside = (rel: string) => rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel);
 // Compared without case: macOS and Windows file systems usually are, so .AOS/ is the same directory.
-const underAos = (rel: string) => (rel.split(sep)[0] ?? "").toLowerCase() === ".aos";
+const topDir = (rel: string) => (rel.split(sep)[0] ?? "").toLowerCase();
+
+/**
+ * Whether git ignores the file. Anything short of git confirming it is not ignored (an error, a timeout)
+ * counts as ignored, because the cost of guessing wrong is a stored copy of a secret. Outside git there are
+ * no ignore rules, so nothing counts as ignored.
+ */
+function ignoredByGit(state: RunState, realRel: string): boolean {
+  if (!state.git) return false;
+  try {
+    return spawnGit(state.root, ["check-ignore", "-q", "--", realRel]).status !== 1;
+  } catch {
+    return true;
+  }
+}
 
 function hashFile(path: string): { sha256: string; small: Uint8Array | null } {
   if (statSync(path).size < COPY_LIMIT_BYTES) {

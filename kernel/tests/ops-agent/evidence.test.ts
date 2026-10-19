@@ -82,6 +82,27 @@ describe("artifact evidence", () => {
     expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: `docs/state/runs/${runId}/log.jsonl` })).toThrow(code("refused"));
   });
 
+  test("artifacts under .git/ are refused like .aos/", () => {
+    expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".git/config" })).toThrow(code("refused"));
+    expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".GIT/HEAD" })).toThrow(code("refused"));
+    expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".git/nope" })).toThrow(code("refused"));
+    expect(() => evidenceRecord(ctx, { runId, kind: "citation", path: ".git/HEAD", line: 1, note: "" })).toThrow(code("refused"));
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    symlinkSync(join(repo, ".git"), join(repo, "docs", "g"));
+    expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: "docs/g/config" })).toThrow(code("refused"));
+  });
+
+  test("a file git ignores is hashed and recorded but never copied into the run", () => {
+    writeFile(repo, ".gitignore", ".env\n");
+    writeFile(repo, ".env", "API_KEY=sk-live-123\n");
+    evidenceRecord(ctx, { runId, kind: "artifact", path: ".env" });
+    expect(lastEvidence()).toMatchObject({ kind: "artifact", path: ".env", sha256: sha256Tag("API_KEY=sk-live-123\n") });
+    expect(existsSync(runPaths({ root: repo, run: runId }).artifacts)).toBe(false);
+    writeFile(repo, "docs/specs/x.md", "y");
+    evidenceRecord(ctx, { runId, kind: "artifact", path: "docs/specs/x.md" });
+    expect(existsSync(runPaths({ root: repo, run: runId }).artifacts)).toBe(true);
+  });
+
   test("a missing file or a directory is invalid", () => {
     mkdirSync(join(repo, "docs"));
     expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: "nope.md" })).toThrow(code("invalid"));
