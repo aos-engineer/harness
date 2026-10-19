@@ -63,6 +63,46 @@ describe("unbound sessions", () => {
     }
   });
 
+  test("SessionStart names an active run this session is not bound to", () => {
+    // A /clear or fork starts a new session id, which the run's binding does not cover.
+    const d = handleHook(input({ event: "session-start", cwd: repo, source: "clear", session: "S2" }), noTree);
+    expect(d).toEqual({
+      kind: "allow",
+      notice: `AOS: run ${run} (bounded, stage design) is active in ${repo}, but this session is not bound to it, so AOS gates do not apply to this session.`,
+    });
+  });
+
+  test("SessionStart finds the active run through the project dir", () => {
+    const outside = tmpDir();
+    try {
+      const d = handleHook(input({ event: "session-start", cwd: outside, source: "startup", session: "S2" }), { ...noTree, projectDir: repo });
+      expect(d).toMatchObject({ kind: "allow", notice: expect.stringContaining(`run ${run} (bounded, stage design) is active in ${repo}`) });
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("SessionStart lists every active run and skips finished or unreadable ones", () => {
+    const second = startRun(repo, "spike");
+    const done = startRun(repo, "bounded");
+    append({ root: repo, run: done }, { type: "run.cancelled", actor: { kind: "human", id: "owner", agent: null }, data: { reason: "x" } });
+    const broken = startRun(repo, "bounded");
+    writeFileSync(join(aosDir(repo), "runs", broken, "state.json"), "{");
+    const d = handleHook(input({ event: "session-start", cwd: repo, source: "fork", session: "S2" }), noTree);
+    const [first, last] = [run, second].sort();
+    expect(d.kind).toBe("allow");
+    const text = d.kind === "allow" ? (d.notice ?? "") : "";
+    expect(text).toStartWith(`AOS: runs ${first} (`);
+    expect(text).toContain(` and ${last} (`);
+    expect(text).toContain("are active in");
+    expect(text).not.toContain(done);
+    expect(text).not.toContain(broken);
+  });
+
+  test("other unbound events stay silent even with an active run around", () => {
+    expect(handleHook(input({ event: "stop", cwd: repo, promptId: "P1", session: "S2" }), noTree)).toEqual(ALLOW);
+  });
+
   test("a session bound in another repo is not bound here", () => {
     bound(repo, run);
     const other = tmpGitRepo();

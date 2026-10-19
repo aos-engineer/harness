@@ -15,6 +15,7 @@ import { physicalPath } from "./paths.ts";
 import { logHookError, nearestAosRoot } from "./report.ts";
 import { sessionStart } from "./session-start.ts";
 import { stop } from "./stop.ts";
+import { unboundNotice } from "./unbound.ts";
 
 export interface HookDeps {
   tree?: (root: string, o: { git: boolean; changes: number }) => TreeState;  // defaults to treeFingerprint
@@ -33,7 +34,9 @@ export function handleHook(input: HookInput, deps: HookDeps = {}): HookDecision 
     if (bound !== null) return bound;
 
     const binding = lookupBinding(input, deps.projectDir ?? null);
-    if (binding === null) return allow();
+    if (binding === null) {
+      return input.event === "session-start" ? allow(unboundNotice([input.cwd, ...(deps.projectDir === undefined ? [] : [deps.projectDir])])) : allow();
+    }
     root = binding.root;
 
     const loc = { root: binding.root, run: binding.run };
