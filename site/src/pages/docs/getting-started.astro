@@ -95,14 +95,14 @@ npm install @aos-harness/codex-adapter</code></pre>
             <li><strong class="text-[var(--color-text)]">Claude Code</strong>: install the project command pack from <code>plugins/aos-harness/claude-code/</code></li>
             <li><strong class="text-[var(--color-text)]">Pi</strong>: <code>aos init --adapter pi</code> writes a project shim (<code>.pi/extensions/aos-harness.ts</code>) so <code>/aos-run</code> works when you open <code>pi</code> in the project</li>
           </ul>
-          <pre><code># The 0.x plugin bundles
-git clone -b release/0.11 https://github.com/aos-engineer/harness.git && cd harness
+          <pre><code># The 0.x plugin bundles, cloned outside your project
+git clone -b release/0.11 https://github.com/aos-engineer/harness.git ~/aos-harness-0.11
 
 # Codex local plugin metadata
-plugins/aos-harness/.codex-plugin/plugin.json
+~/aos-harness-0.11/plugins/aos-harness/.codex-plugin/plugin.json
 
-# Claude Code command-pack installer
-bash plugins/aos-harness/claude-code/install.sh
+# Claude Code command-pack installer: run it from your project
+bash ~/aos-harness-0.11/plugins/aos-harness/claude-code/install.sh "$PWD/.claude/commands/aos"
 
 # Pi: make /aos-run available in every AOS project
 aos setup-pi --global</code></pre>
