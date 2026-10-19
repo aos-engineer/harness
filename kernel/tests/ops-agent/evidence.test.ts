@@ -122,6 +122,22 @@ describe("other claimed evidence", () => {
     expect(() => evidenceRecord(ctx, { runId, kind: "citation", path: "src/b.ts", line: 1, note: "" })).toThrow(code("invalid"));
   });
 
+  // Lines are counted from the file's bytes in chunks, so the large cases cross several chunk boundaries.
+  test.each([
+    ["an empty file", "", 0],
+    ["one line without a final newline", "a", 1],
+    ["one line with a final newline", "a\n", 1],
+    ["CRLF line endings", "a\r\nb\r\n", 2],
+    ["empty lines", "\n\n", 2],
+    ["multi-byte text", "\u00e9t\u00e9\n\u{1F600}\n", 2],
+    ["many lines", "x\n".repeat(200_000), 200_000],
+    ["a last line spanning chunks", "x\n".repeat(99_999) + "y".repeat(70_000), 100_000],
+  ])("citations count the lines of %s", (_name, content, lines) => {
+    writeFile(repo, "src/c.txt", content);
+    if (lines > 0) evidenceRecord(ctx, { runId, kind: "citation", path: "src/c.txt", line: lines, note: "" });
+    expect(() => evidenceRecord(ctx, { runId, kind: "citation", path: "src/c.txt", line: lines + 1, note: "" })).toThrow(`has ${lines} lines`);
+  });
+
   test("review needs non-empty feedback", () => {
     expect(() => evidenceRecord(ctx, { runId, kind: "review", status: "approved", feedback: " ", reviewer: "r" })).toThrow(code("invalid"));
   });

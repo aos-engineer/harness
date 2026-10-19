@@ -405,11 +405,23 @@ function hashFile(path: string): { sha256: string; small: Uint8Array | null } {
   return { sha256: "sha256:" + hash.digest("hex"), small: null };
 }
 
+// Counts newline bytes chunk by chunk, so a citation into a large file never holds it in memory as a string.
+// A newline byte can only ever be a newline in UTF-8, so no decoding is needed.
 function lineCount(path: string): number {
-  const content = readFileSync(path, "utf8");
-  if (content === "") return 0;
-  const breaks = content.split("\n").length - 1;
-  return content.endsWith("\n") ? breaks : breaks + 1;
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(64 * 1024);
+    let breaks = 0;
+    let last = -1;
+    for (let n = readSync(fd, buf); n > 0; n = readSync(fd, buf)) {
+      for (let i = 0; i < n; i++) if (buf[i] === 0x0a) breaks++;
+      last = buf[n - 1] ?? -1;
+    }
+    // A final line without a trailing newline still counts; an empty file has no lines.
+    return last === -1 || last === 0x0a ? breaks : breaks + 1;
+  } finally {
+    closeSync(fd);
+  }
 }
 
 // The command is meant to be pasted into a shell, so it is quoted the way the gate's own text quotes it.
