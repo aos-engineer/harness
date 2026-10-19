@@ -1,7 +1,7 @@
 // The run store: the log plus a state.json snapshot of its projection. The log is the source of truth;
 // the snapshot exists so hooks can read run state without replaying the log on every tool call.
 import { randomBytes } from "node:crypto";
-import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { EventDraft, EventEnvelope, Projector, RunLocation, RunState, StateFile } from "../types.ts";
 import { ChainError, OpError, RunNotFoundError } from "../util/errors.ts";
@@ -43,9 +43,18 @@ function readLogTail(loc: RunLocation): Tail {
   }
 }
 
+// Best effort, in the same line format the hooks use, so `aos doctor` surfaces it with theirs.
+function trace(root: string, message: string): void {
+  try {
+    appendFileSync(join(aosDir(root), "hook-errors.log"), `${new Date().toISOString()} store ${message}\n`);
+  } catch {
+    // Nowhere left to report to; the lagging snapshot still rebuilds on the next read.
+  }
+}
+
 // The snapshot is a cache that loadState can always rebuild, so it is renamed into place without an fsync.
-function writeStateFile(path: string, file: StateFile): void {
-  const body = JSON.stringify(file);
+function writeStateFile(loc: RunLocation, body: string): void {
+  const path = runPaths(loc).state;
   const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   try {
     writeFileSync(tmp, body);
@@ -55,6 +64,7 @@ function writeStateFile(path: string, file: StateFile): void {
     // The events are already durable in the log, so the append succeeded. Reporting failure here would
     // invite a retry that duplicates them; a lagging snapshot is rebuilt by the next reader instead.
     if (errCode(e) === undefined) throw e;
+    trace(loc.root, `run ${loc.run}: state.json not written (${errCode(e)}): ${(e as Error).message}`);
   }
 }
 
@@ -86,19 +96,23 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
   if (!existsSync(paths.dir)) throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`);
   return withLock(paths.lock, (held) => {
     const snapshot = readStateFile(paths.state);
-    let next: RunState | null = null;
-    const { events, lastLine } = appendLocked(loc, drafts, { held, check: (sealed) => {
+    // Filled in by the check, which runs before the batch is written: a projection or serialization that
+    // throws there leaves the log untouched.
+    const out: { file: StateFile | null; body: string } = { file: null, body: "" };
+    const { events } = appendLocked(loc, drafts, { held, check: (sealed, lastLine) => {
       const lastSeq = sealed[0].seq - 1;
       const pinned = snapshot !== null && lastSeq > 0 && snapshot.seq === lastSeq && snapshot.head === sealed[0].prev;
       const base = pinned ? snapshot.state : rebuild(loc, projector, snapshot).state;
-      next = project(projector, base, sealed);
+      const next = project(projector, base, sealed);
+      if (next === null) throw new Error("the projector returned no state for a non-empty batch");
+      out.file = { v: 1, seq: sealed[sealed.length - 1].seq, head: sha256Tag(lastLine), state: next };
+      out.body = JSON.stringify(out.file);
     } });
     if (events.length === 0) return { events, file: loadState(loc, projector) };
-    if (next === null || lastLine === null) throw new Error("unreachable: a non-empty append was projected");
-    const file: StateFile = { v: 1, seq: events[events.length - 1].seq, head: sha256Tag(lastLine), state: next };
+    if (out.file === null) throw new Error("unreachable: a non-empty append was not projected");
     // A snapshot written after losing the lock could overwrite a newer one; skipping it only makes it lag.
-    if (held()) writeStateFile(paths.state, file);
-    return { events, file };
+    if (held()) writeStateFile(loc, out.body);
+    return { events, file: out.file };
   });
 }
 

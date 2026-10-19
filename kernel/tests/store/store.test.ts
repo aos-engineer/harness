@@ -210,6 +210,25 @@ describe("a run with two events", () => {
     expect(readLog(loc).events.length).toBe(3);
     expect(loadState(loc, testProjector).seq).toBe(3);
     expect(readdirSync(runPaths(loc).dir).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+    const trace = readFileSync(join(root, ".aos/hook-errors.log"), "utf8");
+    expect(trace).toMatch(/^\S+Z store run \S+: state\.json not written/);
+    expect(trace.endsWith("\n")).toBe(true);
+  });
+
+  test("a state that cannot be serialized fails before anything reaches the log", () => {
+    const unserializable: Projector = {
+      apply(prev, e) {
+        const state = testProjector.apply(prev, e);
+        if (e.type !== "worktree.changed" || e.data.path !== "poison") return state;
+        // JSON.stringify reads every enumerable property, so this getter makes the state fail to serialize.
+        return Object.defineProperty({ ...state }, "brief", { enumerable: true, get: () => { throw new TypeError("cannot serialize"); } });
+      },
+    };
+    const log = readFileSync(runPaths(loc).log);
+    const snapshot = stateOnDisk();
+    expect(() => appendEvents(loc, [worktreeDraft(1, "poison")], unserializable)).toThrow("cannot serialize");
+    expect(readFileSync(runPaths(loc).log)).toEqual(log);
+    expect(stateOnDisk()).toEqual(snapshot);
   });
 
   test("leaves no temp files beside state.json", () => {
