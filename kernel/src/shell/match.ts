@@ -4,19 +4,14 @@
 import { ACTION_PRIORITY, type ActionDef, type ActionName } from "../types.ts";
 import { walk } from "./leaves.ts";
 
-// The command's exit status is the one the role command produced only when nothing else can change it:
-// `a && b` keeps a failure of either, while `|`, `||`, `;`, and `&` let a later command decide.
-const isMaskingOperator = (op: string) => op !== "&&";
-
 /** The first role (in pack order) one of whose prefixes starts a leaf command, and whether its exit status is masked. */
 export function matchRole(cmd: string, roles: Record<string, string[]>): { role: string; masked: boolean } | null {
-  const { operators, leaves } = walk(cmd);
-  const topMasked = operators.some(isMaskingOperator);
+  const leaves = walk(cmd).leaves;
   for (const [role, prefixes] of Object.entries(roles)) {
     for (const prefix of prefixes) {
       for (const leaf of leaves) {
         if (leaf.text === prefix || leaf.text.startsWith(prefix + " ")) {
-          return { role, masked: topMasked || leaf.scriptOps.some(isMaskingOperator) };
+          return { role, masked: leaf.masked };
         }
       }
     }

@@ -1,17 +1,16 @@
 // Reduces a command line to the simple commands that actually run, so classification sees `git push`
 // whether it was typed bare, behind `FOO=1`, after `cd`, or inside `bash -c '...'`.
 // Not exported from the package barrel: split.ts and match.ts are the public surface.
-import { lex, type Segment, type Word } from "./lexer.ts";
+import { lex, type Lexed, type Segment, type Word } from "./lexer.ts";
 
 export interface Leaf {
   text: string;
-  // Operators of every bash -c or eval script this leaf was unwrapped from, outermost first. A pipe in
-  // there hides the leaf's exit status just as a top-level pipe would.
-  scriptOps: string[];
+  // True when something other than this command can decide the exit status: an operator at its own
+  // level, or in any bash -c or eval script it was unwrapped from.
+  masked: boolean;
 }
 
 export interface Walk {
-  operators: string[]; // top level only
   leaves: Leaf[];
   segments: Segment[]; // every segment visited at every depth, before stripping
 }
@@ -23,14 +22,14 @@ const SHELLS = new Set(["bash", "sh", "zsh"]);
 const SHORT_FLAGS = /^-[A-Za-z]+$/;
 
 export function walk(cmd: string): Walk {
-  const top = lex(cmd);
-  const out: Walk = { operators: top.operators, leaves: [], segments: [] };
-  visit(top.segments, 0, [], out);
+  const out: Walk = { leaves: [], segments: [] };
+  visit(lex(cmd), 0, false, out);
   return out;
 }
 
-function visit(segments: Segment[], depth: number, scriptOps: string[], out: Walk): void {
-  for (const seg of segments) {
+function visit(lexed: Lexed, depth: number, outerMasked: boolean, out: Walk): void {
+  const masked = outerMasked || masksStatus(lexed);
+  for (const seg of lexed.segments) {
     out.segments.push(seg);
     const k = commandStart(seg.words);
     if (k >= seg.words.length) continue; // only assignments
@@ -38,12 +37,19 @@ function visit(segments: Segment[], depth: number, scriptOps: string[], out: Wal
     if (values[0] === "cd") continue;
     const script = wrappedScript(values);
     if (script !== null && depth < MAX_DEPTH) {
-      const inner = lex(script);
-      visit(inner.segments, depth + 1, [...scriptOps, ...inner.operators], out);
+      visit(lex(script), depth + 1, masked, out);
       continue;
     }
-    out.leaves.push({ text: seg.text.slice(seg.words[k].at), scriptOps });
+    out.leaves.push({ text: seg.text.slice(seg.words[k].at), masked });
   }
+}
+
+// `a && b` keeps a failure of either, while `|`, `||`, `;`, and `&` let a later command decide. A trailing
+// `;` or newline runs nothing after the last command, so it cannot change the status; a trailing `&`
+// backgrounds it, so it can.
+function masksStatus({ operators, trailing }: Lexed): boolean {
+  const firstTrailing = operators.length - trailing;
+  return operators.some((op, k) => op !== "&&" && !(k >= firstTrailing && (op === ";" || op === "\n")));
 }
 
 /** Index of the first word after leading `NAME=value` assignments, also through an `env` prefix. */

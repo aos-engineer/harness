@@ -18,6 +18,7 @@ export interface Segment {
 export interface Lexed {
   segments: Segment[];
   operators: string[];
+  trailing: number; // how many operators come after the last segment
 }
 
 // The closer of the opaque span being scanned: null at top level.
@@ -40,8 +41,8 @@ const MAX_NESTING = 64;
 
 export function lex(input: string): Lexed {
   // Surrounding whitespace is not a separator: a command typed with a trailing newline is still one command.
-  const { segments, operators } = scan(input.trim(), 0, null, 0);
-  return { segments, operators };
+  const { segments, operators, trailing } = scan(input.trim(), 0, null, 0);
+  return { segments, operators, trailing };
 }
 
 /** Scan from `start` until `close` (unquoted, at depth zero) or the end of input. */
@@ -57,6 +58,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
   let cur: { start: number; value: string } | null = null;
   let segStart = start;
   let commentStart: number | null = null;
+  let opsAtLastSegment = 0;
   let i = start;
 
   const begin = (at: number) => {
@@ -74,6 +76,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
     if (text !== "") {
       const textStart = segStart + (raw.length - raw.trimStart().length);
       segments.push({ text, words: words.map((w) => ({ ...w, at: w.at - textStart })) });
+      opsAtLastSegment = operators.length;
     }
     words = [];
     commentStart = null;
@@ -90,7 +93,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
 
     if (close !== null && c === close && depth === 0) {
       endSegment(i);
-      return { segments, operators, end: i + 1 };
+      return { segments, operators, trailing: operators.length - opsAtLastSegment, end: i + 1 };
     }
     if (opener !== null && c === opener) depth++;
     if (close === ")" && c === ")") depth--;
@@ -207,7 +210,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
   }
 
   endSegment(src.length);
-  return { segments, operators, end: src.length };
+  return { segments, operators, trailing: operators.length - opsAtLastSegment, end: src.length };
 }
 
 /** If an opaque span opens at `i`, return the index just past its closer. */

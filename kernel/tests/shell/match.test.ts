@@ -44,6 +44,12 @@ test.each([
   // A pipe two wrappers deep still hides the exit status
   [`bash -c "bash -c 'bun test | tail'"`, { role: "test", masked: true }],
   ["bun test > out.log", { role: "test", masked: false }],
+  // A trailing `;` or newline runs nothing after the test, so its status stands; a trailing `&` backgrounds it
+  ["bun test;", { role: "test", masked: false }],
+  ["bun test <<EOF\na | b\nEOF", { role: "test", masked: false }],
+  ['bash -c "bun test;"', { role: "test", masked: false }],
+  ["bun test &", { role: "test", masked: true }],
+  ["bun test <<EOF | tail\nx\nEOF", { role: "test", masked: true }],
 ])("matchRole(%j)", (cmd, want) => expect(matchRole(cmd, roles)).toEqual(want));
 
 test("matchRole checks roles in pack order, not leaf order", () => {
