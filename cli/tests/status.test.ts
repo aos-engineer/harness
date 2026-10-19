@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
-import { appendEvents, projector, runPaths } from "@aos-harness/kernel";
+import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { Actor, RunLocation } from "@aos-harness/kernel";
 import { statusCommand } from "../src/commands/status.ts";
 import { tmpDir, tmpGitRepo, writeFile } from "../../kernel/tests/helpers.ts";
@@ -143,5 +143,59 @@ describe("aos status <run>", () => {
   test("an unknown flag is a usage error", async () => {
     const io = fakeIO({ argv: ["status", "--deny"], cwd: root });
     expect(await statusCommand(io)).toBe(2);
+  });
+});
+
+describe("aos status <run> on an ended run", () => {
+  function complete(): void {
+    appendEvents(loc, [
+      { type: "stage.entered", actor: KERNEL, data: { stage: "build", index: 1 } },
+      { type: "stage.entered", actor: KERNEL, data: { stage: "verify", index: 2 } },
+      { type: "gate.evaluated", actor: KERNEL, data: { stage: "verify", verdict: "pass", gaps: [], fingerprint: "counter:0", weakFreshness: true } },
+      { type: "run.completed", actor: KERNEL, data: { stage: "verify" } },
+    ], projector);
+  }
+
+  test("a cancelled run shows its final state and reason, not work that remains", async () => {
+    request(loc);
+    cancelRun(loc, { actor: humanActor(), reason: "scope changed" });
+    const io = fakeIO({ argv: ["status", run], cwd: root });
+    expect(await statusCommand(io)).toBe(0);
+    expect(io.stdout).toContain("cancelled");
+    expect(io.stdout).toContain("Final stage 1/3: design");
+    expect(io.stdout).toContain("No gate result was recorded for design");
+    expect(io.stdout).toContain("Cancelled: scope changed");
+    expect(io.stdout).not.toContain("Waiting on the human");
+    expect(io.stdout).not.toContain("aos approve");
+  });
+
+  test("a completed run shows its last gate result as final", async () => {
+    complete();
+    const io = fakeIO({ argv: ["status", run], cwd: root });
+    expect(await statusCommand(io)).toBe(0);
+    expect(io.stdout).toContain("completed");
+    expect(io.stdout).toContain("Final stage 3/3: verify. Final gate result: pass.");
+    expect(io.stdout).not.toContain("not evaluated");
+  });
+
+  test("--json marks an ended run final and reports the recorded gate", async () => {
+    complete();
+    const io = fakeIO({ argv: ["status", run, "--json"], cwd: root });
+    await statusCommand(io);
+    const s = JSON.parse(io.stdout);
+    expect(s).toMatchObject({ status: "completed", stage: "verify", final: true, gate: { stage: "verify", verdict: "pass" } });
+  });
+
+  test("--json for a cancelled run has no gate when none was recorded, and keeps the reason", async () => {
+    cancelRun(loc, { actor: humanActor(), reason: "scope changed" });
+    const io = fakeIO({ argv: ["status", run, "--json"], cwd: root });
+    await statusCommand(io);
+    expect(JSON.parse(io.stdout)).toMatchObject({ status: "cancelled", final: true, gate: null, reason: "scope changed" });
+  });
+
+  test("--json for an active run is not final", async () => {
+    const io = fakeIO({ argv: ["status", run, "--json"], cwd: root });
+    await statusCommand(io);
+    expect(JSON.parse(io.stdout).final).toBe(false);
   });
 });
