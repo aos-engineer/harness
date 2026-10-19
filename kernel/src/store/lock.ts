@@ -62,39 +62,53 @@ function pidAlive(pid: number): boolean {
 
 function isStale(h: Holder, staleMs: number): boolean {
   if (h.ageMs > staleMs) return true;
-  // A pid only means something on the host that wrote it.
+  // A pid only means something on the host that wrote it, and "the same host" is judged by hostname alone.
+  // Containers that share a hostname but not a pid namespace must not share a repo: each would see the
+  // other's live holders as dead and break their locks.
   return h.body !== null && h.body.host === hostname() && !pidAlive(h.body.pid);
+}
+
+function newBody(): LockBody {
+  return { pid: process.pid, host: hostname(), ts: Date.now(), nonce: randomBytes(8).toString("hex") };
+}
+
+function sameFile(a: Holder, b: Holder): boolean {
+  return a.ino === b.ino && a.raw === b.raw;
 }
 
 /**
  * Removes the lock only if it is still the exact file judged stale. A bare unlink or rename by path could
  * remove a lock that another waiter broke and re-acquired a moment earlier, so breakers serialize on a
- * short-lived marker and re-check identity under it. Returns true when the stale lock is gone.
+ * short-lived marker and re-judge the lock under it. Returns true when the stale lock is gone.
  */
 function breakStale(lockPath: string, judged: Holder, staleMs: number): boolean {
   const marker = `${lockPath}.break`;
-  let fd: number;
-  try {
-    fd = openSync(marker, "wx");
-  } catch (e) {
-    if (errCode(e) !== "EEXIST") throw e;
-    // A breaker that died inside its brief window leaves the marker behind; clear it once abandoned.
-    try {
-      if (Date.now() - statSync(marker).mtimeMs > staleMs) rmSync(marker, { force: true });
-    } catch (inner) {
-      if (errCode(inner) !== "ENOENT") throw inner;
+  const mine = newBody();
+  if (!tryCreate(marker, mine)) {
+    // A breaker that died inside its brief window leaves its marker behind. It is judged by the same rules as
+    // a lock and removed only if it is still that marker, not one a newer breaker created since. A newer
+    // marker created between the final identity check and the removal is the residual race.
+    const other = inspect(marker);
+    if (other !== null && isStale(other, staleMs)) {
+      const again = inspect(marker);
+      if (again !== null && sameFile(again, other)) rmSync(marker, { force: true });
     }
     return false;
   }
   try {
-    closeSync(fd);
     const now = inspect(lockPath);
     if (now === null) return true;
-    if (now.ino !== judged.ino || now.raw !== judged.raw) return false;
-    unlinkSync(lockPath);
+    // Identity alone is not enough: an empty body on a reused inode looks the same as the stale lock, so the
+    // staleness verdict is re-run here too.
+    if (!sameFile(now, judged) || !isStale(now, staleMs)) return false;
+    try {
+      unlinkSync(lockPath);
+    } catch (e) {
+      if (errCode(e) !== "ENOENT") throw e;
+    }
     return true;
   } finally {
-    rmSync(marker, { force: true });
+    release(marker, mine.nonce);
   }
 }
 
@@ -139,7 +153,7 @@ function release(lockPath: string, nonce: string): void {
 export function withLock<T>(lockPath: string, fn: (stillHeld: () => boolean) => T, opts?: { timeoutMs?: number; staleMs?: number }): T {
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const staleMs = opts?.staleMs ?? DEFAULT_STALE_MS;
-  const body: LockBody = { pid: process.pid, host: hostname(), ts: Date.now(), nonce: randomBytes(8).toString("hex") };
+  const body = newBody();
   const deadline = Date.now() + timeoutMs;
   let last: Holder | null = null;
 
