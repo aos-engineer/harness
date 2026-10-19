@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Binding } from "../types.ts";
+import { sha256Hex } from "../util/hash.ts";
 import { aosDir } from "./paths.ts";
 import { errCode } from "./log-internal.ts";
 
@@ -11,13 +12,18 @@ function sessionsDir(root: string): string {
   return join(aosDir(root), "sessions");
 }
 
-// Session ids come from host payloads, so nothing in them may steer the path.
-function safe(part: string): string {
-  return part.replace(/[^A-Za-z0-9_-]/g, "_");
+// Session ids come from host payloads, so nothing in them may steer the path. The readable part is capped to
+// keep the name under filesystem limits.
+function safe(part: string, max: number): string {
+  return part.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, max);
 }
 
+/**
+ * `<host>-<session>-<hash>.json`. The readable part is lossy ("a"/"b-c" and "a-b"/"c" read the same), so a
+ * hash of the exact pair keeps two sessions from sharing a file and overwriting each other's binding.
+ */
 export function sessionFileName(host: string, session: string): string {
-  return `${safe(host)}-${safe(session)}.json`;
+  return `${safe(host, 40)}-${safe(session, 80)}-${sha256Hex(host + "\0" + session).slice(0, 12)}.json`;
 }
 
 function parseBinding(raw: string): Binding | null {
@@ -51,8 +57,8 @@ export function bindSession(root: string, host: string, session: string, run: st
 
 /**
  * Walks from `cwd` up to the filesystem root and returns the first binding for this host session. A file
- * whose recorded host or session differs is another session whose id mapped to the same name, so it is
- * skipped. An unreadable binding throws: reporting "no run" would silently switch enforcement off.
+ * whose recorded host or session differs (a hash collision) is another session's, so it is skipped. An
+ * unreadable binding throws: reporting "no run" would silently switch enforcement off.
  */
 export function findBinding(cwd: string, host: string, session: string): Binding | null {
   const name = sessionFileName(host, session);

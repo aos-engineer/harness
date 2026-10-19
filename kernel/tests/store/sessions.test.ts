@@ -11,11 +11,12 @@ beforeEach(() => {
   root = tmpDir("aos-sessions-");
 });
 
-test("bindSession writes .aos/sessions/<host>-<session>.json", () => {
+test("bindSession writes .aos/sessions/<host>-<session>-<hash>.json", () => {
   const b = bindSession(root, "claude-code", "s1", run);
   expect(b).toMatchObject({ host: "claude-code", session: "s1", run, root });
   expect(new Date(b.boundAt).toISOString()).toBe(b.boundAt);
-  expect(JSON.parse(readFileSync(join(root, ".aos/sessions/claude-code-s1.json"), "utf8"))).toEqual(b);
+  expect(sessionFileName("claude-code", "s1")).toMatch(/^claude-code-s1-[0-9a-f]{12}\.json$/);
+  expect(JSON.parse(readFileSync(join(root, ".aos/sessions", sessionFileName("claude-code", "s1")), "utf8"))).toEqual(b);
 });
 
 test("findBinding walks up from a subdirectory", () => {
@@ -46,14 +47,27 @@ test("session ids cannot escape .aos/sessions (path traversal)", () => {
 });
 
 test("sessionFileName maps unsafe characters in both parts", () => {
-  expect(sessionFileName("claude-code", "abc_DEF-123")).toBe("claude-code-abc_DEF-123.json");
-  expect(sessionFileName("a/b", "c\\d e.f")).toBe("a_b-c_d_e_f.json");
+  expect(sessionFileName("claude-code", "abc_DEF-123")).toMatch(/^claude-code-abc_DEF-123-[0-9a-f]{12}\.json$/);
+  expect(sessionFileName("a/b", "c\\d e.f")).toMatch(/^a_b-c_d_e_f-[0-9a-f]{12}\.json$/);
 });
 
-test("a different session that maps to the same file name does not match", () => {
-  bindSession(root, "claude-code", "a/b", run);
-  expect(sessionFileName("claude-code", "a/b")).toBe(sessionFileName("claude-code", "a.b"));
-  expect(findBinding(root, "claude-code", "a.b")).toBeNull();
+test("sessions whose readable names collide still get separate bindings", () => {
+  bindSession(root, "a", "b-c", "R1");
+  bindSession(root, "a-b", "c", "R2");
+  bindSession(root, "claude-code", "x/y", "R3");
+  bindSession(root, "claude-code", "x.y", "R4");
+  expect(findBinding(root, "a", "b-c")?.run).toBe("R1");
+  expect(findBinding(root, "a-b", "c")?.run).toBe("R2");
+  expect(findBinding(root, "claude-code", "x/y")?.run).toBe("R3");
+  expect(findBinding(root, "claude-code", "x.y")?.run).toBe("R4");
+  expect(readdirSync(join(root, ".aos/sessions")).length).toBe(4);
+});
+
+test("an overlong session id still binds", () => {
+  const long = "s".repeat(1000);
+  bindSession(root, "claude-code", long, run);
+  expect(findBinding(root, "claude-code", long)?.run).toBe(run);
+  expect(Buffer.byteLength(sessionFileName("claude-code", long))).toBeLessThan(255);
 });
 
 test("rebinding a session replaces its run", () => {
@@ -90,5 +104,5 @@ test("findBinding fails loudly on a corrupt binding instead of reporting no run"
 test("bindSession leaves no temp files behind", () => {
   bindSession(root, "claude-code", "s1", run);
   bindSession(root, "claude-code", "s1", "R2");
-  expect(readdirSync(join(root, ".aos/sessions"))).toEqual(["claude-code-s1.json"]);
+  expect(readdirSync(join(root, ".aos/sessions"))).toEqual([sessionFileName("claude-code", "s1")]);
 });
