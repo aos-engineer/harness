@@ -53,10 +53,11 @@ export const doctorCommand: CommandFn = async (io) => {
   if (pack.pack !== null) findings.push(...checkSkills(io, pack.pack));
   findings.push(...checkRuns(root), ...checkBindings(root), checkHookErrors(root));
 
-  io.out(`AOS doctor: ${root}`);
+  io.out(printable(`AOS doctor: ${root}`));
+  // Findings quote log lines, file names, pack issues, and tool output, so every one is made printable here.
   for (const f of findings) {
-    io.out(`${f.level.padEnd(4)} ${f.text}${f.fix === undefined ? "" : `. Fix: ${f.fix}`}`);
-    for (const line of f.detail ?? []) io.out(`       ${line}`);
+    io.out(printable(`${f.level.padEnd(4)} ${f.text}${f.fix === undefined ? "" : `. Fix: ${f.fix}`}`));
+    for (const line of f.detail ?? []) io.out(`       ${printable(line)}`);
   }
   const count = (level: Level) => findings.filter((f) => f.level === level).length;
   io.out(`${count("FAIL")} FAIL, ${count("WARN")} WARN, ${count("OK")} OK.`);

@@ -71,7 +71,7 @@ export const approveCommand: CommandFn = async (io) => {
     return 1;
   }
 
-  io.out(`Run:     ${state.run} (${state.tier}, ${state.pack.name}@${state.pack.version})`);
+  io.out(`Run:     ${state.run} (${state.tier}, ${printable(`${state.pack.name}@${state.pack.version}`)})`);
   io.out(`Brief:   ${printable(clipText(oneLine(state.brief), 200))}`);
   io.out(`Stage:   ${pending.stage} (${state.current.index + 1}/${state.stages.length})`);
   io.out(`Request: ${pending.request}`);

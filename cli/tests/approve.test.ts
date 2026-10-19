@@ -141,12 +141,13 @@ describe("aos approve", () => {
 
   // Request text comes from the agent. Escape sequences could repaint the terminal to hide what is approved.
   test("terminal control characters in the summary are shown, not interpreted", async () => {
-    request(loc, "design", "safe text\u001b[2J\u001b[Hrewritten\rover‮esrever");
+    request(loc, "design", "safe text\u001b[2J\u001b[Hrewritten\rover\u202eesrever\u061c\u2028\u2029\u200b\ufeff end");
     const io = fakeIO({ argv: ["approve", run], cwd: root, isTTY: true, answers: ["design"] });
     await approveCommand(io);
-    expect(io.stdout).not.toMatch(/[\u001b\r‮]/);
-    expect(io.stdout).toContain("\\u001b[2J");
-    expect(io.stdout).toContain("\\u202e");
+    expect(io.stdout).not.toMatch(/[\p{Cf}\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029]/u);
+    for (const shown of ["\\u001b[2J", "\\u000d", "\\u202e", "\\u061c", "\\u2028", "\\u2029", "\\u200b", "\\ufeff"]) {
+      expect(io.stdout).toContain(shown);
+    }
   });
 
   test("a long summary is cut at 2000 characters", async () => {

@@ -99,16 +99,23 @@ export const TTY_NOTE =
   "its own gate by accident or shortcut. The check is not a security boundary: a determined process can\n" +
   "allocate a terminal. The run log records who decided and why.";
 
-// C0 and C1 controls (except newline and tab) and the bidirectional overrides that can make text display
-// in a different order than it is stored.
-const UNPRINTABLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g;
+// Control characters (Cc) and format characters (Cf: bidi overrides and isolates, zero-width characters, the
+// byte order mark, the Arabic letter mark), plus the line and paragraph separators, which some terminals
+// treat as line breaks. Newline and tab are kept.
+const UNPRINTABLE = /[\p{Cc}\p{Cf}\u2028\u2029]/gu;
 
 /**
- * Text written by an agent, made safe to show a human. Escape sequences and carriage returns could repaint
- * the terminal and hide what is really being approved, so each one is shown as a visible \uXXXX escape.
+ * Text read from a run log or written by an agent, made safe to show a human. Escape sequences, carriage
+ * returns, and bidi characters could repaint or reorder the terminal and hide what is really being approved,
+ * so each one is shown as a visible \uXXXX escape. Escaped text contains none of them, so this is idempotent.
  */
 export function printable(s: string): string {
-  return s.replace(UNPRINTABLE, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  return s.replace(UNPRINTABLE, (c) => (c === "\n" || c === "\t" ? c : visibleEscape(c)));
+}
+
+function visibleEscape(c: string): string {
+  const cp = c.codePointAt(0) ?? 0;
+  return cp > 0xffff ? `\\u{${cp.toString(16)}}` : "\\u" + cp.toString(16).padStart(4, "0");
 }
 
 /** The first `max` characters of `s`, with a note saying how much was left out. */

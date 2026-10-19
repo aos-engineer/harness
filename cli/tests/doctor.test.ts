@@ -5,7 +5,7 @@ import { runPaths } from "@aos-harness/kernel";
 import type { RunLocation } from "@aos-harness/kernel";
 import { doctorCommand, versionAtLeast } from "../src/commands/doctor.ts";
 import { tmpDir, tmpGitRepo, writeFile } from "../../kernel/tests/helpers.ts";
-import { appendRawBytes, mutateLine } from "../../kernel/tests/store/fixtures.ts";
+import { appendRawBytes, mutateLine, replaceLine } from "../../kernel/tests/store/fixtures.ts";
 import { fakeIO } from "./fake-io.ts";
 import { newRun, PACK, PACK_DIR, request } from "./fixtures.ts";
 
@@ -57,6 +57,15 @@ describe("aos doctor", () => {
     const io = doctor();
     expect(await doctorCommand(io)).toBe(1);
     expect(io.stdout).toMatch(/FAIL .*tampered or corrupt at seq 2/);
+  });
+
+  // The chain check quotes the bad seq value from the log; JSON.stringify leaves bidi characters as they are.
+  test("text read from the log is shown with invisible characters escaped", async () => {
+    replaceLine(loc, 1, JSON.stringify({ seq: "\u202e2", prev: "x" }));
+    const io = doctor();
+    await doctorCommand(io);
+    expect(io.stdout).not.toMatch(/[\p{Cf}\u2028\u2029]/u);
+    expect(io.stdout).toContain("\\u202e2");
   });
 
   test("a torn log tail is a WARN, since the next append repairs it", async () => {

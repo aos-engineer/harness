@@ -49,7 +49,7 @@ function listAll(io: CliIO, root: string, json: boolean): number {
   else if (rows.length === 0) io.out(`No AOS runs under ${root}.`);
   else {
     for (const r of rows) {
-      io.out("error" in r ? `${r.run}  unreadable: ${printable(r.error)}. Run aos doctor.` : `${r.run}  ${r.status}  ${r.tier}  ${r.stage}`);
+      io.out(printable("error" in r ? `${r.run}  unreadable: ${r.error}. Run aos doctor.` : `${r.run}  ${r.status}  ${r.tier}  ${r.stage}`));
     }
   }
   return rows.some((r) => "error" in r) ? 1 : 0;
