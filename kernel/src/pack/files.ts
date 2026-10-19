@@ -1,10 +1,13 @@
 // One walk serves both the data-only check and the integrity hash, so the two never disagree about which
-// files make up a pack. node_modules/ and dotfiles are not pack content: a git checkout of a pack carries
-// executable hook samples under .git/, and editors and operating systems drop dotfiles freely.
+// files make up a pack. Hidden files are pack content: stage instructions can point the agent at any file,
+// so a dotfile must be checked and hashed like the rest. Only three names are not pack content: .git (a
+// checkout's metadata, with executable hook samples), node_modules, and the .DS_Store files macOS writes.
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { PackError } from "../util/errors.ts";
 import { sha256Hex, sha256Tag } from "../util/hash.ts";
+
+const NOT_PACK_CONTENT = new Set([".git", "node_modules", ".DS_Store"]);
 
 export interface PackEntry {
   rel: string; // POSIX path relative to the pack root
@@ -18,7 +21,7 @@ export function walkPack(dir: string): PackEntry[] {
   const out: PackEntry[] = [];
   const visit = (absDir: string, relDir: string): void => {
     for (const name of readdirSync(absDir)) {
-      if (name.startsWith(".") || name === "node_modules") continue;
+      if (NOT_PACK_CONTENT.has(name)) continue;
       const abs = join(absDir, name);
       const rel = relDir ? `${relDir}/${name}` : name;
       const st = lstatSync(abs);

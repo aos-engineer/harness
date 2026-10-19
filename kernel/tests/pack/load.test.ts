@@ -193,7 +193,7 @@ describe("data only", () => {
     expect(issuesOf(dir)).toEqual([expect.stringContaining("stages/bounded/linked.md")]);
   });
 
-  test("node_modules and dotfiles are outside the pack", () => {
+  test(".git, node_modules, and .DS_Store are outside the pack", () => {
     const dir = copyFixture("valid");
     const before = packIntegrity(dir);
     mkdirSync(join(dir, "node_modules/dep"), { recursive: true });
@@ -201,8 +201,25 @@ describe("data only", () => {
     mkdirSync(join(dir, ".git/hooks"), { recursive: true });
     writeFileSync(join(dir, ".git/hooks/pre-commit.sample"), "#!/bin/sh\n", { mode: 0o755 });
     writeFileSync(join(dir, ".DS_Store"), "x");
+    mkdirSync(join(dir, "stages/vendored"));
+    writeFileSync(join(dir, "stages/vendored/.git"), "gitdir: ../../.git/modules/vendored\n"); // a submodule's .git is a file
+    writeFileSync(join(dir, "stages/.DS_Store"), "x");
     expect(packIntegrity(dir)).toBe(before);
     expect(() => loadPack(dir)).not.toThrow();
+  });
+
+  test("an executable dotfile script is rejected", () => {
+    const dir = copyFixture("valid");
+    writeFileSync(join(dir, ".setup.sh"), "#!/bin/sh\n", { mode: 0o755 });
+    expect(issuesOf(dir)).toEqual([expect.stringContaining(".setup.sh")]);
+  });
+
+  test("files in a hidden directory are checked", () => {
+    const dir = copyFixture("valid");
+    mkdirSync(join(dir, ".helpers"));
+    writeFileSync(join(dir, ".helpers/run.sh"), "");
+    writeFileSync(join(dir, ".helpers/notes.md"), "", { mode: 0o755 });
+    expect(issuesOf(dir)).toEqual([expect.stringContaining(".helpers/notes.md"), expect.stringContaining(".helpers/run.sh")]);
   });
 });
 
@@ -213,6 +230,14 @@ describe("integrity", () => {
     writeFileSync(join(a, "notes-a.md"), "same\n");
     writeFileSync(join(b, "notes-b.md"), "same\n");
     expect(packIntegrity(a)).not.toBe(packIntegrity(b));
+  });
+
+  test("editing a dotfile changes it, since stage instructions can point at any file in the pack", () => {
+    const dir = copyFixture("valid");
+    writeFileSync(join(dir, ".hidden.md"), "one\n");
+    const before = packIntegrity(dir);
+    appendTo(dir, ".hidden.md", "two\n");
+    expect(packIntegrity(dir)).not.toBe(before);
   });
 
   test("it does not depend on where the pack lives", () => expect(packIntegrity(copyFixture("valid"))).toBe(packIntegrity(fx("valid"))));
