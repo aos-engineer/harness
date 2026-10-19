@@ -27,3 +27,4 @@ dist/
 *.pem
 *.key
 *.p8
+.worktrees/

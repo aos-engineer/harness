@@ -1,5 +1,7 @@
 # AOS Harness
 
+> **`main` is AOS 1.0 development.** The released 0.x line (npm `latest`) lives on the `release/0.11` branch and tag `v0.11.0`. 1.0 pre-releases will publish on the npm `next` tag.
+
 **Agentic Orchestration System** — Assemble specialized AI agents into deliberation and execution teams.
 
 [![CI](https://github.com/aos-engineer/harness/actions/workflows/ci.yml/badge.svg)](https://github.com/aos-engineer/harness/actions/workflows/ci.yml)

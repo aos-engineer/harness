@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Breaking
+
+- 1.0 development begins on `main`. The 0.x engine, workflow runner, adapters, and CLI are removed from `main`; 0.11.x patches go to `release/0.11`.
+
 ## 0.11.0 — Execution profiles run for real (2026-07-01)
 
 Execution-mode profiles (`cto-execution`, `dev-execution`) could not complete a
