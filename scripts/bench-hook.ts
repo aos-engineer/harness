@@ -8,8 +8,9 @@
 //
 // It runs in a throwaway shallow clone of this checkout, so the fingerprint scenario hashes a tree the
 // size of this repository without writing .aos/ into the checkout. Two reference rows separate process
-// startup and module loading from the hook's own work. A scenario whose hook logged errors measured the
-// failure path, not the real one, so the errors column must be 0 for a timing to count.
+// startup and module loading from the hook's own work. Every timed call is checked against the decision
+// its scenario expects; a call that printed something else, exited non-zero, or logged a hook error
+// measured some other path, so it counts as an error, and a scenario with errors does not count.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -23,8 +24,13 @@ const PACK = join(CHECKOUT, "packs/feature-delivery");
 const HOST = "claude-code";
 const WARMUP = 2;
 
-interface Scenario { name: string; argv: string[]; stdin: string }
-interface Row { scenario: string; n: number; p50: number; p95: number; max: number; errors: number }
+// What a scenario's hook must print on every call. An allow with nothing to say prints nothing, which
+// is also what the user's own permission prompt depends on.
+interface Expected { describe: string; matches: (stdout: string) => boolean }
+const SILENT_ALLOW: Expected = { describe: "an allow (empty stdout)", matches: (stdout) => stdout === "" };
+
+interface Scenario { name: string; argv: string[]; stdin: string; expect: Expected }
+interface Row { scenario: string; n: number; p50: number; p95: number; max: number; errors: number; unexpected: number; hookErrors: number }
 
 function parseN(argv: string[]): number {
   const i = argv.indexOf("--n");
@@ -69,16 +75,25 @@ function errorLines(repo: string): number {
 function measure(s: Scenario, repo: string, env: NodeJS.ProcessEnv, n: number): Row {
   const before = errorLines(repo);
   const times: number[] = [];
+  let unexpected = 0;
   for (let i = 0; i < WARMUP + n; i++) {
     const t0 = performance.now();
     const r = spawnSync(process.execPath, s.argv, { cwd: repo, env, input: s.stdin, encoding: "utf8" });
     const ms = performance.now() - t0;
-    if (r.status !== 0) console.error(`${s.name}: exited ${r.status}: ${r.stderr.trim()}`);
-    if (i >= WARMUP) times.push(ms);
+    if (i < WARMUP) continue;
+    times.push(ms);
+    if (r.status === 0 && s.expect.matches(r.stdout)) continue;
+    // Report the first mismatch only, so a scenario that changed path does not flood the output.
+    if (unexpected === 0) console.error(`${s.name}: expected ${s.expect.describe}, got exit ${r.status} and stdout ${JSON.stringify(r.stdout.slice(0, 300))}`);
+    unexpected += 1;
   }
   times.sort((a, b) => a - b);
   const round = (x: number) => Math.round(x * 10) / 10;
-  return { scenario: s.name, n, p50: round(percentile(times, 50)), p95: round(percentile(times, 95)), max: round(times[times.length - 1] ?? NaN), errors: errorLines(repo) - before };
+  const hookErrors = errorLines(repo) - before;
+  return {
+    scenario: s.name, n, p50: round(percentile(times, 50)), p95: round(percentile(times, 95)), max: round(times[times.length - 1] ?? NaN),
+    errors: unexpected + hookErrors, unexpected, hookErrors,
+  };
 }
 
 function main(): void {
@@ -107,12 +122,12 @@ function main(): void {
       tool_response: { stdout: " 1 pass\n 0 fail\n", stderr: "", interrupted: false, isImage: false },
     };
     const scenarios: Scenario[] = [
-      { name: "reference: bun startup", argv: ["--eval", "0"], stdin: "" },
-      { name: "reference: load the hook modules", argv: ["--eval", `await import(${JSON.stringify(BIN)})`], stdin: "" },
-      { name: "1. unbound pass-through (PreToolUse Bash ls)", argv: [BIN, "pre-tool-use"], stdin: payload(repo, unbound, "PreToolUse", ls) },
-      { name: "2. bound PreToolUse Write in scope", argv: [BIN, "pre-tool-use"], stdin: payload(repo, bound, "PreToolUse", write) },
-      { name: "3. bound PreToolUse Bash ls", argv: [BIN, "pre-tool-use"], stdin: payload(repo, bound, "PreToolUse", ls) },
-      { name: "4. bound PostToolUse Bash bun test (fingerprint)", argv: [BIN, "post-tool-use"], stdin: payload(repo, bound, "PostToolUse", test) },
+      { name: "reference: bun startup", argv: ["--eval", "0"], stdin: "", expect: SILENT_ALLOW },
+      { name: "reference: load the hook modules", argv: ["--eval", `await import(${JSON.stringify(BIN)})`], stdin: "", expect: SILENT_ALLOW },
+      { name: "1. unbound pass-through (PreToolUse Bash ls)", argv: [BIN, "pre-tool-use"], stdin: payload(repo, unbound, "PreToolUse", ls), expect: SILENT_ALLOW },
+      { name: "2. bound PreToolUse Write in scope", argv: [BIN, "pre-tool-use"], stdin: payload(repo, bound, "PreToolUse", write), expect: SILENT_ALLOW },
+      { name: "3. bound PreToolUse Bash ls", argv: [BIN, "pre-tool-use"], stdin: payload(repo, bound, "PreToolUse", ls), expect: SILENT_ALLOW },
+      { name: "4. bound PostToolUse Bash bun test (fingerprint)", argv: [BIN, "post-tool-use"], stdin: payload(repo, bound, "PostToolUse", test), expect: SILENT_ALLOW },
     ];
 
     const env = childEnv(repo);
@@ -130,7 +145,7 @@ function main(): void {
     const missed = counted.filter((r) => r.p95 >= 100).map((r) => r.scenario);
     const failed = rows.filter((r) => r.errors > 0).map((r) => r.scenario);
     console.log("");
-    if (failed.length > 0) console.log(`Hook errors, so these timings are of the failure path and do not count: ${failed.join("; ")}`);
+    if (failed.length > 0) console.log(`Unexpected output or hook errors, so these timings are of some other path and do not count: ${failed.join("; ")}`);
     console.log(missed.length === 0 ? `${failed.length > 0 ? "Every other scenario" : "Every scenario"} meets the p95 < 100 ms target.` : `p95 at or over 100 ms: ${missed.join("; ")}`);
     console.log(JSON.stringify({ bench: "aos-hook", n, warmup: WARMUP, bun: Bun.version, platform: process.platform, arch: process.arch, trackedFiles: files, rows }));
   } catch (err) {
