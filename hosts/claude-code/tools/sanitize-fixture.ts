@@ -1,18 +1,20 @@
 #!/usr/bin/env bun
 // Turns raw payloads saved by the aos-capture plugin into fixtures safe to commit to a public repo.
 //
-//   bun hosts/claude-code/tools/sanitize-fixture.ts <in-dir> <out-dir> [--home <path>] [--repo <path>]
+//   bun hosts/claude-code/tools/sanitize-fixture.ts <in-dir> <out-dir> [--home <path>] [--repo <path>] [--also <text>]...
 //
-// --home defaults to the current user's home; --repo defaults to the first capture's cwd. Fixtures are
+// --home defaults to the current user's home; --repo defaults to the first capture's cwd. Each --also
+// value (a real name, an email) is replaced with REDACTED-<n>, ignoring case, and leak-checked. Fixtures are
 // named <event>-<tool or source>-<n>.json; rename them to a case name (post-tool-use-bash-true.json)
 // once you have checked what each one shows. Nothing is written if any fixture still contains the
-// home path, the repo path, or the username: those are the leaks a public fixture cannot carry.
+// home path, the repo path, the username, or an --also value, compared without case: those are the
+// leaks a public fixture cannot carry.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
 export interface Capture { file: string; raw: unknown }
-export interface SanitizeOptions { home: string; repo: string }
+export interface SanitizeOptions { home: string; repo: string; also?: readonly string[] }
 export interface Fixture { name: string; source: string; content: Record<string, unknown>; leaks: string[] }
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -21,6 +23,7 @@ const ID_KINDS = [
   { key: /(^|_)session_id$/, label: (n: number) => (n === 1 ? "SESSION" : `SESSION-${n}`) },
   { key: /(^|_)prompt_id$/, label: (n: number) => `PROMPT-${n}` },
   { key: /(^|_)agent_id$/, label: (n: number) => `AGENT-${n}` },
+  { key: /(^|_)tool_use_id$/, label: (n: number) => `TOOLU-${n}` },
 ];
 
 // Short ids could match unrelated text, so only ids this long are replaced inside other strings.
@@ -33,8 +36,7 @@ export function sanitize(captures: readonly Capture[], opts: SanitizeOptions): F
   }
 
   const ids = collectIds(ordered.map((c) => c.raw as Json));
-  const paths = pathReplacements(opts);
-  const needles = leakNeedles(opts);
+  const paths = [...pathReplacements(opts), ...alsoReplacements(opts)];
   const counters = new Map<string, number>();
 
   return ordered.map((c) => {
@@ -44,8 +46,7 @@ export function sanitize(captures: readonly Capture[], opts: SanitizeOptions): F
     const n = (counters.get(prefix) ?? 0) + 1;
     counters.set(prefix, n);
     const content: Record<string, unknown> = { _source: "captured", ...clean };
-    const text = JSON.stringify(content);
-    return { name: `${prefix}-${n}.json`, source: c.file, content, leaks: needles.filter((s) => text.includes(s)) };
+    return { name: `${prefix}-${n}.json`, source: c.file, content, leaks: findLeaks(JSON.stringify(content), opts) };
   });
 }
 
@@ -116,12 +117,27 @@ function pathReplacements(opts: SanitizeOptions): Replacement[] {
   return list.sort((a, b) => b.from.length - a.from.length).map((x) => x.rep);
 }
 
+// Runs after the path replacements, so an --also value that also appears in a path cannot stop the
+// path from being normalized first.
+function alsoReplacements(opts: SanitizeOptions): Replacement[] {
+  return (opts.also ?? [])
+    .filter((s) => s !== "")
+    .map((s, i) => ({ pattern: new RegExp(escape(s), "gi"), to: `REDACTED-${i + 1}` }));
+}
+
 function leakNeedles(opts: SanitizeOptions): string[] {
   const needles = [...aliases(opts.home), ...aliases(opts.repo)];
   const user = basename(opts.home);
   // A very short or generic name would match ordinary text and make every capture look leaky.
   if (user.length >= 3 && user !== "user") needles.push(user);
+  needles.push(...(opts.also ?? []).filter((s) => s !== ""));
   return [...new Set(needles)];
+}
+
+/** The personal strings still present in text. Case is ignored: "Alice" leaks "alice" all the same. */
+export function findLeaks(text: string, opts: SanitizeOptions): string[] {
+  const lower = text.toLowerCase();
+  return leakNeedles(opts).filter((s) => lower.includes(s.toLowerCase()));
 }
 
 function scrubString(s: string, ids: Map<string, string>, paths: Replacement[]): string {
@@ -161,16 +177,24 @@ function fixturePrefix(file: string, payload: { [key: string]: Json }): string {
 }
 
 function usage(): number {
-  console.error("usage: sanitize-fixture.ts <in-dir> <out-dir> [--home <path>] [--repo <path>]");
+  console.error("usage: sanitize-fixture.ts <in-dir> <out-dir> [--home <path>] [--repo <path>] [--also <text>]...");
   return 2;
 }
 
 export function main(argv: string[]): number {
   const positional: string[] = [];
   const flags: Record<string, string> = {};
+  const also: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a === "--home" || a === "--repo") {
+    if (a === "--also") {
+      const v = argv[++i];
+      if (v === undefined || v === "") {
+        console.error("--also needs a non-empty value");
+        return usage();
+      }
+      also.push(v);
+    } else if (a === "--home" || a === "--repo") {
       const v = argv[++i];
       if (v === undefined) return usage();
       flags[a.slice(2)] = v;
@@ -202,7 +226,7 @@ export function main(argv: string[]): number {
 
   let fixtures: Fixture[];
   try {
-    fixtures = sanitize(captures, { home: flags.home ?? homedir(), repo });
+    fixtures = sanitize(captures, { home: flags.home ?? homedir(), repo, also });
   } catch (e) {
     console.error((e as Error).message);
     return 1;
