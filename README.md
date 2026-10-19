@@ -2,11 +2,43 @@
 
 > **`main` is AOS 1.0 development.** The released 0.x line (npm `latest`) lives on the `release/0.11` branch and tag `v0.11.0`. 1.0 pre-releases will publish on the npm `next` tag.
 
-**Agentic Orchestration System** — Assemble specialized AI agents into deliberation and execution teams.
-
 [![CI](https://github.com/aos-engineer/harness/actions/workflows/ci.yml/badge.svg)](https://github.com/aos-engineer/harness/actions/workflows/ci.yml)
 
+## AOS 1.0 on `main`
+
+AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Every run is an append-only, hash-chained log under `.aos/runs/`, so its verdicts can be replayed and checked.
+
+Claude Code is the first host, and this release is for dogfooding. Start with the [Claude Code plugin README](./hosts/claude-code/README.md). AOS is a guardrail for a cooperating agent, not a security boundary; the plugin README lists what it does not defend.
+
+### Repository layout
+
+```
+kernel/                  @aos-harness/kernel: run log, projection, gates, packs, shell semantics, hook logic
+  src/mcp/               the MCP server, exported as @aos-harness/kernel/mcp
+hosts/claude-code/       the Claude Code plugin: manifest, hooks, MCP registration, the /aos:run skill
+packs/feature-delivery/  the reference methodology pack (data only)
+cli/                     the aos CLI: approve, status, doctor, run cancel, mcp
+tests/e2e/               bounded and spike runs driven through the MCP tools and the real hook command
+core/                    0.x agent, profile, and domain content, still read by the docs site
+site/                    the docs site (Astro)
+```
+
+### Development
+
+```bash
+bun install
+bun run test                    # every test suite
+bun run lint                    # YAML safety check and typecheck
+bun run scripts/bench-hook.ts   # hook latency benchmark
+```
+
 ---
+
+## AOS 0.x
+
+> Everything below documents the 0.x line published on npm as `aos-harness@latest`. Its source, including `runtime/`, `adapters/`, and `plugins/aos-harness/`, is on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch.
+
+**Agentic Orchestration System.** Assemble specialized AI agents into deliberation and execution teams.
 
 ## What It Is
 
@@ -78,8 +110,8 @@ bun add @aos-harness/codex-adapter
 
 Adapters remain the runtime boundary. This repo also ships thin host-native install surfaces on top:
 
-- `Codex`: [plugins/aos-harness](./plugins/aos-harness/) local plugin bundle
-- `Claude Code`: [plugins/aos-harness/claude-code](./plugins/aos-harness/claude-code/) project command pack
+- `Codex`: [plugins/aos-harness](https://github.com/aos-engineer/harness/tree/release/0.11/plugins/aos-harness) local plugin bundle, on the `release/0.11` branch
+- `Claude Code`: [plugins/aos-harness/claude-code](https://github.com/aos-engineer/harness/tree/release/0.11/plugins/aos-harness/claude-code) project command pack, on the `release/0.11` branch
 - `Pi`: `aos init --adapter pi` writes `.pi/extensions/aos-harness.ts` so `/aos-run` is available when you open `pi` in that project
 
 For Pi across all AOS projects, install the global shim once:
@@ -220,28 +252,7 @@ Brief → Requirements (Advocate + Strategist) → Architecture (Architect)
 
 ## Architecture
 
-```
-aos-harness/
-  core/               # Language-agnostic config (YAML + Markdown)
-    agents/           # 15 agent personas (orchestrators, perspectives, operational)
-    profiles/         # 9 orchestration profiles
-    domains/          # 5 domain knowledge packs
-    skills/           # 6 skill definitions (aos/skill/v1)
-    workflows/        # 10 workflow definitions
-    schema/           # JSON Schema for validation
-    briefs/           # Sample briefs
-  runtime/            # Minimal TypeScript engine (~2000 lines)
-    src/              # Engine, constraint engine, delegation router, artifact manager,
-                      # workflow runner, template resolver, config loader, output renderer
-    tests/            # 393 tests across 25 files
-  adapters/           # Platform-specific implementations
-    pi/               # Pi CLI adapter
-    claude-code/      # Claude Code adapter
-    codex/            # Codex CLI adapter
-    gemini/           # Gemini CLI adapter
-  cli/                # CLI tooling (init, run, create, validate, list, replay)
-  docs/               # Specs, plans, getting-started guides
-```
+The 0.x engine (`runtime/`), its adapters (`adapters/pi`, `claude-code`, `codex`, `gemini`), and the 0.x CLI are on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch. Its agent, profile, domain, and skill content is still in `core/` on `main`. For the 1.0 layout, see [Repository layout](#repository-layout).
 
 ### 4-Layer Adapter Contract
 
@@ -308,30 +319,6 @@ Adapters advertise `transcript_streaming: "local+platform"`: events always land 
 - **Event Summarization:** `docs/event-summarization/README.md`
 - **Session Checkpointing:** `docs/session-resumption/README.md`
 - **Release Readiness:** `docs/testing/release-readiness-checklist.md`
-
----
-
-## Development
-
-```bash
-# Run tests
-bun run test
-
-# Type check runtime
-bun run typecheck
-
-# Type check CLI
-bun x tsc --noEmit --project cli/tsconfig.json
-
-# Validate all configs
-bun run validate
-
-# Security lint
-bun run lint:yaml-safety
-
-# Full lint (safety + types)
-bun run lint
-```
 
 ---
 

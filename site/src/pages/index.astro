@@ -227,9 +227,10 @@ const listAgents = agents.filter(a => ['catalyst', 'sentinel', 'architect', 'pro
         </div>
         <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
           <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Claude Code</h3>
-          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Use your existing Claude Code installation, add the adapter, then optionally install the project command pack. Readiness checks surface when <code>ANTHROPIC_API_KEY</code> is overriding Claude auth.</p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Use your existing Claude Code installation, add the adapter, then optionally install the project command pack from the <code>release/0.11</code> branch. Readiness checks surface when <code>ANTHROPIC_API_KEY</code> is overriding Claude auth.</p>
           <pre class="mt-4 !bg-[var(--color-bg)] !border-[var(--color-border)] text-[13px]"><code><span class="text-[var(--color-text-muted)]">$</span> npm i -g @aos-harness/claude-code-adapter
-<span class="text-[var(--color-text-muted)]">$</span> bash plugins/aos-harness/claude-code/install.sh</code></pre>
+<span class="text-[var(--color-text-muted)]">$</span> git clone -b release/0.11 https://github.com/aos-engineer/harness.git
+<span class="text-[var(--color-text-muted)]">$</span> bash harness/plugins/aos-harness/claude-code/install.sh</code></pre>
         </div>
         <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
           <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Codex CLI</h3>
