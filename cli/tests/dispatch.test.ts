@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { dispatch } from "../src/dispatch.ts";
+import type { CliIO, CommandFn } from "../src/io.ts";
 
 const ENTRY = join(import.meta.dirname, "../src/index.ts");
 const aos = (...args: string[]) => spawnSync("bun", [ENTRY, ...args], { encoding: "utf8" });
@@ -23,4 +25,28 @@ test("an unknown command exits 2", () => {
   const r = aos("frobnicate");
   expect(r.status).toBe(2);
   expect(r.stderr).toContain("unknown command");
+});
+
+function fakeIO(argv: string[]) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const io: CliIO = { argv, cwd: process.cwd(), env: {}, isTTY: false, out: (s) => void out.push(s), err: (s) => void err.push(s), prompt: async () => "" };
+  return { io, out, err };
+}
+
+const only = (fn: CommandFn) => ({ only: { help: "only", importCommand: async () => fn } });
+
+test("a command that throws prints one line and exits 1", async () => {
+  const f = fakeIO(["only"]);
+  expect(await dispatch(f.io, only(async () => { throw new Error("kaput"); }))).toBe(1);
+  expect(f.err).toEqual(["aos: kaput"]);
+});
+
+test("dispatch returns the command's own exit code", async () => {
+  expect(await dispatch(fakeIO(["only"]).io, only(async () => 3))).toBe(3);
+});
+
+// process.exit() kills commands that keep serving after they resolve (aos mcp) and truncates piped stdout.
+test("the entry point sets process.exitCode instead of calling process.exit", () => {
+  expect(readFileSync(ENTRY, "utf8")).not.toMatch(/process\.exit\(/);
 });

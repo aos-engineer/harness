@@ -11,7 +11,11 @@ export interface CliIO {
   prompt(question: string): Promise<string>;
 }
 
-export type CommandFn = (io: CliIO) => Promise<number>; // resolves to the process exit code
+/**
+ * Resolves to the process exit code once the command's work is done. A long-lived command (aos mcp)
+ * resolves only when it stops serving; the entry point never forces an exit.
+ */
+export type CommandFn = (io: CliIO) => Promise<number>;
 
 export function processIO(): CliIO {
   return {
