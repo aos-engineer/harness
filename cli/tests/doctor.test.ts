@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { copyFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { runPaths } from "@aos-harness/kernel";
+import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { RunLocation } from "@aos-harness/kernel";
 import { doctorCommand, versionAtLeast } from "../src/commands/doctor.ts";
 import { tmpDir, tmpGitRepo, writeFile } from "../../kernel/tests/helpers.ts";
@@ -57,6 +57,32 @@ describe("aos doctor", () => {
     const io = doctor();
     expect(await doctorCommand(io)).toBe(1);
     expect(io.stdout).toMatch(/FAIL .*tampered or corrupt at seq 2/);
+  });
+
+  test("a tampered active run stays a FAIL, and the fix says how to retire it", async () => {
+    mutateLine(loc, 0);
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(1);
+    expect(io.stdout).toMatch(new RegExp(`^FAIL run ${loc.run}: .*tampered.*aos run cancel ${loc.run}.*move .aos/runs/${loc.run} out of .aos/runs`, "m"));
+  });
+
+  // An ended run enforces nothing, so an old tampered one must not hold doctor at exit 1 forever.
+  test("a tampered cancelled run is a WARN that says to inspect and retire it", async () => {
+    cancelRun(loc, { actor: humanActor(), reason: "done with it" });
+    mutateLine(loc, 0);
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(new RegExp(`^WARN run ${loc.run}: .*tampered.*inspect .*log\\.jsonl.*move .aos/runs/${loc.run} out of .aos/runs`, "m"));
+  });
+
+  test("a tampered completed run is a WARN even when its snapshot is gone", async () => {
+    const KERNEL = { kind: "kernel" as const, id: "aos", agent: null };
+    appendEvents(loc, [{ type: "run.completed", actor: KERNEL, data: { stage: "design" } }], projector);
+    mutateLine(loc, 0);
+    rmSync(runPaths(loc).state);
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(new RegExp(`^WARN run ${loc.run}: .*tampered`, "m"));
   });
 
   // The chain check quotes the bad seq value from the log; JSON.stringify leaves bidi characters as they are.

@@ -190,10 +190,13 @@ function checkRuns(root: string): Finding[] {
       continue;
     }
     if (!chain.ok) {
-      found.push({
-        level: "FAIL", text: `run ${run}: log tampered or corrupt at seq ${chain.badSeq ?? "?"} (${chain.reason ?? "unknown"})`,
-        fix: `its gates and evidence cannot be trusted; inspect .aos/runs/${run}/log.jsonl and start a new run`,
-      });
+      const text = `run ${run}: log tampered or corrupt at seq ${chain.badSeq ?? "?"} (${chain.reason ?? "unknown"})`;
+      const retire = `move .aos/runs/${run} out of .aos/runs to retire it`;
+      // An ended run enforces nothing, so its damage is history to look at, not a reason to fail every
+      // later doctor run. A live one can still be bound and resumed, so it fails until it is retired.
+      found.push(endedInLog(loc) === null
+        ? { level: "FAIL", text, fix: `its gates and evidence cannot be trusted; release its sessions with aos run cancel ${run} --reason "...", inspect .aos/runs/${run}/log.jsonl, then ${retire}` }
+        : { level: "WARN", text, fix: `inspect .aos/runs/${run}/log.jsonl, then ${retire}` });
       continue;
     }
     // Torn bytes are crash damage that the next append saves and drops, not tampering.
@@ -207,6 +210,31 @@ function checkRuns(root: string): Finding[] {
     }
   }
   return found;
+}
+
+/**
+ * Whether the log records the run ending, read line by line without trusting the chain. A forged ending
+ * only lowers how loudly doctor reports a run that no session should be using; a binding to it is still a
+ * FAIL of its own.
+ */
+function endedInLog(loc: { root: string; run: string }): "completed" | "cancelled" | null {
+  let text: string;
+  try {
+    text = readFileSync(runPaths(loc).log, "utf8");
+  } catch {
+    return null;
+  }
+  let ended: "completed" | "cancelled" | null = null;
+  for (const line of text.split("\n")) {
+    try {
+      const e = JSON.parse(line) as { type?: unknown } | null;
+      if (e?.type === "run.completed") ended = "completed";
+      else if (e?.type === "run.cancelled") ended = "cancelled";
+    } catch {
+      // A line that is not JSON is part of the damage already reported.
+    }
+  }
+  return ended;
 }
 
 function snapshotSeq(path: string): number | null {
