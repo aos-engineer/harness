@@ -10,8 +10,10 @@ import { payload, runStartPayload } from "./support.ts";
 const BIN = join(import.meta.dir, "../../bin/aos-hook.ts");
 
 function runHook(event: string, stdin: string, env: Record<string, string> = {}): { stdout: string; code: number | null } {
+  // The test runner may itself run under Claude Code, whose own project dir must not leak into the child.
   const base = { ...process.env };
   delete base.AOS_HOOK_CAPTURE_DIR;
+  delete base.CLAUDE_PROJECT_DIR;
   const r = Bun.spawnSync([process.execPath, BIN, event], { stdin: Buffer.from(stdin), stdout: "pipe", stderr: "pipe", env: { ...base, ...env } });
   return { stdout: r.stdout.toString(), code: r.exitCode };
 }
@@ -67,6 +69,20 @@ describe("bound sessions", () => {
       hookEventName: "PostToolUse",
       additionalContext: `AOS: this session is bound to run ${run} (bounded). Gates apply from now on.`,
     });
+  });
+
+  test("CLAUDE_PROJECT_DIR finds the binding after the shell leaves the repo", () => {
+    const run = bindRun();
+    at({ root: repo, run }, "verify");
+    const outside = tmpDir();
+    try {
+      const push = payload("pre-tool-use-bash-true", repo, { command: `git -C ${repo} push`, top: { cwd: outside } });
+      expect(runHook("pre-tool-use", JSON.stringify(push))).toEqual({ stdout: "", code: 0 });
+      const out = json(runHook("pre-tool-use", JSON.stringify(push), { CLAUDE_PROJECT_DIR: repo }).stdout).hookSpecificOutput;
+      expect(out.permissionDecision).toBe("deny");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   test("a failed test run is recorded from PostToolUseFailure", () => {

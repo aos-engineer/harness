@@ -26,7 +26,7 @@ function decide(event: ClaudeEventName, raw: string): HookDecision {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-    return handleHook(normalize(event, parsed));
+    return handleHook(normalize(event, parsed), projectDir());
   } catch (err) {
     // handleHook never throws, so this is a payload that did not parse or normalize. The command is read
     // straight from the raw payload, so a push still fails closed.
@@ -45,6 +45,13 @@ function output(event: ClaudeEventName, decision: HookDecision): string {
       return "";
     }
   }
+}
+
+// Claude Code exports the session's starting directory to hook commands, and it does not follow the
+// agent's cd. The kernel looks for the binding there when the payload's cwd has none.
+function projectDir(): { projectDir?: string } {
+  const dir = process.env.CLAUDE_PROJECT_DIR;
+  return dir === undefined || dir === "" ? {} : { projectDir: dir };
 }
 
 function commandOf(parsed: unknown): string | null {

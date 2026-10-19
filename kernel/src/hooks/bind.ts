@@ -15,16 +15,21 @@ import { physicalPath } from "./paths.ts";
 const RUN_ID = /runId\\?"\s*:\s*\\?"([0-9A-HJKMNP-TV-Z]{26})\\?"/;
 
 /** A decision when this call started a run and bound the session to it; null to carry on as usual. */
-export function bindOnRunStart(input: HookInput): HookDecision | null {
+export function bindOnRunStart(input: HookInput, projectDir: string | null): HookDecision | null {
   if (input.event !== "post-tool" || input.tool?.kind !== "aos-mcp" || input.tool.aosTool !== "aos_run_start") return null;
   const run = runIdIn(input.result?.raw);
   if (run === null) return null;
-  // The same root the MCP server resolves for a run, so a session in a subdirectory binds at the top. git
-  // already reports a physical path; outside git the cwd is resolved the same way, so the binding's root
-  // compares equal to the run's however the session reached the directory.
-  const root = gitRoot(input.cwd) ?? physicalPath(input.cwd);
+  // The same roots the MCP server could have resolved for the run: the session's cwd, then the directory the
+  // session started in, since the agent's shell may have left it.
+  const roots = candidateRoots([input.cwd, ...(projectDir === null ? [] : [projectDir])]);
+  const root = roots.find((r) => existsSync(runPaths({ root: r, run }).log));
+  if (root === undefined) {
+    return allow(
+      `AOS: could not bind this session to run ${run}: there is no .aos/runs/${run} under ${roots.join(" or ")}. ` +
+        "AOS gates do not apply to this session. The aos MCP server may be running from a different directory than this session.",
+    );
+  }
   const loc = { root, run };
-  if (!existsSync(runPaths(loc).log)) return null;
   const { state } = loadState(loc, projector);
   // A new run is always active. Rebinding to a cancelled or completed one would switch enforcement off
   // (or loosen it) for the session, so any other id in the response is ignored.
@@ -32,6 +37,20 @@ export function bindOnRunStart(input: HookInput): HookDecision | null {
   bindSession(root, input.host, input.session, run);
   appendEvents(loc, [{ type: "session.bound", actor: hookActor(input), data: { host: input.host, session: input.session } }], projector);
   return allow(`AOS: this session is bound to run ${run} (${state.tier}). Gates apply from now on.`);
+}
+
+/**
+ * Each directory's repository root, so a session in a subdirectory binds at the top. git already reports a
+ * physical path; outside git the directory is resolved the same way, so the binding's root compares equal to
+ * the run's however the session reached it.
+ */
+function candidateRoots(dirs: string[]): string[] {
+  const roots: string[] = [];
+  for (const dir of dirs) {
+    const root = gitRoot(dir) ?? physicalPath(dir);
+    if (!roots.includes(root)) roots.push(root);
+  }
+  return roots;
 }
 
 function runIdIn(raw: unknown): string | null {

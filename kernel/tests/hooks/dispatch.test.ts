@@ -8,7 +8,7 @@ import { findBinding, sessionFileName } from "../../src/store/sessions.ts";
 import type { HookEvent, HookInput, HookTool, RunLocation, TreeState } from "../../src/types.ts";
 import { ulid } from "../../src/util/ulid.ts";
 import { tmpDir, tmpGitRepo } from "../helpers.ts";
-import { ALLOW, HOST, SESSION, append, bashTool, bound, breakRun, input, linkTo, mcpTool, startRun, types, writeTool } from "./helpers.ts";
+import { ALLOW, HOST, SESSION, append, at, bashTool, bound, breakRun, input, linkTo, mcpTool, startRun, types, writeTool } from "./helpers.ts";
 
 let repo: string;
 let run: string;
@@ -43,6 +43,22 @@ describe("unbound sessions", () => {
       expect(existsSync(join(fresh, ".aos"))).toBe(false);
     } finally {
       rmSync(fresh, { recursive: true, force: true });
+    }
+  });
+
+  test("with no .aos anywhere, the fallbacks only look: nothing is created and nothing fingerprints", () => {
+    const [cwd, project, target] = [tmpDir(), tmpDir(), tmpDir()];
+    try {
+      const calls: Array<Partial<HookInput>> = [
+        { event: "pre-tool", tool: writeTool(join(target, "x.ts")) },
+        { event: "pre-tool", tool: bashTool(`git -C ${project} push`) },
+        { event: "post-tool", tool: writeTool(join(target, "x.ts")) },
+        { event: "stop", promptId: "P1" },
+      ];
+      for (const call of calls) expect(handleHook(input({ ...call, cwd }), { ...noTree, projectDir: project })).toEqual(ALLOW);
+      for (const dir of [cwd, project, target]) expect(existsSync(join(dir, ".aos"))).toBe(false);
+    } finally {
+      for (const dir of [cwd, project, target]) rmSync(dir, { recursive: true, force: true });
     }
   });
 
@@ -97,9 +113,37 @@ describe("binding on aos_run_start", () => {
     }
   });
 
-  test("a run id with no run behind it binds nothing", () => {
-    expect(handleHook(runStartPost(shapes["a content array"]!(ulid())))).toEqual(ALLOW);
+  test("a run id with no run behind it binds nothing and says why", () => {
+    const missing = ulid();
+    const d = handleHook(runStartPost(shapes["a content array"]!(missing)));
+    expect(d).toEqual({
+      kind: "allow",
+      notice: `AOS: could not bind this session to run ${missing}: there is no .aos/runs/${missing} under ${repo}. AOS gates do not apply to this session. The aos MCP server may be running from a different directory than this session.`,
+    });
     expect(existsSync(join(aosDir(repo), "sessions"))).toBe(false);
+  });
+
+  test("bind looks under the project dir when the session's cwd has left the repo", () => {
+    const outside = tmpDir();
+    try {
+      const d = handleHook(runStartPost(shapes["a content array"]!(run), outside), { projectDir: repo });
+      expect(d).toMatchObject({ kind: "allow", notice: expect.stringContaining("bound to run") });
+      expect(findBinding(repo, HOST, SESSION)?.run).toBe(run);
+      expect(existsSync(join(outside, ".aos"))).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("the not-bound notice names every root it looked under", () => {
+    const outside = tmpDir();
+    try {
+      const missing = ulid();
+      const d = handleHook(runStartPost(shapes["a content array"]!(missing), outside), { projectDir: repo });
+      expect(d).toMatchObject({ notice: expect.stringContaining(`under ${outside} or ${repo}.`) });
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   test("a run that is no longer active does not take over the session", () => {
@@ -120,6 +164,57 @@ describe("binding on aos_run_start", () => {
     const d = handleHook(input({ event: "post-tool", cwd: repo, tool: mcpTool("aos_status"), result: { exitCode: null, output: "", raw: { runId: run } } }));
     expect(d).toEqual(ALLOW);
     expect(findBinding(repo, HOST, SESSION)).toBeNull();
+  });
+});
+
+describe("binding lookup fallbacks", () => {
+  let outside: string;
+  beforeEach(() => {
+    outside = tmpDir();
+    bound(repo, run);
+  });
+  afterEach(() => rmSync(outside, { recursive: true, force: true }));
+
+  test("the project dir finds the binding after the shell leaves the repo", () => {
+    at(loc, "verify");
+    const push = input({ event: "pre-tool", cwd: outside, tool: bashTool(`git -C ${repo} push`) });
+    expect(handleHook(push, { projectDir: repo })).toMatchObject({ kind: "deny", reason: expect.stringContaining("push blocked") });
+  });
+
+  test("an absolute write into the repo finds the binding from its target", () => {
+    expect(handleHook(input({ event: "pre-tool", cwd: outside, tool: writeTool(join(repo, "src/x.ts")) })).kind).toBe("deny");
+    at(loc, "build");
+    const aos = handleHook(input({ event: "pre-tool", cwd: outside, tool: writeTool(join(repo, `.aos/runs/${run}/log.jsonl`)) }));
+    expect(aos).toMatchObject({ kind: "deny", reason: expect.stringContaining(".aos/ is kernel-owned") });
+  });
+
+  test("a write through a symlink to a deep directory finds the binding from its real target", () => {
+    mkdirSync(join(repo, "src"));
+    const { dir, path: link } = linkTo(join(repo, "src"));
+    try {
+      expect(handleHook(input({ event: "pre-tool", cwd: outside, tool: writeTool(join(link, "x.ts")) })).kind).toBe("deny");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the cwd's binding wins over the project dir's", () => {
+    const other = tmpGitRepo();
+    try {
+      at(loc, "build"); // writes anywhere here
+      bound(other, startRun(other, "bounded")); // design: src/ writes denied there
+      const d = handleHook(input({ event: "pre-tool", cwd: repo, tool: writeTool("src/x.ts") }), { projectDir: other });
+      expect(d).toEqual(ALLOW);
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  test("an unreadable binding found through the project dir is logged there", () => {
+    writeFileSync(join(aosDir(repo), "sessions", sessionFileName(HOST, SESSION)), "{");
+    const d = handleHook(input({ event: "pre-tool", cwd: outside, tool: bashTool("git push") }), { projectDir: repo });
+    expect(d.kind).toBe("deny");
+    expect(readFileSync(join(repo, ".aos/hook-errors.log"), "utf8")).toContain("unreadable session binding");
   });
 });
 
