@@ -41,10 +41,11 @@ export function hasAgentGaps(result: GateResult): boolean {
   return result.gaps.some((g) => g.who === "agent");
 }
 
-// Keyed on requirement and kind, not text: the stale text embeds an edit count that grows with every
-// edit, and that must not look like progress to stall detection.
+// Keyed on requirement, kind, and who, not text: the stale text embeds an edit count that grows with
+// every edit, and that must not look like progress to stall detection. Who is part of the key because
+// an approval gap moving from the agent (not requested) to the human (waiting) is progress.
 export function gapKey(result: GateResult): string {
-  return result.verdict + "|" + result.gaps.map((g) => `${g.requirement}:${g.kind}`).sort().join(",");
+  return result.verdict + "|" + result.gaps.map((g) => `${g.requirement}:${g.kind}:${g.who}`).sort().join(",");
 }
 
 function checkRequirement(state: RunState, req: Requirement, tree: TreeState): Gap | null {

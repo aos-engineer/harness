@@ -200,8 +200,18 @@ describe("hasAgentGaps and gapKey", () => {
   test("hasAgentGaps is false when only the human can act", () => expect(hasAgentGaps(gate(design([requestedA("r1")]), T1))).toBe(false));
   test("hasAgentGaps is true when the agent has work", () => expect(hasAgentGaps(gate(design([]), T1))).toBe(true));
   test("gapKey ignores gap order and is stable", () => expect(gapKey(withGaps([g1, g2]))).toBe(gapKey(withGaps([g2, g1]))));
-  test("gapKey is verdict plus sorted requirement:kind pairs", () =>
-    expect(gapKey(withGaps([g1, g2]))).toBe("pending|approval:missing,command:test:missing"));
+  test("gapKey is verdict plus sorted requirement:kind:who triples", () =>
+    expect(gapKey(withGaps([g1, g2]))).toBe("pending|approval:missing:human,command:test:missing:agent"));
+  test("gapKey tells a request the agent has not made from one waiting on the human", () => {
+    const pack = packWithGate("design", {
+      decider: "human", tasks: "none",
+      requires: [{ kind: "command", role: "test", result: "exit_zero", provenance: "observed", fresh: true }],
+    });
+    const notRequested = gate(design([], pack), T1);
+    const waiting = gate(design([requestedA("r1")], pack), T1);
+    expect(hasAgentGaps(waiting)).toBe(true);
+    expect(gapKey(notRequested)).not.toBe(gapKey(waiting));
+  });
   test("gapKey ignores text, so a growing edit count is not progress", () => {
     const after1 = gate(build([cmd(0, T1), worktreeChanged("a.ts")]), T2);
     const after2 = gate(build([cmd(0, T1), worktreeChanged("a.ts"), worktreeChanged("b.ts")]), T2);
