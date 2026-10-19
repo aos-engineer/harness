@@ -1,6 +1,165 @@
-// Stub: real implementation lands later; signatures are the agreed contract.
-import { notImplemented } from "../util/errors.ts";
+// A cross-process lock built on an exclusive-create lockfile. Node and Bun expose no flock, and the
+// writers of one run log are separate short-lived processes (hooks, the MCP server, the CLI), so the
+// lock has to live on disk.
+import { randomBytes } from "node:crypto";
+import { closeSync, openSync, readFileSync, rmSync, statSync, unlinkSync, writeSync } from "node:fs";
+import { hostname } from "node:os";
+import { LockTimeoutError } from "../util/errors.ts";
 
+const DEFAULT_TIMEOUT_MS = 3000;
+const DEFAULT_STALE_MS = 30_000;
+
+interface LockBody { pid: number; host: string; ts: number; nonce: string }
+
+/** What a waiter sees at the lock path. `raw` and `ino` identify this exact lock file. */
+interface Holder { body: LockBody | null; raw: string; ino: number; ageMs: number }
+
+const sleeper = new Int32Array(new SharedArrayBuffer(4));
+function sleepMs(ms: number): void {
+  Atomics.wait(sleeper, 0, 0, ms);
+}
+
+function errCode(e: unknown): string | undefined {
+  return (e as NodeJS.ErrnoException | null)?.code;
+}
+
+function parseBody(raw: string): LockBody | null {
+  try {
+    const b = JSON.parse(raw) as Partial<LockBody> | null;
+    if (b && typeof b.pid === "number" && typeof b.host === "string" && typeof b.ts === "number" && typeof b.nonce === "string") {
+      return { pid: b.pid, host: b.host, ts: b.ts, nonce: b.nonce };
+    }
+  } catch {
+    // An empty or partial body: the holder is between create and write, or crashed there.
+  }
+  return null;
+}
+
+/** Null when the lock vanished between our failed create and this read. */
+function inspect(lockPath: string): Holder | null {
+  try {
+    const st = statSync(lockPath);
+    const raw = readFileSync(lockPath, "utf8");
+    const body = parseBody(raw);
+    // Without a readable body the file's mtime is the only age signal.
+    const ts = body ? body.ts : st.mtimeMs;
+    return { body, raw, ino: st.ino, ageMs: Date.now() - ts };
+  } catch (e) {
+    if (errCode(e) === "ENOENT") return null;
+    throw e;
+  }
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    // EPERM means the process exists but belongs to someone else.
+    return errCode(e) !== "ESRCH";
+  }
+}
+
+function isStale(h: Holder, staleMs: number): boolean {
+  if (h.ageMs > staleMs) return true;
+  // A pid only means something on the host that wrote it.
+  return h.body !== null && h.body.host === hostname() && !pidAlive(h.body.pid);
+}
+
+/**
+ * Removes the lock only if it is still the exact file judged stale. A bare unlink or rename by path could
+ * remove a lock that another waiter broke and re-acquired a moment earlier, so breakers serialize on a
+ * short-lived marker and re-check identity under it. Returns true when the stale lock is gone.
+ */
+function breakStale(lockPath: string, judged: Holder, staleMs: number): boolean {
+  const marker = `${lockPath}.break`;
+  let fd: number;
+  try {
+    fd = openSync(marker, "wx");
+  } catch (e) {
+    if (errCode(e) !== "EEXIST") throw e;
+    // A breaker that died inside its brief window leaves the marker behind; clear it once abandoned.
+    try {
+      if (Date.now() - statSync(marker).mtimeMs > staleMs) rmSync(marker, { force: true });
+    } catch (inner) {
+      if (errCode(inner) !== "ENOENT") throw inner;
+    }
+    return false;
+  }
+  try {
+    closeSync(fd);
+    const now = inspect(lockPath);
+    if (now === null) return true;
+    if (now.ino !== judged.ino || now.raw !== judged.raw) return false;
+    unlinkSync(lockPath);
+    return true;
+  } finally {
+    rmSync(marker, { force: true });
+  }
+}
+
+function tryCreate(lockPath: string, body: LockBody): boolean {
+  let fd: number;
+  try {
+    fd = openSync(lockPath, "wx");
+  } catch (e) {
+    if (errCode(e) === "EEXIST") return false;
+    throw e;
+  }
+  try {
+    const buf = Buffer.from(JSON.stringify(body));
+    let off = 0;
+    while (off < buf.length) off += writeSync(fd, buf, off, buf.length - off);
+  } catch (e) {
+    closeSync(fd);
+    rmSync(lockPath, { force: true });
+    throw e;
+  }
+  closeSync(fd);
+  return true;
+}
+
+function release(lockPath: string, nonce: string): void {
+  try {
+    if (parseBody(readFileSync(lockPath, "utf8"))?.nonce === nonce) unlinkSync(lockPath);
+  } catch (e) {
+    if (errCode(e) !== "ENOENT") throw e;
+  }
+}
+
+/**
+ * Runs `fn` while holding an exclusive lock at `lockPath`. `fn` must be synchronous: the lock is released
+ * as soon as it returns.
+ *
+ * A lock is stale when its pid is dead on this host or it is older than `staleMs`. Residual race: a holder
+ * judged stale by age while still alive loses its lock. That is acceptable because the default 30 s age is
+ * orders of magnitude longer than an append, which holds the lock for milliseconds.
+ */
 export function withLock<T>(lockPath: string, fn: () => T, opts?: { timeoutMs?: number; staleMs?: number }): T {
-  return notImplemented("A");
+  const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const staleMs = opts?.staleMs ?? DEFAULT_STALE_MS;
+  const body: LockBody = { pid: process.pid, host: hostname(), ts: Date.now(), nonce: randomBytes(8).toString("hex") };
+  const deadline = Date.now() + timeoutMs;
+  let last: Holder | null = null;
+
+  for (;;) {
+    body.ts = Date.now();
+    if (tryCreate(lockPath, body)) break;
+    const holder = inspect(lockPath);
+    if (holder === null) continue;
+    last = holder;
+    if (isStale(holder, staleMs) && breakStale(lockPath, holder, staleMs)) continue;
+    if (Date.now() >= deadline) {
+      const who = last.body ? `pid ${last.body.pid} on ${last.body.host}` : "an unknown holder";
+      throw new LockTimeoutError(`timed out after ${timeoutMs} ms waiting for ${lockPath}, held by ${who}`);
+    }
+    // Jitter keeps waiting processes from retrying in lockstep.
+    sleepMs(5 + Math.floor(Math.random() * 21));
+  }
+
+  try {
+    return fn();
+  } finally {
+    release(lockPath, body.nonce);
+  }
 }
