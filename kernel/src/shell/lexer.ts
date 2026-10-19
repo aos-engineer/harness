@@ -1,13 +1,15 @@
 // A small bash lexer: just enough grammar to find where one command ends and the next begins, and what
-// each word's value is once quotes are removed. It is not a parser. It never expands variables, never
-// runs anything, and treats $(...), backticks, ${...}, <(...) and heredoc bodies as opaque text, because
-// a guard that splits inside them would mistake data (a commit message, a heredoc) for commands.
+// each word's value is once quotes are removed. It is not a parser. It never expands variables and never
+// runs anything. Nothing splits inside quotes, $(...), backticks, ${...}, <(...), or heredoc bodies,
+// because a guard that splits inside them would mistake data (a commit message, a heredoc) for commands.
+// Substitution bodies are still recorded per word, since bash runs them; heredoc bodies are dropped.
 // Not exported from the package barrel: split.ts and match.ts are the public surface.
 
 export interface Word {
-  value: string; // quotes removed, escapes applied
+  value: string; // quotes removed, escapes applied; substitutions kept as written
   raw: string; // as written
   at: number; // offset of raw within its segment's text
+  subs: string[]; // bodies of the $(...), `...`, <(...), and >(...) substitutions in this word
 }
 
 export interface Segment {
@@ -31,6 +33,13 @@ interface Heredoc {
 
 interface ScanResult extends Lexed {
   end: number; // index just past the span's closer, or the input length
+  closed: boolean;
+  subs: string[]; // every substitution body found at this level
+}
+
+interface Span {
+  end: number;
+  subs: string[];
 }
 
 const BLANK = new Set([" ", "\t"]);
@@ -49,24 +58,29 @@ export function lex(input: string): Lexed {
 function scan(src: string, start: number, close: Close, level: number): ScanResult {
   const segments: Segment[] = [];
   const operators: string[] = [];
+  const subs: string[] = [];
   // Inside ${...} the text is parameter-expansion syntax, not shell grammar: `#` there is not a comment.
   const grammar = close !== "}";
   const opener = close === ")" ? "(" : close === "}" ? "{" : null;
   let depth = 0;
   let pending: Heredoc[] = [];
   let words: Word[] = [];
-  let cur: { start: number; value: string } | null = null;
+  let cur: { start: number; value: string; subs: string[] } | null = null;
   let segStart = start;
   let commentStart: number | null = null;
   let opsAtLastSegment = 0;
   let i = start;
 
   const begin = (at: number) => {
-    if (cur === null) cur = { start: at, value: "" };
+    if (cur === null) cur = { start: at, value: "", subs: [] };
     return cur;
   };
+  const addSubs = (found: string[]) => {
+    begin(i).subs.push(...found);
+    subs.push(...found);
+  };
   const endWord = (at: number) => {
-    if (cur !== null) words.push({ value: cur.value, raw: src.slice(cur.start, at), at: cur.start });
+    if (cur !== null) words.push({ value: cur.value, raw: src.slice(cur.start, at), at: cur.start, subs: cur.subs });
     cur = null;
   };
   const endSegment = (at: number) => {
@@ -86,6 +100,9 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
     operators.push(op);
     segStart = at + op.length;
   };
+  const result = (end: number, closed: boolean): ScanResult => ({
+    segments, operators, trailing: operators.length - opsAtLastSegment, end, closed, subs,
+  });
 
   while (i < src.length) {
     const c = src[i];
@@ -93,7 +110,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
 
     if (close !== null && c === close && depth === 0) {
       endSegment(i);
-      return { segments, operators, trailing: operators.length - opsAtLastSegment, end: i + 1 };
+      return result(i + 1, true);
     }
     if (opener !== null && c === opener) depth++;
     if (close === ")" && c === ")") depth--;
@@ -117,16 +134,17 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
       continue;
     }
     if (c === '"') {
-      const w = begin(i);
       const r = readDouble(src, i + 1, level);
-      w.value += r.value;
+      begin(i).value += r.value;
+      addSubs(r.subs);
       i = r.end;
       continue;
     }
     const span = spanAt(src, i, level);
     if (span !== null) {
-      begin(i).value += src.slice(i, span);
-      i = span;
+      begin(i).value += src.slice(i, span.end);
+      addSubs(span.subs);
+      i = span.end;
       continue;
     }
 
@@ -183,6 +201,13 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
         continue;
       }
     }
+    if (c === "(" || c === ")") {
+      // Parentheses are metacharacters: a subshell's `(` and `)` are words of their own, never part of one.
+      endWord(i);
+      words.push({ value: c, raw: c, at: i, subs: [] });
+      i++;
+      continue;
+    }
     if (c === "<" && next === "<" && src[i + 2] !== "<" && src[i - 1] !== "<") {
       // Heredoc. The delimiter is the next word; the body starts after the current line ends.
       begin(i).value += "<<";
@@ -210,28 +235,38 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
   }
 
   endSegment(src.length);
-  return { segments, operators, trailing: operators.length - opsAtLastSegment, end: src.length };
+  return result(src.length, false);
 }
 
-/** If an opaque span opens at `i`, return the index just past its closer. */
-function spanAt(src: string, i: number, level: number): number | null {
+/** If an opaque span opens at `i`, return the index just past its closer and the substitutions inside it. */
+function spanAt(src: string, i: number, level: number): Span | null {
   if (level >= MAX_NESTING) return null;
   const c = src[i];
   const next = src[i + 1];
-  if (c === "$" && next === "(") return scan(src, i + 2, ")", level + 1).end;
-  if (c === "$" && next === "{") return scan(src, i + 2, "}", level + 1).end;
-  if ((c === "<" || c === ">") && next === "(") return scan(src, i + 2, ")", level + 1).end;
-  if (c === "`") return scan(src, i + 1, "`", level + 1).end;
+  if ((c === "$" || c === "<" || c === ">") && next === "(") return substitution(src, i + 2, ")", level);
+  if (c === "`") return substitution(src, i + 1, "`", level);
+  if (c === "$" && next === "{") {
+    // A parameter expansion is not code itself, but a substitution inside its default value is.
+    const r = scan(src, i + 2, "}", level + 1);
+    return { end: r.end, subs: r.subs };
+  }
   return null;
 }
 
+/** A command, process, or backtick substitution: its body is code, recorded for the caller to classify. */
+function substitution(src: string, bodyStart: number, close: ")" | "`", level: number): Span {
+  const r = scan(src, bodyStart, close, level + 1);
+  return { end: r.end, subs: [src.slice(bodyStart, r.closed ? r.end - 1 : r.end)] };
+}
+
 /** Read a double-quoted string starting after its opening quote. */
-function readDouble(src: string, start: number, level: number): { value: string; end: number } {
+function readDouble(src: string, start: number, level: number): { value: string; end: number; subs: string[] } {
   let value = "";
+  const subs: string[] = [];
   let i = start;
   while (i < src.length) {
     const c = src[i];
-    if (c === '"') return { value, end: i + 1 };
+    if (c === '"') return { value, end: i + 1, subs };
     if (c === "\\") {
       const next = src[i + 1];
       // Inside double quotes a backslash escapes only these; before anything else it stays literal.
@@ -246,16 +281,18 @@ function readDouble(src: string, start: number, level: number): { value: string;
       }
       continue;
     }
-    const span = spanAt(src, i, level);
+    // `<(` is not process substitution inside double quotes, so only `$` and backtick spans apply here.
+    const span = c === "$" || c === "`" ? spanAt(src, i, level) : null;
     if (span !== null) {
-      value += src.slice(i, span);
-      i = span;
+      value += src.slice(i, span.end);
+      subs.push(...span.subs);
+      i = span.end;
       continue;
     }
     value += c;
     i++;
   }
-  return { value, end: src.length };
+  return { value, end: src.length, subs };
 }
 
 /** Read a heredoc delimiter word. Quoting it only disables expansion in the body, so quotes are removed. */

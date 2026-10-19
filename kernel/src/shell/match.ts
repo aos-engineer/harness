@@ -1,6 +1,7 @@
 // Classifies a Bash command for the hooks: is it a test run whose exit status can be trusted, a guarded
 // action (commit, push, PR, deploy), a human-only command, or a touch of `.aos/`. Every check runs on the
-// simple commands that actually execute (see leaves.ts), so a quoted mention never counts as a call.
+// simple commands that actually execute (see leaves.ts), so a quoted mention never counts as a call. Matching
+// uses each command in normal form: quotes removed, the command word reduced to its basename, single spaces.
 import { ACTION_PRIORITY, type ActionDef, type ActionName } from "../types.ts";
 import { walk } from "./leaves.ts";
 
@@ -10,7 +11,7 @@ export function matchRole(cmd: string, roles: Record<string, string[]>): { role:
   for (const [role, prefixes] of Object.entries(roles)) {
     for (const prefix of prefixes) {
       for (const leaf of leaves) {
-        if (leaf.text === prefix || leaf.text.startsWith(prefix + " ")) {
+        if (leaf.command === prefix || leaf.command.startsWith(prefix + " ")) {
           return { role, masked: leaf.masked };
         }
       }
@@ -38,7 +39,7 @@ export function matchAction(cmd: string, actions: Record<ActionName, ActionDef>)
     if (def === undefined) continue;
     for (const source of def.patterns) {
       const re = pattern(source);
-      if (leaves.some((leaf) => re.test(leaf.text))) return name;
+      if (leaves.some((leaf) => re.test(leaf.command))) return name;
     }
   }
   return null;
@@ -51,7 +52,8 @@ const HUMAN_ONLY =
 /** The human-only subcommand a leaf command invokes (for example "approve" or "run cancel"), or null. */
 export function matchHumanOnly(cmd: string): string | null {
   for (const leaf of walk(cmd).leaves) {
-    const m = HUMAN_ONLY.exec(leaf.text);
+    // The full form keeps a path such as cli/src/index.ts that the basename would drop.
+    const m = HUMAN_ONLY.exec(leaf.command) ?? HUMAN_ONLY.exec(leaf.words.join(" "));
     if (m !== null) return m[1].replace(/\s+/g, " ");
   }
   return null;

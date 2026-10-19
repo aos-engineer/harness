@@ -47,6 +47,8 @@ test.each([
   [`echo "$(a "b c")" d`, ["echo", '$(a "b c")', "d"]],
   ["cat <<EOF\nx y\nEOF", ["cat", "<<EOF"]],
   ["a b # c d", ["a", "b"]],
+  // Parentheses are metacharacters: they always end a word
+  ["(a b)", ["(", "a", "b", ")"]],
 ])("shellWords(%j)", (segment, want) => expect(shellWords(segment)).toEqual(want));
 
 test("deeply nested or unclosed substitutions do not overflow the stack", () => {
@@ -72,6 +74,20 @@ test.each([
   ["bash script.sh", ["bash script.sh"]],
   ["eval git push origin", ["git push origin"]],
   [`eval "bun test | tail"`, ["bun test", "tail"]],
+  // Grouping, keywords, wrappers, and their options
+  ["(git push)", ["git push"]],
+  ["{ git push; }", ["git push"]],
+  ["time -p git push", ["git push"]],
+  ["sudo -u bob git push", ["git push"]],
+  ["nice -n 5 git push", ["git push"]],
+  ["timeout -s KILL 60 git push", ["git push"]],
+  ["nohup", ["nohup"]],
+  ["xargs git push", ["xargs git push"]],
+  // Substitution bodies run, so their commands are leaves too, each listed once
+  ["echo $(git push)", ["echo $(git push)", "git push"]],
+  [`bash -c "echo $(date)"`, ["echo $(date)", "date"]],
+  // A heredoc body stays data
+  ["cat <<EOF\n$(git push)\nEOF", ["cat <<EOF"]],
   // Unwrapping stops after three levels
   ["eval eval eval git push", ["git push"]],
   ["eval eval eval eval git push", ["eval git push"]],

@@ -52,6 +52,21 @@ test.each([
   ["bun test <<EOF | tail\nx\nEOF", { role: "test", masked: true }],
 ])("matchRole(%j)", (cmd, want) => expect(matchRole(cmd, roles)).toEqual(want));
 
+test.each([
+  // Grouping, keywords, and transparent wrappers do not hide a test run
+  ["time bun test", { role: "test", masked: false }],
+  ["timeout 300 bun test", { role: "test", masked: false }],
+  ["env CI=1 bun test", { role: "test", masked: false }],
+  ["(bun test)", { role: "test", masked: false }],
+  ["bun  test", { role: "test", masked: false }],
+  ["(bun test | tail)", { role: "test", masked: true }],
+  // `!` inverts the status, and a substitution's status is never the command's own
+  ["! bun test", { role: "test", masked: true }],
+  ["x=$(bun test)", { role: "test", masked: true }],
+  // xargs and watch run the command on their own terms, so they stay opaque
+  ["xargs bun test", null], ["watch bun test", null],
+])("matchRole unwraps(%j)", (cmd, want) => expect(matchRole(cmd, roles)).toEqual(want));
+
 test("matchRole checks roles in pack order, not leaf order", () => {
   const lintFirst = { lint: ["bun run lint"], ...roles };
   expect(matchRole("bun test && bun run lint", lintFirst)).toEqual({ role: "lint", masked: false });
@@ -70,6 +85,27 @@ test.each<[string, ActionName | null]>([
   ["git commit -F - <<EOF\ngit push\nEOF", "commit"],
 ])("matchAction(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
 
+test.each<[string, ActionName | null]>([
+  // Grouping, keywords, negation, and `time`
+  ["(git push)", "push"], ["{ git push; }", "push"], ["time git push", "push"], ["time -p git push", "push"],
+  ["if ! git push; then echo x; fi", "push"], ["while true; do git push; done", "push"],
+  // Transparent wrappers and their options
+  ["nohup git push", "push"], ["command git push", "push"], ["exec git push", "push"],
+  ["nice -n 5 git push", "push"], ["sudo git push", "push"], ["sudo -E git push", "push"],
+  ["timeout 120 git push", "push"], ["timeout -s KILL 60 git push", "push"],
+  ["env -i git push", "push"], ["env -u X git push", "push"],
+  // The command word by path or quoted
+  ["/usr/bin/git push", "push"], ["'git' push", "push"], ["\\git push", "push"],
+  // Shell options before -c
+  ['bash -o pipefail -c "git push"', "push"], ["bash -e -c 'git push'", "push"],
+  // Substitutions are code
+  ["URL=$(gh pr create --fill) && echo $URL", "pr_create"], ["echo `git push`", "push"], ["cat <(git push)", "push"],
+  // Still not a push
+  ['git commit -m "explain git push"', "commit"], [heredocCommit("It's about git push."), "commit"],
+  ['echo "git push"', null], ["git stash push", null], ["xargs git push", null],
+  ["cat <<EOF\n$(git push)\nEOF", null],
+])("matchAction unwraps(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
+
 test.each([
   ["aos approve 01J design", "approve"], ["bun cli/src/index.ts approve 01J", "approve"],
   ["bun run /abs/aos-framework/cli/src/index.ts run cancel 01J", "run cancel"], ["aos tier  lower", "tier lower"],
@@ -80,6 +116,7 @@ test.each([
   ["npx aos-harness budget extend 01J", "budget extend"], ["aos run pause 01J", "run pause"],
   ['bash -c "aos approve 01J"', "approve"],
   ["chaos approve", null], ["aos approved", null],
+  ["command aos approve", "approve"], ["(aos approve)", "approve"], ["echo y | sudo aos approve", "approve"],
 ])("matchHumanOnly(%j)", (cmd, want) => expect(matchHumanOnly(cmd)).toBe(want));
 
 test.each([
