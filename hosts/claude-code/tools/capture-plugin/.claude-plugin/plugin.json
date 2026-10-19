@@ -1,0 +1,5 @@
+{
+  "name": "aos-capture",
+  "version": "0.0.0",
+  "description": "Saves raw Claude Code hook payloads to $AOS_CAPTURE_DIR so the AOS host contract tests run against real shapes."
+}
