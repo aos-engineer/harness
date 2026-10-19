@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { hostname } from "node:os";
 import { GENESIS_PREV } from "../../src/types.ts";
 import type { EventDraft, EventEnvelope, RunLocation } from "../../src/types.ts";
@@ -10,7 +11,7 @@ import { appendLocked } from "../../src/store/log-internal.ts";
 import { ChainError, LockTimeoutError, RunNotFoundError } from "../../src/util/errors.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
 import { tmpDir } from "../helpers.ts";
-import { appendRawBytes, deleteLine, mutateLine, range, replaceLine, worktreeDraft } from "./fixtures.ts";
+import { appendRawBytes, deleteLine, mutateLine, range, replaceLine, stripFinalNewline, worktreeDraft } from "./fixtures.ts";
 
 let loc: RunLocation;
 
@@ -86,6 +87,18 @@ describe("a fresh log", () => {
   });
 });
 
+describe("a tail that lost only its newline", () => {
+  test("keeps the first event when it is the only line", () => {
+    append(1);
+    stripFinalNewline(loc);
+    expect(readLog(loc)).toMatchObject({ tornBytes: 0 });
+    expect(readLog(loc).events.map((e) => e.seq)).toEqual([1]);
+    const { events } = append(1);
+    expect(events.map((e) => [e.seq, e.type])).toEqual([[2, "worktree.changed"]]);
+    expect(verifyChain(loc)).toMatchObject({ ok: true, events: 2 });
+  });
+});
+
 describe("a five-event log", () => {
   beforeEach(() => {
     append(5);
@@ -151,6 +164,40 @@ describe("a five-event log", () => {
     expect(events[0].seq).toBe(6);
     expect(readLog(loc)).toMatchObject({ tornBytes: 0 });
     expect(verifyChain(loc)).toMatchObject({ ok: true, events: 7 });
+  });
+
+  test("restores the newline of a complete event that chains, instead of dropping it", () => {
+    stripFinalNewline(loc);
+    expect(readLog(loc)).toMatchObject({ tornBytes: 0 });
+    expect(readLog(loc).events.length).toBe(5);
+    const { events } = append(1);
+    expect(events.map((e) => [e.seq, e.type])).toEqual([[6, "worktree.changed"]]);
+    expect(events[0].prev).toBe(sha256Tag(readLog(loc).lines[4]));
+    expect(readFileSync(runPaths(loc).log, "utf8").split("\n").length).toBe(7);
+    expect(verifyChain(loc)).toMatchObject({ ok: true, events: 6, reason: null });
+  });
+
+  test("drops a complete-looking tail that does not chain, and saves it", () => {
+    const stray = readLog(loc).lines[2];
+    appendRawBytes(loc, stray);
+    const { events } = append(1);
+    expect(events.map((e) => e.type)).toEqual(["log.repaired", "worktree.changed"]);
+    expect(events[0].data).toMatchObject({ droppedBytes: Buffer.byteLength(stray), droppedSha256: sha256Tag(stray) });
+    expect(readFileSync(join(runPaths(loc).artifacts, sha256Tag(stray).slice(7)), "utf8")).toBe(stray);
+    expect(verifyChain(loc)).toMatchObject({ ok: true, events: 7 });
+  });
+
+  test("saves the bytes a repair drops as an artifact", () => {
+    appendRawBytes(loc, '{"v":1,"seq":');
+    expect(existsSync(runPaths(loc).artifacts)).toBe(false);
+    append(1);
+    expect(readFileSync(join(runPaths(loc).artifacts, sha256Tag('{"v":1,"seq":').slice(7)), "utf8")).toBe('{"v":1,"seq":');
+  });
+
+  test("verifyChain mentions torn bytes when there are any", () => {
+    appendRawBytes(loc, '{"v":1,"seq":');
+    expect(verifyChain(loc)).toMatchObject({ ok: true, events: 5 });
+    expect(verifyChain(loc).reason).toMatch(/13 torn bytes/);
   });
 
   test("repairs a torn tail that follows a non-JSON last line", () => {

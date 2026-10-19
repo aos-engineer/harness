@@ -1,5 +1,5 @@
 // Shared builders and log-tampering tools for the store tests.
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, statSync, truncateSync, writeFileSync } from "node:fs";
 import type { Actor, EventDraft, ResolvedPack, RunLocation } from "../../src/types.ts";
 import { runPaths } from "../../src/store/paths.ts";
 
@@ -70,4 +70,10 @@ export function replaceLine(loc: RunLocation, index: number, text: string): void
 
 export function appendRawBytes(loc: RunLocation, text: string): void {
   appendFileSync(runPaths(loc).log, text);
+}
+
+/** Cuts the log's final newline, as a crash between the last byte of an event and its newline would. */
+export function stripFinalNewline(loc: RunLocation): void {
+  const path = runPaths(loc).log;
+  truncateSync(path, statSync(path).size - 1);
 }

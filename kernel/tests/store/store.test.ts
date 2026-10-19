@@ -11,7 +11,7 @@ import { writeArtifact } from "../../src/store/artifacts.ts";
 import { ChainError, LockTimeoutError, OpError, RunNotFoundError } from "../../src/util/errors.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
 import { tmpDir } from "../helpers.ts";
-import { appendRawBytes, deleteLine, mutateLine, range, startedDraft, worktreeDraft } from "./fixtures.ts";
+import { appendRawBytes, deleteLine, mutateLine, range, startedDraft, stripFinalNewline, worktreeDraft } from "./fixtures.ts";
 import { testProjector } from "./test-projector.ts";
 
 let root: string;
@@ -141,6 +141,16 @@ describe("a run with two events", () => {
     expect(events.map((e) => e.type)).toEqual(["log.repaired", "worktree.changed"]);
     expect(file.seq).toBe(4);
     expect(verifyChain(loc)).toMatchObject({ ok: true, events: 4 });
+  });
+
+  test("with state.json missing, a last event that lost only its newline survives the next append", () => {
+    rmSync(runPaths(loc).state);
+    stripFinalNewline(loc);
+    expect(loadState(loc, testProjector).seq).toBe(2);
+    const { events, file } = appendEvents(loc, [worktreeDraft(1)], testProjector);
+    expect(events.map((e) => [e.seq, e.type])).toEqual([[3, "worktree.changed"]]);
+    expect(file.seq).toBe(3);
+    expect(verifyChain(loc)).toMatchObject({ ok: true, events: 3 });
   });
 
   test("appendEvents will not extend a tampered log", () => {

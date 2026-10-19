@@ -6,6 +6,7 @@ import { GENESIS_PREV } from "../types.ts";
 import { ChainError, LockTimeoutError, RunNotFoundError } from "../util/errors.ts";
 import { sha256Tag } from "../util/hash.ts";
 import { ulid } from "../util/ulid.ts";
+import { writeArtifact } from "./artifacts.ts";
 import { runPaths } from "./paths.ts";
 
 const NL = 0x0a;
@@ -25,18 +26,61 @@ function parses(line: string): boolean {
   }
 }
 
+function seqIn(line: string): number | null {
+  try {
+    const v = JSON.parse(line) as { seq?: unknown } | null;
+    const seq = v !== null && typeof v === "object" ? v.seq : undefined;
+    return typeof seq === "number" && Number.isInteger(seq) && seq >= 1 ? seq : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when `candidate` is a whole event that continues the chain from `prevLine` (null: the log start). */
+function chainsOnto(prevLine: string | null, candidate: string): boolean {
+  let e: { seq?: unknown; prev?: unknown } | null;
+  try {
+    e = JSON.parse(candidate) as { seq?: unknown; prev?: unknown } | null;
+  } catch {
+    return false;
+  }
+  if (e === null || typeof e !== "object") return false;
+  const prevSeq = prevLine === null ? 0 : seqIn(prevLine);
+  if (prevSeq === null) return false;
+  return e.seq === prevSeq + 1 && e.prev === (prevLine === null ? GENESIS_PREV : sha256Tag(prevLine));
+}
+
+interface End { lastLine: string | null; goodEnd: number; restore: boolean }
+
 /**
- * Splits log bytes into complete lines and a torn tail. A crash mid-append leaves bytes after the last
- * newline; a complete last line that is not JSON is treated the same way, because only the last line can
- * be the casualty of an interrupted write. Anything unparseable earlier is left for the chain check.
+ * Classifies how the log ends. `buf` is the end of the file and either starts at the file start or holds the
+ * last two complete lines in full. Only the last line can be the casualty of an interrupted write:
+ * - a complete final line that is not JSON is torn, along with anything after it;
+ * - bytes after the last newline that form a whole event chaining onto the line before only lost their
+ *   newline, so they are kept (`restore`): dropping them would lose a real event;
+ * - any other bytes after the last newline are torn.
+ * Anything unreadable earlier is left for the chain check.
  */
+function endOf(buf: Buffer): End {
+  const n0 = buf.lastIndexOf(NL);
+  const n1 = n0 > 0 ? buf.lastIndexOf(NL, n0 - 1) : -1;
+  const n2 = n1 > 0 ? buf.lastIndexOf(NL, n1 - 1) : -1;
+  const last = n0 >= 0 ? buf.subarray(n1 + 1, n0).toString("utf8") : null;
+  if (last !== null && !parses(last)) {
+    return { lastLine: n1 >= 0 ? buf.subarray(n2 + 1, n1).toString("utf8") : null, goodEnd: n1 + 1, restore: false };
+  }
+  const after = buf.subarray(n0 + 1).toString("utf8");
+  if (after.length > 0 && chainsOnto(last, after)) return { lastLine: after, goodEnd: buf.length, restore: true };
+  return { lastLine: last, goodEnd: n0 + 1, restore: false };
+}
+
+/** Splits log bytes into the lines that stay and the count of torn bytes the next append will drop. */
 export function scanLog(buf: Buffer): { lines: string[]; tornBytes: number } {
-  const lastNl = buf.lastIndexOf(NL);
-  if (lastNl < 0) return { lines: [], tornBytes: buf.length };
-  const prevNl = lastNl > 0 ? buf.lastIndexOf(NL, lastNl - 1) : -1;
-  const goodEnd = parses(buf.subarray(prevNl + 1, lastNl).toString("utf8")) ? lastNl + 1 : prevNl + 1;
-  const lines = goodEnd > 0 ? buf.subarray(0, goodEnd - 1).toString("utf8").split("\n") : [];
-  return { lines, tornBytes: buf.length - goodEnd };
+  const end = endOf(buf);
+  if (end.goodEnd === 0) return { lines: [], tornBytes: buf.length };
+  // A restored tail has no newline yet; otherwise the kept bytes end in one.
+  const kept = buf.subarray(0, end.restore ? end.goodEnd : end.goodEnd - 1).toString("utf8");
+  return { lines: kept.split("\n"), tornBytes: buf.length - end.goodEnd };
 }
 
 /** Reads a run's whole log. Throws RunNotFoundError when the run has no log file. */
@@ -117,8 +161,11 @@ export function checkChain(lines: string[], file: StateFile | null): ChainCheck 
   return links.ok ? checkAgainstState(lines, file) : links;
 }
 
-/** The end of the log as an appender sees it: the last good line, and the bytes a repair would drop. */
-export interface Tail { lastLine: string | null; lastSeq: number; goodSize: number; dropped: Buffer }
+/**
+ * The end of the log as an appender sees it: the last good line, the bytes a repair would drop, and whether
+ * the last event only needs its newline back.
+ */
+export interface Tail { lastLine: string | null; lastSeq: number; goodSize: number; dropped: Buffer; restore: boolean }
 
 function readAt(fd: number, start: number, end: number): Buffer {
   const buf = Buffer.alloc(end - start);
@@ -131,45 +178,34 @@ function readAt(fd: number, start: number, end: number): Buffer {
   return buf.subarray(0, off);
 }
 
-function seqOf(line: string): number {
-  const v = JSON.parse(line) as { seq?: unknown } | null;
-  const seq = v !== null && typeof v === "object" ? v.seq : undefined;
-  if (typeof seq !== "number" || !Number.isInteger(seq) || seq < 1) {
-    throw new ChainError(`the last log line carries no valid seq (${JSON.stringify(seq)})`, null);
+function countNewlines(buf: Buffer, max: number): number {
+  let count = 0;
+  for (let from = buf.length - 1; count < max && from >= 0; count++) {
+    const at = buf.lastIndexOf(NL, from);
+    if (at < 0) break;
+    from = at - 1;
   }
-  return seq;
+  return count;
 }
 
 /**
  * Reads only the end of the log, so an append costs the same on a long run as on a short one. The window
- * doubles until it holds the last two complete lines (the last one may turn out to be torn) or reaches the
- * start of the file.
+ * doubles until it holds three newlines (so the last two complete lines are whole) or reaches the file start.
  */
 export function readTail(fd: number, size: number): Tail {
   for (let window = TAIL_WINDOW; ; window *= 2) {
     const start = Math.max(0, size - window);
     const buf = readAt(fd, start, size);
-    const nls: number[] = [];
-    for (let from = buf.length - 1; nls.length < 3 && from >= 0; ) {
-      const at = buf.lastIndexOf(NL, from);
-      if (at < 0) break;
-      nls.push(at);
-      from = at - 1;
+    if (start > 0 && countNewlines(buf, 3) < 3) continue;
+    const end = endOf(buf);
+    const dropped = end.restore ? Buffer.alloc(0) : buf.subarray(end.goodEnd);
+    if (end.lastLine === null) return { lastLine: null, lastSeq: 0, goodSize: start + end.goodEnd, dropped, restore: end.restore };
+    const lastSeq = seqIn(end.lastLine);
+    if (lastSeq === null) {
+      const why = parses(end.lastLine) ? "carries no valid seq" : "and the line after it are both unreadable";
+      throw new ChainError(`the last good log line ${why}; this is not a torn write`, null);
     }
-    if (nls.length < 3 && start > 0) continue;
-
-    // lineStart(k) is where the line ending at nls[k] begins; nls.length < 3 implies start === 0 here.
-    const lineStart = (k: number): number => (k + 1 < nls.length ? nls[k + 1] + 1 : 0);
-    if (nls.length === 0) return { lastLine: null, lastSeq: 0, goodSize: start, dropped: buf };
-    let goodEnd = nls[0] + 1;
-    let lastLine = buf.subarray(lineStart(0), nls[0]).toString("utf8");
-    if (!parses(lastLine)) {
-      goodEnd = lineStart(0);
-      if (nls.length < 2) return { lastLine: null, lastSeq: 0, goodSize: start, dropped: buf };
-      lastLine = buf.subarray(lineStart(1), nls[1]).toString("utf8");
-      if (!parses(lastLine)) throw new ChainError("the two last log lines are both unreadable; this is not a torn write", null);
-    }
-    return { lastLine, lastSeq: seqOf(lastLine), goodSize: start + goodEnd, dropped: buf.subarray(goodEnd) };
+    return { lastLine: end.lastLine, lastSeq, goodSize: start + end.goodEnd, dropped, restore: end.restore };
   }
 }
 
@@ -191,16 +227,18 @@ export interface AppendGuard {
 }
 
 /**
- * Appends drafts to the log. The caller must hold the run's lock. A torn tail is truncated away and recorded
- * as a log.repaired event ahead of the drafts. `check` sees the sealed events before anything touches the
- * disk, so a rejected batch leaves the log exactly as it was.
+ * Appends drafts to the log. The caller must hold the run's lock. A torn tail is saved as an artifact,
+ * truncated away, and recorded as a log.repaired event ahead of the drafts; a last event that only lost its
+ * newline gets it back. `check` sees the sealed events before anything touches the log, so a rejected batch
+ * leaves it exactly as it was.
  */
 export function appendLocked(loc: RunLocation, drafts: EventDraft[], guard: AppendGuard): { events: EventEnvelope[]; lastLine: string | null } {
   const fd = openSync(runPaths(loc).log, "a+");
   try {
     const sizeAtRead = fstatSync(fd).size;
     const tail = readTail(fd, sizeAtRead);
-    const all: EventDraft[] = tail.dropped.length > 0
+    const repair = tail.dropped.length > 0;
+    const all: EventDraft[] = repair
       ? [{ type: "log.repaired", actor: STORE_ACTOR, data: { droppedBytes: tail.dropped.length, droppedSha256: sha256Tag(tail.dropped) } }, ...drafts]
       : drafts;
     if (all.length === 0) return { events: [], lastLine: tail.lastLine };
@@ -217,6 +255,8 @@ export function appendLocked(loc: RunLocation, drafts: EventDraft[], guard: Appe
       prev = sha256Tag(line);
     }
     guard.check?.(events, lines[lines.length - 1]);
+    // The dropped bytes go to an artifact first, so log.repaired's digest points at recoverable content.
+    if (repair) writeArtifact(loc, tail.dropped);
 
     // A holder suspended past the stale age (laptop sleep, SIGSTOP) wakes to find its lock broken and maybe the
     // log extended. Writing a batch sealed against the old tail would fork the chain for good, so give up
@@ -225,9 +265,9 @@ export function appendLocked(loc: RunLocation, drafts: EventDraft[], guard: Appe
       throw new LockTimeoutError(`lost the lock on run ${loc.run} before writing; nothing was appended`);
     }
 
-    if (tail.dropped.length > 0) ftruncateSync(fd, tail.goodSize);
+    if (repair) ftruncateSync(fd, tail.goodSize);
     // One write for the whole batch, then fsync: the state snapshot is written only after the log is durable.
-    writeAll(fd, Buffer.from(lines.map((l) => l + "\n").join("")));
+    writeAll(fd, Buffer.from((tail.restore ? "\n" : "") + lines.map((l) => l + "\n").join("")));
     fsyncSync(fd);
     return { events, lastLine: lines[lines.length - 1] };
   } finally {
