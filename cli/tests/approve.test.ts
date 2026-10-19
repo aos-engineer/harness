@@ -123,13 +123,19 @@ describe("aos approve", () => {
   test("a request replaced while the human types is not approved", async () => {
     request(loc, "design", "the summary the human reads");
     let newer = "";
+    let afterRace = 0;
     const io = fakeIO({
       argv: ["approve", run], cwd: root, isTTY: true,
-      answers: [() => { newer = request(loc, "design", "a summary the human never saw"); return "design"; }],
+      answers: [() => {
+        newer = request(loc, "design", "a summary the human never saw");
+        afterRace = types(loc).length;
+        return "design";
+      }],
     });
     expect(await approveCommand(io)).toBe(1);
     expect(io.stderr).toContain("Not approved");
-    expect(types(loc)).not.toContain("approval.granted");
+    expect(io.stderr).toContain("no longer the pending request");
+    expect(types(loc).length).toBe(afterRace); // nothing appended after the newer request
     expect(loadState(loc, projector).state.approvals.find((a) => a.request === newer)?.decision).toBeNull();
   });
 
