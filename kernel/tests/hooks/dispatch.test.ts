@@ -338,6 +338,18 @@ describe("payloadFailsafe", () => {
     }
   });
 
+  test("logs the failure in the .aos directory it found, and nowhere when there is none", () => {
+    payloadFailsafe("pre-tool", site(join(repo, "src"), null, "ls"), err);
+    expect(readFileSync(join(repo, ".aos/hook-errors.log"), "utf8")).toMatch(/ pre-tool Error: hook payload has no session_id\n$/);
+    const fresh = tmpDir();
+    try {
+      payloadFailsafe("pre-tool", site(fresh, fresh), err);
+      expect(existsSync(join(fresh, ".aos"))).toBe(false);
+    } finally {
+      rmSync(fresh, { recursive: true, force: true });
+    }
+  });
+
   test("still fails open for harmless commands and other events", () => {
     expect(payloadFailsafe("pre-tool", site(repo, null, "ls"), err)).toEqual(ALLOW);
     expect(payloadFailsafe("pre-tool", site(repo, null, null), err)).toEqual(ALLOW);

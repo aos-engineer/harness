@@ -8,44 +8,55 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { text } from "node:stream/consumers";
-import { failsafeDecision, handleHook, payloadFailsafe, type HookDecision } from "@aos-harness/kernel";
-import { CLI_EVENTS, HOOK_EVENT, type ClaudeEventName } from "../src/events.ts";
+import { handleHook, payloadFailsafe, type HookDecision } from "@aos-harness/kernel";
+import { CLI_EVENTS, HOOK_EVENT } from "../src/events.ts";
 import { normalize } from "../src/payload.ts";
 import { render } from "../src/render.ts";
 
-async function main(): Promise<string> {
-  const arg = process.argv[2] ?? "";
-  const raw = await text(process.stdin);
-  capture(arg, raw);
+export interface RespondOptions {
+  /** The directory the session started in; see projectDir below. */
+  projectDir?: string;
+  /** Swappable so a test can make rendering fail; nothing real renders a decision its event cannot carry. */
+  render?: typeof render;
+}
+
+/** One hook call: the event argument and the raw payload in, Claude Code's hook JSON (or nothing) out. */
+export function respond(arg: string, raw: string, opts: RespondOptions = {}): string {
   const event = CLI_EVENTS[arg];
   if (event === undefined) return "";
-  return output(event, decide(event, raw));
-}
-
-function decide(event: ClaudeEventName, raw: string): HookDecision {
   let parsed: unknown;
+  // Read straight from the raw payload, so the fallbacks below still know the command and where it ran.
+  const site = () => ({ cwd: field(parsed, "cwd"), projectDir: opts.projectDir ?? null, command: commandOf(parsed) });
+
+  let decision: HookDecision;
   try {
     parsed = JSON.parse(raw);
-    return handleHook(normalize(event, parsed), projectDir());
+    decision = handleHook(normalize(event, parsed), opts.projectDir === undefined ? {} : { projectDir: opts.projectDir });
   } catch (err) {
-    // handleHook never throws, so this is a payload that did not parse or normalize. The command and cwd are
-    // read straight from the raw payload, so a push still fails closed wherever AOS has state.
-    const site = { cwd: field(parsed, "cwd"), projectDir: projectDir().projectDir ?? null, command: commandOf(parsed) };
-    return payloadFailsafe(HOOK_EVENT[event], site, err);
+    // handleHook never throws, so this is a payload that did not parse or normalize.
+    decision = payloadFailsafe(HOOK_EVENT[event], site(), err);
   }
-}
 
-function output(event: ClaudeEventName, decision: HookDecision): string {
+  const draw = opts.render ?? render;
   try {
-    return render(event, decision).stdout;
+    return draw(event, decision).stdout;
   } catch (err) {
-    // A decision this event cannot carry is a kernel bug; fall back to the failure policy for the event.
+    // A decision this event cannot carry is a kernel bug. Fall back to the failure policy with the real
+    // command, so a push still fails closed.
     try {
-      return render(event, failsafeDecision(HOOK_EVENT[event], null, err)).stdout;
+      return draw(event, payloadFailsafe(HOOK_EVENT[event], site(), err)).stdout;
     } catch {
       return "";
     }
   }
+}
+
+async function main(): Promise<void> {
+  const arg = process.argv[2] ?? "";
+  const raw = await text(process.stdin);
+  capture(arg, raw);
+  const stdout = respond(arg, raw, projectDir());
+  if (stdout !== "") process.stdout.write(stdout);
 }
 
 // Claude Code exports the session's starting directory to hook commands, and it does not follow the
@@ -80,11 +91,9 @@ function capture(arg: string, raw: string): void {
   }
 }
 
-main().then(
-  (stdout) => {
-    if (stdout !== "") process.stdout.write(stdout);
-  },
-  () => {
+// Imported by tests for respond(); run only as the hook command itself.
+if (import.meta.main) {
+  main().catch(() => {
     // Reading stdin failed, so there is no payload to judge. Print nothing: the runtime itself is fine.
-  },
-);
+  });
+}

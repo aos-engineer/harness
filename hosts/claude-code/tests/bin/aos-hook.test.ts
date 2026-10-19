@@ -149,6 +149,18 @@ describe("malformed payloads", () => {
     expect(runHook("stop", '{"tool_input":{"command":"git push"}}')).toEqual({ stdout: "", code: 0 });
   });
 
+  test("a parse or normalize failure is logged in the existing .aos it was found in", () => {
+    startRun(repo, "bounded");
+    runHook("pre-tool-use", malformedPush(join(repo, "src")));
+    expect(readFileSync(join(repo, ".aos/hook-errors.log"), "utf8")).toMatch(/ pre-tool PayloadError: hook payload has no session_id\n$/);
+  });
+
+  test("a parse failure where AOS has no state is not logged and creates nothing", () => {
+    runHook("pre-tool-use", malformedPush(repo), { CLAUDE_PROJECT_DIR: repo });
+    runHook("pre-tool-use", "not json", { CLAUDE_PROJECT_DIR: repo });
+    expect(existsSync(join(repo, ".aos"))).toBe(false);
+  });
+
   test("an empty stdin passes through", () => {
     expect(runHook("pre-tool-use", "")).toEqual({ stdout: "", code: 0 });
   });

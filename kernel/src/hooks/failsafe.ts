@@ -2,7 +2,7 @@
 // can never let a push through; everything else fails open, so a kernel bug never breaks the session.
 import type { HookDecision, HookEvent } from "../types.ts";
 import { isAbsolute } from "node:path";
-import { errorMessage, nearestAosRoot } from "./report.ts";
+import { errorMessage, logHookError, nearestAosRoot } from "./report.ts";
 
 // Deliberately crude: these run when parsing, state, or the pack may be what failed, so they match the
 // raw text. A quoted mention such as `git commit -m "push"` is denied too, which is acceptable while
@@ -20,13 +20,17 @@ export function failsafeDecision(event: HookEvent, rawCommand: string | null, er
 export interface PayloadSite { cwd: string | null; projectDir: string | null; command: string | null }
 
 /**
- * The decision for a hook payload the host could not parse or normalize. Failing closed protects AOS state,
- * so a consequential command is denied only when a .aos directory exists at or above the payload's cwd or
- * the project dir. Anywhere else a change in the host's payload format must not block a push.
+ * The decision for a hook payload the host could not parse, normalize, or render, logged to the
+ * hook-errors.log of that state. Failing closed protects AOS state, so a consequential command is denied
+ * only when a .aos directory exists at or above the payload's cwd or the project dir, and only that
+ * existing directory is logged to. Anywhere else a change in the host's payload format must not block a
+ * push, and nothing is written.
  */
 export function payloadFailsafe(event: HookEvent, site: PayloadSite, err: unknown): HookDecision {
   const root = aosRootOf(site);
-  return root === null ? { kind: "allow", notice: null } : failsafeDecision(event, site.command, err);
+  if (root === null) return { kind: "allow", notice: null };
+  logHookError(root, event, err);
+  return failsafeDecision(event, site.command, err);
 }
 
 function aosRootOf(site: PayloadSite): string | null {
