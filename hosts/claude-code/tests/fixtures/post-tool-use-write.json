@@ -1,0 +1,20 @@
+{
+  "_source": "docs",
+  "session_id": "SESSION",
+  "prompt_id": "PROMPT-4",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/repo/a.txt",
+    "content": "hello"
+  },
+  "tool_response": {
+    "filePath": "/repo/a.txt",
+    "type": "create"
+  },
+  "tool_use_id": "toolu_01ABC127",
+  "duration_ms": 12
+}

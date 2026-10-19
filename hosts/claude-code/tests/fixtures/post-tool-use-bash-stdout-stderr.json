@@ -1,0 +1,22 @@
+{
+  "_source": "docs",
+  "session_id": "SESSION",
+  "prompt_id": "PROMPT-1",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo out; echo err >&2",
+    "description": "Print to both streams"
+  },
+  "tool_response": {
+    "stdout": "out",
+    "stderr": "err",
+    "interrupted": false,
+    "isImage": false
+  },
+  "tool_use_id": "toolu_01ABC124",
+  "duration_ms": 15
+}

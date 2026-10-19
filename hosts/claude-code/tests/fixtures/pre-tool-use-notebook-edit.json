@@ -1,0 +1,18 @@
+{
+  "_source": "docs",
+  "_note": "tool_input fields come from the NotebookEdit tool schema in Claude Code 2.1.303, not a captured payload",
+  "session_id": "SESSION",
+  "prompt_id": "PROMPT-6",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "NotebookEdit",
+  "tool_input": {
+    "notebook_path": "/repo/n.ipynb",
+    "cell_id": "cell-1",
+    "new_source": "print('hi')",
+    "edit_mode": "replace"
+  },
+  "tool_use_id": "toolu_01ABC129"
+}
