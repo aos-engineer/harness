@@ -8,6 +8,7 @@ import { projector } from "../../src/projection.ts";
 import { readLog } from "../../src/store/log.ts";
 import { bindSession, findBinding } from "../../src/store/sessions.ts";
 import { appendEvents, createRun, loadState } from "../../src/store/store.ts";
+import * as store from "../../src/store/store.ts";
 import type { Actor, EventEnvelope, RunLocation, RunState } from "../../src/types.ts";
 import { ulid } from "../../src/util/ulid.ts";
 import { tmpDir } from "../helpers.ts";
@@ -256,5 +257,69 @@ describe("cancelRun", () => {
     const before = events().length;
     expect(() => cancelRun(loc, { actor: humanActor(), reason: "again" })).toThrow(code("invalid"));
     expect(events().length).toBe(before);
+  });
+});
+
+// Another writer (the agent's MCP tools, a second terminal) can append after an operation reads the run and
+// before it appends. The decision is re-checked under the run lock, so it can only land on the state it saw.
+describe("decisions are re-checked under the run lock", () => {
+  /** Runs `competing` once the operation has read the run, just before its own append takes the lock. */
+  function raceBeforeAppend(competing: () => void): void {
+    const spy = spyOn(store, "appendEvents").mockImplementationOnce((...args: Parameters<typeof store.appendEvents>) => {
+      spy.mockRestore();
+      competing();
+      return store.appendEvents(...args);
+    });
+  }
+
+  const count = (type: string) => events().filter((e) => e.type === type).length;
+
+  test("a request filed between the read and the append is never granted", () => {
+    const seen = request();
+    let newer = "";
+    raceBeforeAppend(() => { newer = request("design", "filed while the approval was being written"); });
+    expect(() => approve(loc, { actor: humanActor(), reason: null, request: seen })).toThrow(code("not_found"));
+    expect(lastEvent()).toMatchObject({ type: "approval.requested", data: { request: newer } });
+  });
+
+  test("the same holds when the caller did not pin a request", () => {
+    request();
+    raceBeforeAppend(() => { request("design", "filed while the approval was being written"); });
+    expect(() => approve(loc, { actor: humanActor(), reason: null })).toThrow(code("not_found"));
+    expect(count("approval.granted")).toBe(0);
+  });
+
+  test("a denial is refused the same way", () => {
+    const seen = request();
+    raceBeforeAppend(() => { request("design", "filed while the denial was being written"); });
+    expect(() => deny(loc, { actor: humanActor(), reason: "no", request: seen })).toThrow(code("not_found"));
+    expect(count("approval.denied")).toBe(0);
+  });
+
+  test("a run cancelled between the read and the append is not approved", () => {
+    request();
+    raceBeforeAppend(() => cancelRun(loc, { actor: humanActor(), reason: "other terminal" }));
+    expect(() => approve(loc, { actor: humanActor(), reason: null })).toThrow(code("not_found"));
+    expect(lastEvent().type).toBe("run.cancelled");
+  });
+
+  test("a second terminal's decision on the same request stands, and this one is refused", () => {
+    const id = request();
+    raceBeforeAppend(() => appendEvents(loc, [{ type: "approval.granted", actor: humanActor(), data: { request: id, stage: "design", reason: "other terminal" } }], projector));
+    expect(() => deny(loc, { actor: humanActor(), reason: "no", request: id })).toThrow(code("not_found"));
+    expect(count("approval.granted")).toBe(1);
+    expect(count("approval.denied")).toBe(0);
+  });
+
+  test("a run cancelled by another terminal in the meantime is not cancelled twice", () => {
+    raceBeforeAppend(() => appendEvents(loc, [{ type: "run.cancelled", actor: humanActor(), data: { reason: "other terminal" } }], projector));
+    expect(() => cancelRun(loc, { actor: humanActor(), reason: "mine" })).toThrow(code("invalid"));
+    expect(count("run.cancelled")).toBe(1);
+  });
+
+  test("a run that completed in the meantime is not cancelled", () => {
+    raceBeforeAppend(() => appendEvents(loc, [{ type: "run.completed", actor: KERNEL, data: { stage: "design" } }], projector));
+    expect(() => cancelRun(loc, { actor: humanActor(), reason: "mine" })).toThrow(code("invalid"));
+    expect(count("run.cancelled")).toBe(0);
   });
 });

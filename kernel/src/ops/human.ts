@@ -65,7 +65,8 @@ interface DecisionParams { stage?: string; actor: Actor; request?: string }
  */
 export function approve(loc: RunLocation, p: DecisionParams & { reason: string | null }): { request: string; stage: string } {
   const pending = decidable(loc, p, "approve");
-  appendEvents(loc, [{ type: "approval.granted", actor: { ...p.actor }, data: { request: pending.request, stage: pending.stage, reason: p.reason } }], projector);
+  const granted: EventDraft<"approval.granted"> = { type: "approval.granted", actor: { ...p.actor }, data: { request: pending.request, stage: pending.stage, reason: p.reason } };
+  appendEvents(loc, [granted], projector, { precondition: stillPending(pending) });
   return { request: pending.request, stage: pending.stage };
 }
 
@@ -73,7 +74,8 @@ export function approve(loc: RunLocation, p: DecisionParams & { reason: string |
 export function deny(loc: RunLocation, p: DecisionParams & { reason: string }): { request: string; stage: string } {
   if (p.reason.trim() === "") throw new OpError("invalid", "a denial needs a reason the agent can act on");
   const pending = decidable(loc, p, "deny");
-  appendEvents(loc, [{ type: "approval.denied", actor: { ...p.actor }, data: { request: pending.request, stage: pending.stage, reason: p.reason } }], projector);
+  const denied: EventDraft<"approval.denied"> = { type: "approval.denied", actor: { ...p.actor }, data: { request: pending.request, stage: pending.stage, reason: p.reason } };
+  appendEvents(loc, [denied], projector, { precondition: stillPending(pending) });
   return { request: pending.request, stage: pending.stage };
 }
 
@@ -88,8 +90,25 @@ export function cancelRun(loc: RunLocation, p: { actor: Actor; reason: string })
   const { state } = loadState(loc, projector);
   if (state.status !== "active") throw new OpError("invalid", `run ${loc.run} is already ${state.status}`);
   const cancelled: EventDraft<"run.cancelled"> = { type: "run.cancelled", actor: { ...p.actor }, data: { reason: p.reason } };
-  appendEvents(loc, [cancelled], projector);
+  // Another terminal may end the run between the read above and this append; re-checked under the lock.
+  appendEvents(loc, [cancelled], projector, { precondition: (now) => {
+    if (now.status !== "active") throw new OpError("invalid", `run ${loc.run} is already ${now.status}`);
+  } });
   return { unbound: unbindRun(loc.root, loc.run) };
+}
+
+/**
+ * Re-checks the decision under the run lock, against the state the append extends. The read that chose the
+ * request is not atomic with the append, so a request filed, a decision made by another terminal, or a
+ * cancel landing in between would otherwise be decided over. A throw here leaves the log untouched.
+ */
+function stillPending(pending: ApprovalState): (state: RunState) => void {
+  return (state) => {
+    const now = pendingApproval(state, pending.stage);
+    if (now?.request === pending.request) return;
+    const why = now === null ? nothingPending(state, pending.stage) : `request ${now.request} replaced it`;
+    throw new OpError("not_found", `request ${pending.request} for ${pending.stage} is no longer pending (${why}); nothing was recorded`);
+  };
 }
 
 function requireHuman(actor: Actor, what: string): void {
