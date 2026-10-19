@@ -2,7 +2,6 @@
 // JSON schema only, validates it against the public pack schema, checks the cross-references a schema
 // cannot express, and refuses anything that looks like code. Every problem is collected, so a pack author
 // fixes them in one pass instead of one per run.
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import type { ErrorObject, ValidateFunction } from "ajv";
@@ -12,7 +11,7 @@ import type {
   ActionDef, ActionName, ClassifyRule, GateDef, ModelHint, Provenance, Requirement, ResolvedPack, StageDef, Tier, TierDef,
 } from "../types.ts";
 import { PackError } from "../util/errors.ts";
-import { integrityOf, walkPack, type PackEntry } from "./files.ts";
+import { integrityOf, readPack, type PackEntry } from "./files.ts";
 
 // pack.yaml as the schema admits it, before defaults are filled in.
 type RawRequirement =
@@ -37,7 +36,7 @@ const CODE_EXTENSIONS = [".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", "
 /** Loads and validates the pack in `dir`. Throws PackError listing every issue found. */
 export function loadPack(dir: string): ResolvedPack {
   const root = resolve(dir);
-  const entries = walkPack(root);
+  const entries = readPack(root);
   const byPath = new Map(entries.map((e) => [e.rel, e]));
   const issues = dataOnlyIssues(entries);
   let cause: unknown;
@@ -47,7 +46,7 @@ export function loadPack(dir: string): ResolvedPack {
   if (!yamlEntry) issues.push("pack.yaml: not found");
   else if (yamlEntry.kind === "file") {
     try {
-      doc = load(readFileSync(yamlEntry.abs, "utf8"), { schema: JSON_SCHEMA, filename: "pack.yaml" });
+      doc = load(yamlEntry.content.toString("utf8"), { schema: JSON_SCHEMA, filename: "pack.yaml" });
     } catch (e) {
       cause = e;
       issues.push(`pack.yaml: invalid YAML: ${firstLine(e)}`);
@@ -191,7 +190,7 @@ function readInstructions(pack: RawPack, byPath: Map<string, PackEntry>): Record
     for (const stage of pack.tiers[tier]!.stages) {
       // Symlinks and missing files are already issues; reading only regular files keeps the pack inside its directory.
       const entry = byPath.get(instructionsPath(tier, stage.name));
-      if (entry?.kind === "file") out[`${tier}/${stage.name}`] = readFileSync(entry.abs, "utf8");
+      if (entry?.kind === "file") out[`${tier}/${stage.name}`] = entry.content.toString("utf8");
     }
   }
   return out;

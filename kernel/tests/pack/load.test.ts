@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
 import { appendFileSync, chmodSync, cpSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadPack } from "../../src/pack/load.ts";
@@ -238,6 +239,40 @@ describe("integrity", () => {
     const before = packIntegrity(dir);
     appendTo(dir, ".hidden.md", "two\n");
     expect(packIntegrity(dir)).not.toBe(before);
+  });
+
+  test("loadPack reads each file once, so the hash describes exactly the bytes it parsed", () => {
+    const dir = copyFixture("valid");
+    const spy = spyOn(fs, "readFileSync");
+    try {
+      loadPack(dir);
+      const reads = spy.mock.calls.map((call) => String(call[0]));
+      expect(reads.filter((p) => p.endsWith("pack.yaml"))).toHaveLength(1);
+      expect(reads.filter((p) => p.endsWith("build.md"))).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("CRLF line endings in .yaml and .md files hash and load the same as LF", () => {
+    const lf = copyFixture("valid");
+    const crlf = copyFixture("valid");
+    for (const rel of ["pack.yaml", "stages/bounded/build.md"]) {
+      const path = join(crlf, rel);
+      writeFileSync(path, readFileSync(path, "utf8").replaceAll("\n", "\r\n"));
+    }
+    expect(packIntegrity(crlf)).toBe(packIntegrity(lf));
+    const loaded = loadPack(crlf);
+    expect(loaded.integrity).toBe(packIntegrity(lf));
+    expect(loaded.instructions).toEqual(loadPack(lf).instructions);
+  });
+
+  test("line endings in other files are hashed as they are", () => {
+    const lf = copyFixture("valid");
+    const crlf = copyFixture("valid");
+    writeFileSync(join(lf, "notes.txt"), "a\nb\n");
+    writeFileSync(join(crlf, "notes.txt"), "a\r\nb\r\n");
+    expect(packIntegrity(crlf)).not.toBe(packIntegrity(lf));
   });
 
   test("it does not depend on where the pack lives", () => expect(packIntegrity(copyFixture("valid"))).toBe(packIntegrity(fx("valid"))));
