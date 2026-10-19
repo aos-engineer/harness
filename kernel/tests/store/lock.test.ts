@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from "bun:test";
-import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { withLock } from "../../src/store/lock.ts";
@@ -65,4 +65,17 @@ test("breaking a stale lock leaves no stray files behind", () => {
   writeLock(p, { pid: 2 ** 22 + 7 });
   withLock(p, () => 1);
   expect(readdirSync(dir)).toEqual([]);
+});
+
+test("stillHeld is true while the lock carries our nonce and false once another holder takes it", () => {
+  const seen = withLock(p, (stillHeld) => {
+    const before = stillHeld();
+    writeLock(p, { pid: process.pid });
+    return [before, stillHeld()];
+  });
+  expect(seen).toEqual([true, false]);
+});
+
+test("stillHeld is false once the lock file is gone", () => {
+  expect(withLock(p, (stillHeld) => { rmSync(p); return stillHeld(); })).toBe(false);
 });

@@ -129,13 +129,14 @@ function release(lockPath: string, nonce: string): void {
 
 /**
  * Runs `fn` while holding an exclusive lock at `lockPath`. `fn` must be synchronous: the lock is released
- * as soon as it returns.
+ * as soon as it returns. `fn` receives `stillHeld`, which re-reads the lock file: a holder suspended past
+ * the stale age (laptop sleep, SIGSTOP) can wake to find its lock broken, and must check before it writes.
  *
  * A lock is stale when its pid is dead on this host or it is older than `staleMs`. Residual race: a holder
  * judged stale by age while still alive loses its lock. That is acceptable because the default 30 s age is
  * orders of magnitude longer than an append, which holds the lock for milliseconds.
  */
-export function withLock<T>(lockPath: string, fn: () => T, opts?: { timeoutMs?: number; staleMs?: number }): T {
+export function withLock<T>(lockPath: string, fn: (stillHeld: () => boolean) => T, opts?: { timeoutMs?: number; staleMs?: number }): T {
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const staleMs = opts?.staleMs ?? DEFAULT_STALE_MS;
   const body: LockBody = { pid: process.pid, host: hostname(), ts: Date.now(), nonce: randomBytes(8).toString("hex") };
@@ -157,8 +158,16 @@ export function withLock<T>(lockPath: string, fn: () => T, opts?: { timeoutMs?: 
     sleepMs(5 + Math.floor(Math.random() * 21));
   }
 
+  const stillHeld = (): boolean => {
+    try {
+      return parseBody(readFileSync(lockPath, "utf8"))?.nonce === body.nonce;
+    } catch (e) {
+      if (errCode(e) === "ENOENT") return false;
+      throw e;
+    }
+  };
   try {
-    return fn();
+    return fn(stillHeld);
   } finally {
     release(lockPath, body.nonce);
   }

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { GENESIS_PREV } from "../../src/types.ts";
 import type { EventDraft, EventEnvelope, RunLocation } from "../../src/types.ts";
 import { aosDir, runPaths } from "../../src/store/paths.ts";
 import { withLock } from "../../src/store/lock.ts";
 import { readLog, verifyChain } from "../../src/store/log.ts";
 import { appendLocked } from "../../src/store/log-internal.ts";
-import { ChainError, RunNotFoundError } from "../../src/util/errors.ts";
+import { ChainError, LockTimeoutError, RunNotFoundError } from "../../src/util/errors.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
 import { tmpDir } from "../helpers.ts";
 import { appendRawBytes, deleteLine, mutateLine, range, replaceLine, worktreeDraft } from "./fixtures.ts";
@@ -19,8 +20,7 @@ beforeEach(() => {
 });
 
 function appendDrafts(drafts: EventDraft[]): { events: EventEnvelope[]; lastLine: string | null } {
-  const paths = runPaths(loc);
-  return withLock(paths.lock, () => appendLocked(paths, loc.run, drafts));
+  return withLock(runPaths(loc).lock, (held) => appendLocked(loc, drafts, { held }));
 }
 
 function append(n: number): { events: EventEnvelope[]; lastLine: string | null } {
@@ -163,14 +163,36 @@ describe("a five-event log", () => {
   test("an append that fails its pre-write check writes nothing, not even the repair", () => {
     appendRawBytes(loc, '{"v":1,"seq":');
     const before = statSync(runPaths(loc).log).size;
-    const paths = runPaths(loc);
-    expect(() => withLock(paths.lock, () => appendLocked(paths, loc.run, [worktreeDraft(9)], () => { throw new Error("rejected"); }))).toThrow("rejected");
+    const check = (): void => { throw new Error("rejected"); };
+    expect(() => withLock(runPaths(loc).lock, (held) => appendLocked(loc, [worktreeDraft(9)], { held, check }))).toThrow("rejected");
     expect(statSync(runPaths(loc).log).size).toBe(before);
   });
 
   test("a JSON last line that is not an event stops the append with ChainError", () => {
     appendRawBytes(loc, "null\n");
     expect(() => append(1)).toThrow(ChainError);
+  });
+
+  test("an append that lost its lock before writing throws and writes nothing", () => {
+    const before = readFileSync(runPaths(loc).log);
+    // What a waiter does after judging a suspended holder stale: it takes the lock over.
+    const steal = (): void => writeFileSync(runPaths(loc).lock, JSON.stringify({ pid: process.pid, host: hostname(), ts: Date.now(), nonce: "thief" }));
+    expect(() => withLock(runPaths(loc).lock, (held) => appendLocked(loc, [worktreeDraft(9)], { held, check: steal }))).toThrow(LockTimeoutError);
+    expect(readFileSync(runPaths(loc).log)).toEqual(before);
+  });
+
+  test("an append whose log grew after its tail read throws and writes nothing", () => {
+    const seen: { log: string | null } = { log: null };
+    // Another writer appends between this append's tail read and its write.
+    const race = (): void => {
+      appendLocked(loc, [worktreeDraft(7)], { held: () => true });
+      seen.log = readFileSync(runPaths(loc).log).toString("base64");
+    };
+    appendRawBytes(loc, '{"v":1,"seq":');
+    expect(() => withLock(runPaths(loc).lock, (held) => appendLocked(loc, [worktreeDraft(9)], { held, check: race }))).toThrow(LockTimeoutError);
+    expect(seen.log).not.toBeNull();
+    expect(readFileSync(runPaths(loc).log).toString("base64")).toBe(seen.log ?? "");
+    expect(verifyChain(loc)).toMatchObject({ ok: true, events: 7 });
   });
 
   test("an empty append writes nothing", () => {

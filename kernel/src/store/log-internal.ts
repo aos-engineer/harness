@@ -3,7 +3,7 @@
 import { closeSync, fstatSync, fsyncSync, ftruncateSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
 import type { Actor, EventDraft, EventEnvelope, EventType, RunLocation, StateFile } from "../types.ts";
 import { GENESIS_PREV } from "../types.ts";
-import { ChainError, RunNotFoundError } from "../util/errors.ts";
+import { ChainError, LockTimeoutError, RunNotFoundError } from "../util/errors.ts";
 import { sha256Tag } from "../util/hash.ts";
 import { ulid } from "../util/ulid.ts";
 import { runPaths } from "./paths.ts";
@@ -184,17 +184,22 @@ function writeAll(fd: number, buf: Buffer): void {
   while (off < buf.length) off += writeSync(fd, buf, off, buf.length - off);
 }
 
+/** Proof that the caller holds the run's lock, plus an optional look at the batch before it is written. */
+export interface AppendGuard {
+  held: () => boolean;
+  check?: (events: EventEnvelope[], lastLine: string) => void;
+}
+
 /**
  * Appends drafts to the log. The caller must hold the run's lock. A torn tail is truncated away and recorded
  * as a log.repaired event ahead of the drafts. `check` sees the sealed events before anything touches the
  * disk, so a rejected batch leaves the log exactly as it was.
  */
-export function appendLocked(
-  paths: { log: string }, run: string, drafts: EventDraft[], check?: (events: EventEnvelope[]) => void,
-): { events: EventEnvelope[]; lastLine: string | null } {
-  const fd = openSync(paths.log, "a+");
+export function appendLocked(loc: RunLocation, drafts: EventDraft[], guard: AppendGuard): { events: EventEnvelope[]; lastLine: string | null } {
+  const fd = openSync(runPaths(loc).log, "a+");
   try {
-    const tail = readTail(fd, fstatSync(fd).size);
+    const sizeAtRead = fstatSync(fd).size;
+    const tail = readTail(fd, sizeAtRead);
     const all: EventDraft[] = tail.dropped.length > 0
       ? [{ type: "log.repaired", actor: STORE_ACTOR, data: { droppedBytes: tail.dropped.length, droppedSha256: sha256Tag(tail.dropped) } }, ...drafts]
       : drafts;
@@ -205,13 +210,20 @@ export function appendLocked(
     let prev = tail.lastLine === null ? GENESIS_PREV : sha256Tag(tail.lastLine);
     let seq = tail.lastSeq;
     for (const d of all) {
-      const e = seal(d, ++seq, run, prev);
+      const e = seal(d, ++seq, loc.run, prev);
       const line = JSON.stringify(e);
       events.push(e);
       lines.push(line);
       prev = sha256Tag(line);
     }
-    check?.(events);
+    guard.check?.(events, lines[lines.length - 1]);
+
+    // A holder suspended past the stale age (laptop sleep, SIGSTOP) wakes to find its lock broken and maybe the
+    // log extended. Writing a batch sealed against the old tail would fork the chain for good, so give up
+    // instead. The window between this check and the write is microseconds, against seconds of suspension.
+    if (fstatSync(fd).size !== sizeAtRead || !guard.held()) {
+      throw new LockTimeoutError(`lost the lock on run ${loc.run} before writing; nothing was appended`);
+    }
 
     if (tail.dropped.length > 0) ftruncateSync(fd, tail.goodSize);
     // One write for the whole batch, then fsync: the state snapshot is written only after the log is durable.

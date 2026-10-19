@@ -84,19 +84,20 @@ export function createRun(loc: RunLocation, started: EventDraft<"run.started">, 
 export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: Projector): { events: EventEnvelope[]; file: StateFile } {
   const paths = runPaths(loc);
   if (!existsSync(paths.dir)) throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`);
-  return withLock(paths.lock, () => {
+  return withLock(paths.lock, (held) => {
     const snapshot = readStateFile(paths.state);
     let next: RunState | null = null;
-    const { events, lastLine } = appendLocked(paths, loc.run, drafts, (sealed) => {
+    const { events, lastLine } = appendLocked(loc, drafts, { held, check: (sealed) => {
       const lastSeq = sealed[0].seq - 1;
       const pinned = snapshot !== null && lastSeq > 0 && snapshot.seq === lastSeq && snapshot.head === sealed[0].prev;
       const base = pinned ? snapshot.state : rebuild(loc, projector, snapshot).state;
       next = project(projector, base, sealed);
-    });
+    } });
     if (events.length === 0) return { events, file: loadState(loc, projector) };
     if (next === null || lastLine === null) throw new Error("unreachable: a non-empty append was projected");
     const file: StateFile = { v: 1, seq: events[events.length - 1].seq, head: sha256Tag(lastLine), state: next };
-    writeStateFile(paths.state, file);
+    // A snapshot written after losing the lock could overwrite a newer one; skipping it only makes it lag.
+    if (held()) writeStateFile(paths.state, file);
     return { events, file };
   });
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import { GENESIS_PREV } from "../../src/types.ts";
 import type { EventDraft, Projector, RunLocation, StateFile } from "../../src/types.ts";
@@ -7,7 +8,7 @@ import { runPaths } from "../../src/store/paths.ts";
 import { readLog, verifyChain } from "../../src/store/log.ts";
 import { appendEvents, createRun, listRuns, loadState } from "../../src/store/store.ts";
 import { writeArtifact } from "../../src/store/artifacts.ts";
-import { ChainError, OpError, RunNotFoundError } from "../../src/util/errors.ts";
+import { ChainError, LockTimeoutError, OpError, RunNotFoundError } from "../../src/util/errors.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
 import { tmpDir } from "../helpers.ts";
 import { appendRawBytes, deleteLine, mutateLine, range, startedDraft, worktreeDraft } from "./fixtures.ts";
@@ -164,6 +165,22 @@ describe("a run with two events", () => {
     expect(() => appendEvents(loc, [worktreeDraft(1), cancel], rejecting)).toThrow("no");
     expect(logSize()).toBe(before);
     expect(stateOnDisk().seq).toBe(2);
+  });
+
+  test("appendEvents that loses its lock mid-append leaves log and snapshot untouched", () => {
+    const thief: Projector = {
+      apply(prev, e) {
+        if (e.type === "worktree.changed" && e.data.path === "steal") {
+          writeFileSync(runPaths(loc).lock, JSON.stringify({ pid: process.pid, host: hostname(), ts: Date.now(), nonce: "thief" }));
+        }
+        return testProjector.apply(prev, e);
+      },
+    };
+    const log = readFileSync(runPaths(loc).log);
+    const snapshot = stateOnDisk();
+    expect(() => appendEvents(loc, [worktreeDraft(1, "steal")], thief)).toThrow(LockTimeoutError);
+    expect(readFileSync(runPaths(loc).log)).toEqual(log);
+    expect(stateOnDisk()).toEqual(snapshot);
   });
 
   test("appendEvents with no drafts returns the current state", () => {
