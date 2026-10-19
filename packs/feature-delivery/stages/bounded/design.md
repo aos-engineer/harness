@@ -6,7 +6,7 @@ Agree on a short design before writing code.
 
 1. Read the code the change touches.
 2. Present a short design in chat: the approach, the files you expect to touch, and how you will test it. A few paragraphs, not a spec.
-3. If the change reaches a schema, a migration, authentication, a public API, or a new service, say so before going further: it is bigger than a bounded change.
+3. If the work turns out bigger than a bounded change (a database schema, a migration, authentication, a public API, or a new service), stop and tell the human. They decide whether to start a different run. Do not keep going.
 
 ## Skills
 

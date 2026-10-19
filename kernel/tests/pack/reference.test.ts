@@ -123,3 +123,23 @@ test.each(commands)("%s -> %p", (cmd, expected) => {
   const hits = (Object.keys(actions) as ActionName[]).filter((a) => actions[a].patterns.some((p) => new RegExp(p).test(cmd)));
   expect(hits).toEqual(expected ? [expected] : []);
 });
+
+test("design tells the agent to stop and hand bigger work back to the human", () => {
+  const text = pack().instructions["bounded/design"]!;
+  expect(text).toMatch(/stop and tell the human/i);
+  expect(text).toMatch(/do not keep going/i);
+});
+
+test.each(["spike/probe", "bounded/build", "bounded/verify"])("%s rules out human-only commands and .aos/", (key) => {
+  const text = pack().instructions[key]!;
+  expect(text).toContain("`aos approve`");
+  expect(text).toContain("`aos run cancel`");
+  expect(text).toMatch(/never read or write `\.aos\/`/i);
+});
+
+test("the README says what the budget charges and when the data-only check misfires", () => {
+  const readme = readFileSync(join(REFERENCE, "README.md"), "utf8");
+  expect(readme).toMatch(/blocked stop/i);
+  expect(readme).toMatch(/stage retries are not charged/i);
+  expect(readme).toContain("exFAT");
+});

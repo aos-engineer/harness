@@ -17,6 +17,8 @@ Use superpowers:requesting-code-review to get the review, and superpowers:verifi
 
 Anywhere in the repository except `.aos/`.
 
+Never run human-only commands such as `aos approve` or `aos run cancel`, and never read or write `.aos/`.
+
 ## Model
 
 This stage benefits from a reasoning model.

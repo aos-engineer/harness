@@ -2,7 +2,7 @@
 
 The reference methodology pack for AOS. It turns "build this feature" into staged work with gates: the agent cannot push, open a pull request, or deploy until the evidence the pack asks for exists.
 
-The pack is data only. `pack.yaml` declares tiers, stages, gates, write scopes, and action policies, and `stages/<tier>/<stage>.md` holds the instructions the agent sees in each stage. Nothing in a pack runs code, and the loader rejects script files, executable files, and symlinks. The full format is the JSON Schema in `kernel/schema/pack.schema.json`.
+The pack is data only. `pack.yaml` declares tiers, stages, gates, write scopes, and action policies, and `stages/<tier>/<stage>.md` holds the instructions the agent sees in each stage. Nothing in a pack runs code, and the loader rejects script files, executable files, and symlinks. Hidden files are pack content too; only `.git`, `node_modules`, and `.DS_Store` are left out. Filesystems that report every file as executable, such as some mounted Windows or exFAT volumes, fail the executable check, so keep packs on a filesystem with real permission bits. The full format is the JSON Schema in `kernel/schema/pack.schema.json`.
 
 These rules are guardrails for a cooperating agent, not a security boundary.
 
@@ -38,7 +38,7 @@ Briefs that mention a database schema or schema change, a migration, authenticat
 - **`actions`** names the consequential shell commands (commit, push, PR create, deploy) with regular expressions, and gives each tier a policy: `always`, `never`, `in_stages` (only in the listed stages), or `after_gate` (only once the named stage's gate has passed). Every action needs a policy for every tier the pack defines.
 - **`roles`** maps a role name to the commands that play it. A gate asks for "an observed `test` run that exited zero", and any listed test command counts. The command has to run by itself: a pipe, `|| true`, or a chained command masks the exit status, and a masked run does not count as a pass.
 - **`classify`** rules run in order, matched case-insensitively against the brief. The first match wins.
-- **`budget.iterations`** limits how often a run sends the agent back to work: stage retries, plus each time it tried to stop with a gate still open. Once the budget is spent, AOS lets the agent stop.
+- **`budget.iterations`** limits blocked stops: each time the agent tries to stop with a gate still open and AOS sends it back to work, that is one iteration. Once the budget is spent, AOS lets the agent stop. Stage retries are not charged in this release.
 
 Keywords, roles, deploy patterns, and the budget are starting values. They will be tuned from real runs, not measured thresholds yet.
 
