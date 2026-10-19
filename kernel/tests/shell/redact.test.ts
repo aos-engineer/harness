@@ -16,7 +16,15 @@ test.each([
   ["-----BEGIN RSA PRIVATE KEY-----", "[REDACTED]"],
   ["ssn 123-45-6789", "ssn [REDACTED]"],
   ["card 4111 1111 1111 1111", "card [REDACTED]"],
+  ["x first.last+tag@sub.example.org y", "x [REDACTED] y"],
+  ["postgres://user:hunter2pass@db.example.com/x", "postgres://user:[REDACTED]/x"],
 ])("redact(%j)", (input, want) => expect(redact(input)).toBe(want));
+
+test("redaction stays linear on a long run of letters and dots", () => {
+  const start = performance.now();
+  redact("a.".repeat(50_000));
+  expect(performance.now() - start).toBeLessThan(200);
+});
 
 test("tail is capped at 4096 bytes and digest is over raw output", () => {
   const out = "x".repeat(10_000) + " sk-abcdefghijklmnop1234";

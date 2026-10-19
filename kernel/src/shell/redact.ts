@@ -8,7 +8,10 @@ import { sha256Tag } from "../util/hash.ts";
 // epoch-millisecond timestamps. That is acceptable: the redacted text only feeds a display tail.
 const SECRET =
   /-----BEGIN [\w ]*PRIVATE KEY-----|\b(?:sk-[A-Za-z0-9_-]{16,}|AKIA[A-Z0-9]{16})\b|(?:api[_-]?key|password|secret|authorization|access[_-]?token)\s*["']?\s*[:=]\s*["']?\S{6,}|\bBearer\s+\S+/gi;
-const SENSITIVE = /\b(?:\d{3}-\d{2}-\d{4}|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?:\d[ -]?){13,19})\b/g;
+// The email branch starts only where a run of address characters starts. The 0.x form started at every
+// word boundary inside the run, so a long `a.a.a...` line rescanned the run from each one, which is
+// quadratic. Every address it found is still found, because the match from the run's start covers it.
+const SENSITIVE = /\b(?:\d{3}-\d{2}-\d{4}|(?:\d[ -]?){13,19})\b|(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g;
 const MASK = "[REDACTED]";
 const TAIL_BYTES = 4096;
 
