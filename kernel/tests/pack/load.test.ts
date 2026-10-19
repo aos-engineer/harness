@@ -173,6 +173,22 @@ describe("schema tightening for path safety", () => {
     expect(issuesOf(validWith("  deploy:\n    patterns: ['\\bdeploy\\b']\n    policy: { bounded: { allow: never } }\n", "")))
       .toEqual(expect.arrayContaining([expect.stringContaining("deploy")])));
 
+  test("an enum violation lists the allowed values", () =>
+    expect(issuesOf(validWith("        writes: any\n", "        writes: any\n        model: slow\n"))).toEqual([
+      'tiers.bounded.stages[0].model: must be equal to one of the allowed values (allowed: "reasoning", "fast", "script", null)',
+    ]));
+
+  test("a const violation names the allowed value", () =>
+    expect(issuesOf(validWith("        gate: { decider: rule }\n",
+      "        gate:\n          decider: rule\n          requires:\n            - { kind: command, role: test, result: exit_one, provenance: observed }\n"))).toEqual([
+      'tiers.bounded.stages[0].gate.requires[0].result: must be equal to constant (allowed: "exit_zero")',
+    ]));
+
+  test("a bad write scope string names \"any\"", () =>
+    expect(issuesOf(validWith("writes: any", "writes: anywhere"))).toEqual([
+      'tiers.bounded.stages[0].writes: must be equal to constant (allowed: "any")',
+    ]));
+
   test("an unknown policy value is named plainly", () =>
     expect(issuesOf(validWith("{ allow: never } }\n  deploy", "{ allow: sometimes } }\n  deploy")))
       .toEqual([expect.stringContaining('"sometimes"')]));

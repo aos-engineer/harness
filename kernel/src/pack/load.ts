@@ -114,6 +114,10 @@ function schemaIssues(errors: ErrorObject[]): string[] {
       issues.push(`${at}: must NOT have additional properties: ${JSON.stringify(e.params.additionalProperty)}`);
     } else if (e.keyword === "discriminator" && e.params.error === "mapping") {
       issues.push(`${at}.${e.params.tag}: unknown value ${JSON.stringify(e.params.tagValue)}`);
+    } else if (e.keyword === "enum" || e.keyword === "const") {
+      // Naming the accepted values saves the author a trip to the schema.
+      const allowed: unknown[] = e.keyword === "enum" ? e.params.allowedValues : [e.params.allowedValue];
+      issues.push(`${at}: ${e.message} (allowed: ${allowed.map((v) => JSON.stringify(v)).join(", ")})`);
     } else {
       issues.push(`${at}: ${e.message ?? e.keyword}`);
     }
