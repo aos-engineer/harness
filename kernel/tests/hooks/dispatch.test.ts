@@ -3,12 +3,13 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import { CONSEQUENTIAL, failsafeDecision, payloadFailsafe } from "../../src/hooks/failsafe.ts";
 import { handleHook } from "../../src/hooks/handle.ts";
+import { matchAction } from "../../src/shell/match.ts";
 import { aosDir } from "../../src/store/paths.ts";
 import { findBinding, sessionFileName } from "../../src/store/sessions.ts";
 import type { HookEvent, HookInput, HookTool, RunLocation, TreeState } from "../../src/types.ts";
 import { ulid } from "../../src/util/ulid.ts";
 import { tmpDir, tmpGitRepo } from "../helpers.ts";
-import { ALLOW, HOST, SESSION, append, at, bashTool, bound, breakRun, input, linkTo, mcpTool, startRun, types, writeTool } from "./helpers.ts";
+import { ALLOW, HOST, SESSION, append, at, bashTool, pack, bound, breakRun, input, linkTo, mcpTool, startRun, types, writeTool } from "./helpers.ts";
 
 let repo: string;
 let run: string;
@@ -379,7 +380,22 @@ describe("failsafeDecision", () => {
     expect(failsafeDecision("pre-tool", "git push", "line one\nline two")).toEqual({ kind: "deny", reason: "AOS error, run `aos doctor`: line one line two" });
   });
 
-  test("the consequential patterns are the documented three", () => {
-    expect(CONSEQUENTIAL.map(String)).toEqual([String(/\bgit\b[^;&|]*\bpush\b/), String(/\bgh\s+pr\s+create\b/), String(/\bdeploy\b/)]);
+  test("every deploy command the reference pack knows fails closed", () => {
+    const deploys = [
+      "vercel deploy --prod", "netlify deploy", "flyctl deploy", "fly deploy",
+      "kubectl apply -f k8s.yaml", "kubectl rollout restart deployment/web", "terraform apply -auto-approve",
+      "helm install web ./chart", "helm upgrade web ./chart", "gh workflow run release.yml",
+      "python3 scripts/dokploy.py redeploy web", "dokploy upsert-compose web", "bun dokploy-cli.ts compose.stop web",
+      "uv run dokploy compose.redeploy web",
+    ];
+    for (const cmd of deploys) {
+      // Each example is one the pack itself treats as a deploy, so the two lists cannot drift apart unseen.
+      expect(matchAction(cmd, pack().actions)).toBe("deploy");
+      expect(failsafeDecision("pre-tool", cmd, err).kind).toBe("deny");
+    }
+  });
+
+  test("the patterns stay raw-text checks that a quoted mention can trip", () => {
+    expect(CONSEQUENTIAL.some((re) => re.test('git commit -m "push"'))).toBe(true);
   });
 });

@@ -6,8 +6,18 @@ import { errorMessage, logHookError, nearestAosRoot } from "./report.ts";
 
 // Deliberately crude: these run when parsing, state, or the pack may be what failed, so they match the
 // raw text. A quoted mention such as `git commit -m "push"` is denied too, which is acceptable while
-// the kernel is in an error state.
-export const CONSEQUENTIAL: readonly RegExp[] = Object.freeze([/\bgit\b[^;&|]*\bpush\b/, /\bgh\s+pr\s+create\b/, /\bdeploy\b/]);
+// the kernel is in an error state. The deploy entries mirror the reference pack's deploy commands, since
+// the pack may be the thing that failed to load.
+export const CONSEQUENTIAL: readonly RegExp[] = Object.freeze([
+  /\bgit\b[^;&|]*\bpush\b/,
+  /\bgh\s+pr\s+create\b/,
+  /\bdeploy\b/,
+  /\bterraform\s+apply\b/,
+  /\bkubectl\s+(?:apply|rollout)\b/,
+  /\bhelm\s+(?:install|upgrade)\b/,
+  /\bgh\s+workflow\s+run\b/,
+  /dokploy\S*(?:\s+\S+)*?\s+(?:deploy|redeploy|upsert-compose|compose\.(?:deploy|redeploy|stop))\b/,
+]);
 
 export function failsafeDecision(event: HookEvent, rawCommand: string | null, err: unknown): HookDecision {
   if (event === "pre-tool" && typeof rawCommand === "string" && CONSEQUENTIAL.some((re) => re.test(rawCommand))) {
