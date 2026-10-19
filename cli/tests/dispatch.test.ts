@@ -48,5 +48,7 @@ test("dispatch returns the command's own exit code", async () => {
 
 // process.exit() kills commands that keep serving after they resolve (aos mcp) and truncates piped stdout.
 test("the entry point sets process.exitCode instead of calling process.exit", () => {
-  expect(readFileSync(ENTRY, "utf8")).not.toMatch(/process\.exit\(/);
+  const code = readFileSync(ENTRY, "utf8").replace(/\/\/.*$/gm, ""); // comments may name the call they forbid
+  expect(code).not.toMatch(/process\.exit\(/);
+  expect(code).toMatch(/process\.exitCode = /);
 });
