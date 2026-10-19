@@ -6,7 +6,7 @@
 
 ## AOS 1.0 on `main`
 
-AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Every run is an append-only, hash-chained log under `.aos/runs/`, so its verdicts can be replayed and checked.
+AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Every run is an append-only, hash-chained log under `.aos/runs/`, so edits to it are detectable and its gate verdicts can be re-derived from the log.
 
 Claude Code is the first host, and this release is for dogfooding. Start with the [Claude Code plugin README](./hosts/claude-code/README.md). AOS is a guardrail for a cooperating agent, not a security boundary; the plugin README lists what it does not defend.
 

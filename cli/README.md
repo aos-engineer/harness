@@ -29,6 +29,6 @@ It needs Bun 1.3.11 or newer. To use it with Claude Code, see the [plugin README
 
 ## Human-only commands
 
-`aos approve` and `aos run cancel` decide things only a person may decide, so they refuse to run without an interactive terminal. An agent's shell tool has none, which keeps an agent from passing its own gate by accident or by shortcut, and the Claude Code plugin's Bash guard refuses these commands before they run.
+`aos approve` and `aos run cancel` decide things only a person may decide, so they refuse to run without an interactive terminal. An agent's shell tool has none, which keeps an agent from passing its own gate by accident or by shortcut, and in a Claude Code session bound to a run, the plugin's Bash guard refuses these commands before they run. Sessions that are not bound to a run get no such guard.
 
 Neither check is a security boundary. A determined process can allocate a terminal, and an agent with unrestricted shell access can write the run log directly. AOS hooks and these checks are guardrails for a cooperating agent; they stop lazy bypass, not a determined one. The run log records who decided each gate and why.
