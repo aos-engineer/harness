@@ -1,0 +1,182 @@
+import { beforeEach, describe, expect, test } from "bun:test";
+import { copyFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { runPaths } from "@aos-harness/kernel";
+import type { RunLocation } from "@aos-harness/kernel";
+import { doctorCommand, versionAtLeast } from "../src/commands/doctor.ts";
+import { tmpDir, tmpGitRepo, writeFile } from "../../kernel/tests/helpers.ts";
+import { appendRawBytes, mutateLine } from "../../kernel/tests/store/fixtures.ts";
+import { fakeIO } from "./fake-io.ts";
+import { newRun, PACK, PACK_DIR, request } from "./fixtures.ts";
+
+let repo: string;
+let loc: RunLocation;
+let cache: string;
+
+/** A plugin cache laid out the way Claude Code stores installed plugins: <marketplace>/<plugin>/<version>/skills/<skill>/. */
+function pluginCache(skills: string[]): string {
+  const dir = join(tmpDir("aos-plugins-"), "cache");
+  for (const bind of skills) {
+    const [plugin, skill] = bind.split(":");
+    writeFile(dir, `claude-plugins-official/${plugin}/7.0.0/skills/${skill}/SKILL.md`, `# ${skill}\n`);
+  }
+  return dir;
+}
+
+const BOUND = [...new Set(Object.values(PACK.tiers).flatMap((t) => t?.stages.flatMap((s) => s.bind) ?? []))];
+
+function doctor(o: { argv?: string[]; cwd?: string; env?: Record<string, string | undefined> } = {}) {
+  return fakeIO({ argv: o.argv ?? ["doctor", "--pack", PACK_DIR], cwd: o.cwd ?? repo, env: { AOS_DOCTOR_PLUGIN_CACHE: cache, ...o.env } });
+}
+
+function unignoreAos(root: string): void {
+  rmSync(join(root, ".gitignore"));
+}
+
+beforeEach(() => {
+  repo = tmpGitRepo();
+  writeFile(repo, ".gitignore", ".aos/\n");
+  loc = newRun(repo, { git: true });
+  request(loc);
+  cache = pluginCache(BOUND);
+});
+
+describe("aos doctor", () => {
+  test("healthy repo passes with no warnings", async () => {
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).not.toMatch(/^(WARN|FAIL)/m);
+    expect(io.stdout).toMatch(/^OK +bun /m);
+    expect(io.stdout).toMatch(/^OK +git /m);
+    expect(io.stdout).toContain(`feature-delivery@${PACK.version}`);
+    expect(io.stdout).toContain(`run ${loc.run}`);
+  });
+
+  test("a tampered log is a FAIL", async () => {
+    mutateLine(loc, 0);
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(1);
+    expect(io.stdout).toMatch(/FAIL .*tampered or corrupt at seq 2/);
+  });
+
+  test("a torn log tail is a WARN, since the next append repairs it", async () => {
+    appendRawBytes(loc, '{"v":1,"seq":3');
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*torn bytes/m);
+  });
+
+  test("a snapshot behind the log is a WARN", async () => {
+    const saved = join(tmpDir(), "state.json");
+    copyFileSync(runPaths(loc).state, saved);
+    request(loc);
+    copyFileSync(saved, runPaths(loc).state);
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*state\.json is at seq 2 but the log is at seq 3.*rebuilt on the next append/m);
+  });
+
+  test("missing .gitignore entry is a WARN, not a FAIL", async () => {
+    unignoreAos(repo);
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*\.aos\/.*gitignore/m);
+  });
+
+  test("outside a git repository is a WARN about weak freshness", async () => {
+    const plain = tmpDir("aos-plain-");
+    newRun(plain);
+    const io = doctor({ cwd: plain });
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*not inside a git repository.*weak edit counter/m);
+  });
+
+  test("hook errors are surfaced, last 3 lines only", async () => {
+    writeFile(repo, ".aos/hook-errors.log", ["one", "two", "three", "four", "x pre-tool boom"].join("\n") + "\n");
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*hook-errors\.log/m);
+    expect(io.stdout).toContain("boom");
+    expect(io.stdout).toContain("three");
+    expect(io.stdout).not.toContain("two");
+  });
+
+  test("an empty hook error log is fine", async () => {
+    writeFile(repo, ".aos/hook-errors.log", "");
+    const io = doctor();
+    await doctorCommand(io);
+    expect(io.stdout).not.toContain("hook-errors.log");
+  });
+
+  test("a pack that does not load is a FAIL listing its issues", async () => {
+    const bad = tmpDir("aos-bad-pack-");
+    writeFile(bad, "pack.yaml", "name: broken\n");
+    const io = doctor({ argv: ["doctor", "--pack", bad] });
+    expect(await doctorCommand(io)).toBe(1);
+    expect(io.stdout).toMatch(/^FAIL .*pack/m);
+    expect(io.stdout).toContain("must have required property 'version'");
+  });
+
+  test("--pack resolves against the working directory", async () => {
+    writeFile(repo, "packs/broken/pack.yaml", "name: broken\n");
+    const io = doctor({ argv: ["doctor", "--pack", "packs/broken"] });
+    expect(await doctorCommand(io)).toBe(1);
+    expect(io.stdout).toContain(join(repo, "packs/broken"));
+  });
+
+  test("AOS_PACK chooses the pack when --pack is absent", async () => {
+    const bad = tmpDir("aos-bad-pack-");
+    writeFile(bad, "pack.yaml", "name: broken\n");
+    const io = doctor({ argv: ["doctor"], env: { AOS_PACK: bad } });
+    expect(await doctorCommand(io)).toBe(1);
+    expect(io.stdout).toContain(bad);
+  });
+
+  test("without --pack or AOS_PACK it checks the reference pack shipped beside the cli", async () => {
+    const io = doctor({ argv: ["doctor"] });
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toContain(`feature-delivery@${PACK.version}`);
+  });
+
+  test("Claude Code older than 2.1.295 is a WARN explaining what fails open", async () => {
+    const io = doctor({ env: { AOS_DOCTOR_CLAUDE_VERSION: "2.1.200 (Claude Code)" } });
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*2\.1\.200.*onFailure.*fail closed on push/m);
+  });
+
+  test("Claude Code not installed is a WARN", async () => {
+    const io = doctor({ env: { AOS_DOCTOR_CLAUDE_VERSION: "" } });
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*Claude Code/m);
+  });
+
+  test("a bound skill that is not installed is a WARN naming the fallback", async () => {
+    cache = pluginCache(BOUND.filter((b) => b !== "superpowers:brainstorming"));
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*superpowers:brainstorming.*inline instructions/m);
+    expect(io.stdout).not.toMatch(/^WARN .*superpowers:test-driven-development/m);
+  });
+
+  test("a corrupt session binding is a WARN", async () => {
+    writeFile(repo, ".aos/sessions/claude-code-S1-abc.json", "{not json");
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN .*claude-code-S1-abc\.json/m);
+  });
+
+  test("an unknown flag is a usage error", async () => {
+    expect(await doctorCommand(doctor({ argv: ["doctor", "--deny"] }))).toBe(2);
+  });
+});
+
+describe("versionAtLeast", () => {
+  test("compares numerically, part by part", () => {
+    expect(versionAtLeast("1.3.11", "1.3.11")).toBe(true);
+    expect(versionAtLeast("1.4.0", "1.3.11")).toBe(true);
+    expect(versionAtLeast("1.3.9", "1.3.11")).toBe(false);
+    expect(versionAtLeast("2.1.295", "2.1.295")).toBe(true);
+    expect(versionAtLeast("2.10.0", "2.9.999")).toBe(true);
+    expect(versionAtLeast("1.3.11-canary.4", "1.3.11")).toBe(true);
+  });
+});
