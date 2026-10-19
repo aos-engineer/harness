@@ -7,7 +7,7 @@ import { gapKey, hasAgentGaps } from "../gates/evaluate.ts";
 import { formatGate } from "../gates/format.ts";
 import type { EventDraft, HookDecision } from "../types.ts";
 import { allow, type HookContext } from "./context.ts";
-import { gapLines, openGaps } from "./gaps.ts";
+import { gapLines, onlyAdvanceLeft, openGaps } from "./gaps.ts";
 
 const HANDING_BACK = "AOS: no progress on these gaps since the last nudge, so handing back to you:";
 
@@ -37,7 +37,10 @@ export function stop(ctx: HookContext): HookDecision {
   if (now >= limit) drafts.push({ type: "budget.exceeded", actor: ctx.actor, data: { dimension: "iterations", used: now, limit } });
   ctx.append(drafts);
 
-  const lines = [formatGate(result, state, "stop"), "Keep working on the gaps above."];
+  // A passed gate is not a list of failures to work through, so it gets a single plain instruction.
+  const lines = onlyAdvanceLeft(result)
+    ? [`AOS: the ${result.stage} gate passes. Call aos_stage_advance to continue.`]
+    : [formatGate(result, state, "stop"), "Keep working on the gaps above."];
   if (now >= warnAt) lines.push(`Iteration budget: ${now}/${limit} used.`);
   return { kind: "block-stop", reason: lines.join("\n") };
 }

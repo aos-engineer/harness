@@ -89,16 +89,23 @@ describe("Stop", () => {
     expect(blocked(stop("P1"))).toContain("aos_request_approval");
   });
 
-  test("a passed but unadvanced gate blocks once", () => {
+  test("a passed but unadvanced gate blocks once, with a plain instruction", () => {
     at(loc, "build");
     testRun(loc, 0);
-    expect(blocked(stop("P1"))).toContain("The build gate passes. Call aos_stage_advance to continue.");
+    expect(blocked(stop("P1"))).toBe("AOS: the build gate passes. Call aos_stage_advance to continue.");
     expect(notice(stop("P1"))).toContain("aos_stage_advance");
   });
 
   test("an approved design is a passed gate that still needs advancing", () => {
     grantApproval(loc, requestApproval(loc));
-    expect(blocked(stop("P1"))).toContain("aos_stage_advance");
+    expect(blocked(stop("P1"))).toBe("AOS: the design gate passes. Call aos_stage_advance to continue.");
+  });
+
+  test("the advance instruction still carries the budget line late in the budget", () => {
+    at(loc, "build");
+    testRun(loc, 0);
+    setUsed(loc, 16, false);
+    expect(blocked(stop("P1"))).toBe("AOS: the build gate passes. Call aos_stage_advance to continue.\nIteration budget: 17/20 used.");
   });
 
   test("a passing last stage lets the agent stop quietly", () => {

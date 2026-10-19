@@ -4,13 +4,19 @@ import { evaluateGate } from "../gates/evaluate.ts";
 import type { Gap, GateResult, RunState, TreeState } from "../types.ts";
 
 const MAX_GAP_LINES = 8;
+const ADVANCE = "advance";
+
+/** True when the gate passed and the only thing left is advancing past it. */
+export function onlyAdvanceLeft(result: GateResult): boolean {
+  return result.gaps.length === 1 && result.gaps[0]?.requirement === ADVANCE;
+}
 
 export function openGaps(state: RunState, tree: TreeState): GateResult {
   const stage = state.current.stage;
   const result = evaluateGate(state, stage, tree);
   // The last stage has nothing to advance to; once its gate passes, the agent may stop.
   if (result.verdict !== "pass" || state.current.index >= state.stages.length - 1) return result;
-  const advance: Gap = { kind: "missing", who: "agent", requirement: "advance", text: `The ${stage} gate passes. Call aos_stage_advance to continue.` };
+  const advance: Gap = { kind: "missing", who: "agent", requirement: ADVANCE, text: `The ${stage} gate passes. Call aos_stage_advance to continue.` };
   return { ...result, gaps: [...result.gaps, advance] };
 }
 
