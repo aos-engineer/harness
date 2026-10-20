@@ -156,7 +156,7 @@ Each line of `log.jsonl` is one envelope, serialized with a fixed key order beca
 | `data` | The type's payload. |
 | `prev` | `sha256:<hex>` of the previous line; the first event's `prev` is `GENESIS_PREV`, `sha256:` followed by 64 zeros. |
 
-`state.json` pins the log: its `seq` and `head` (the hash of the line at that seq) must match the log. That pin is what catches an edited or removed last event, which no later `prev` covers. `verifyChain` replays the whole chain and checks the pin; it detects edits, deletions, and truncation that break the chain. The chain is not signed, so a log and snapshot rewritten consistently end to end are not detected. Hooks and appends skip this replay whenever the snapshot pins the log's last event.
+`state.json` pins the log: its `seq` and `head` (the hash of the line at that seq) must match the log. That pin is what catches an edited or removed last event, which no later `prev` covers. `verifyChain` replays the whole chain and checks the pin; it detects edits, deletions, and truncation that break the chain. The chain is not signed, so a log and snapshot rewritten consistently end to end are not detected. Hooks and MCP appends skip this replay whenever the snapshot pins the log's last event; `aos status`, `aos approve`, `aos run cancel`, and `aos doctor` always run it.
 
 ### Writing
 

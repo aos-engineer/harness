@@ -50,4 +50,6 @@ Every hook failure is appended to `.aos/hook-errors.log`, which `aos doctor` rep
 
 Report vulnerabilities privately through GitHub's private vulnerability reporting for this repository: open [Report a vulnerability](https://github.com/aos-engineer/harness/security/advisories/new) on the repository's Security tab. Please do not open a public issue for a vulnerability.
 
-A useful report includes the AOS and Claude Code versions (`aos --version`, `claude --version`), the command or tool call involved, and what happened against what you expected. A way around a guard that this page already lists as not defended is still worth reporting if you see a practical fix, but it is a known limit, not a vulnerability.
+A useful report includes the AOS and Claude Code versions (`aos --version`, `claude --version`), the command or tool call involved, and what happened against what you expected. The repository's [security policy](../../SECURITY.md) lists the supported versions and what counts as a vulnerability within this model.
+
+A way to get a command past a shell guard is worth reporting too, as a regular issue: the guards are best-effort text analysis, and they are extended as new spellings come up.

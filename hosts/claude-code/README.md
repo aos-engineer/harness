@@ -64,7 +64,7 @@ In your terminal:
 |---|---|
 | `aos approve <run> [stage] [--reason "..."]` | Approve the pending request for the run's current stage. |
 | `aos approve <run> [stage] --deny --reason "..."` | Deny it. Claude revises from the reason. |
-| `aos status [run] [--json]` | List runs, or show one run's stage, gate, and open gaps after verifying its log. |
+| `aos status [run] [--json]` | List runs, or show one run's stage, gate, and open gaps. Either way it verifies each log first. |
 | `aos doctor [--pack <dir>]` | Check the toolchain, the pack, its skills, session bindings, and every run's hash chain. |
 | `aos run cancel <run> --reason "..."` | End a run and release its sessions, so they go back to pass-through. |
 

@@ -140,7 +140,7 @@ This repository is public. Code, comments, tests, docs, and commit messages must
 
 ## Reporting a vulnerability
 
-Do not open a public issue. Follow [docs/1.0/security.md](docs/1.0/security.md), which uses GitHub's private vulnerability reporting.
+Do not open a public issue. Follow [SECURITY.md](SECURITY.md), which uses GitHub's private vulnerability reporting; [docs/1.0/security.md](docs/1.0/security.md) explains what AOS defends and what it does not.
 
 ## Documentation
 

@@ -116,13 +116,13 @@ Read-only; it needs no terminal.
 
 JSON shapes:
 
-- List: an array of `{ "run", "status", "tier", "stage" }`, or `{ "run", "error" }` for an unreadable run.
+- List: an array of `{ "run", "status", "tier", "stage" }`, or `{ "run", "error" }` for a run that fails verification or cannot be read, with `error` set to `log tampered or corrupt at seq <n>` or `unreadable: <cause>`.
 - One run: `{ "run", "status", "tier", "stage", "stages", "gate", "final", "iterations": { "used", "limit" } }`, plus `"reason"` for a cancelled run. `final` is `false` for an active run and `true` for an ended one. `gate` has `stage`, `verdict`, `gaps`, `fingerprint`, and `weakFreshness`; for an ended run it is the last recorded result, or `null`.
 
 | Exit | When |
 |---|---|
 | 0 | Success. |
-| 1 | List: at least one run is unreadable. One run: it does not exist under the root, or its log fails verification (`Run log is tampered or corrupt at seq <n>. Run aos doctor.`). |
+| 1 | List: at least one run fails verification or cannot be read. One run: it does not exist under the root, or its log fails verification (`Run log is tampered or corrupt at seq <n>. Run aos doctor.`). |
 | 2 | Usage error. |
 
 ## aos doctor

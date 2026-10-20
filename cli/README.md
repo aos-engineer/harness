@@ -22,7 +22,7 @@ The CLI needs [Bun](https://bun.sh) 1.3.11 or later on `PATH`, even when npm ins
 |---|---|
 | `aos approve <run> [stage] [--reason "..."]` | Shows the pending approval request for the run's current stage and asks you to type the stage name to approve it. |
 | `aos approve <run> [stage] --deny --reason "..."` | Denies the request instead. The agent revises from the reason, so it is required. |
-| `aos status [run] [--json]` | Without a run, lists every run as run, status, tier, and stage. With one, verifies its log and prints its stage, gate, and open gaps. |
+| `aos status [run] [--json]` | Verifies each run's log, then, without a run, lists every run as run, status, tier, and stage, or, with one, prints its stage, gate, and open gaps. Exits 1 if a log fails verification. |
 | `aos doctor [--pack <dir>]` | Checks Bun, git, Claude Code, the pack and its bound skills, session bindings, `.aos/hook-errors.log`, and the hash chain of every run. Exits 1 if any check fails. |
 | `aos run cancel <run> --reason "..."` | Ends the run and unbinds its sessions, which go back to pass-through. The log keeps the reason. |
 | `aos mcp [--pack <dir>]` | Serves the AOS MCP tools on stdio, for a host that registers the CLI as its MCP server. The Claude Code plugin runs its own server and does not need this. |
