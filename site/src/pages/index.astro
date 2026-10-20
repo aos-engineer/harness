@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import PreviewNotice from '../components/PreviewNotice.astro';
 import { loadAllAgents, loadAllProfiles, loadAllDomains, loadAllSkills } from '../lib/content';
 
 const agents = loadAllAgents();
@@ -16,6 +17,7 @@ const listAgents = agents.filter(a => ['catalyst', 'sentinel', 'architect', 'pro
   <!-- Hero -->
   <section class="px-6 pt-16 pb-12 md:pt-[120px] md:pb-20">
     <div class="mx-auto max-w-[800px] text-center">
+      <div class="mb-10 max-w-[640px] mx-auto"><PreviewNotice /></div>
       <h1 class="text-[32px] sm:text-[40px] md:text-5xl font-extrabold leading-[1.1] tracking-tight text-[var(--color-text)]">
         Agentic Orchestration System
       </h1>

@@ -550,6 +550,10 @@ pre code {
   font-weight: 600;
 }
 
+.docs-preview-notice {
+  margin-bottom: 1.5rem;
+}
+
 .docs-section-pills {
   display: flex;
   gap: 0.5rem;
