@@ -1,0 +1,18 @@
+{
+  "_source": "captured",
+  "session_id": "SESSION-2",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION-2.jsonl",
+  "cwd": "/repo",
+  "prompt_id": "PROMPT-3",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "test -f missing",
+    "description": "Test for missing file"
+  },
+  "tool_use_id": "TOOLU-25"
+}

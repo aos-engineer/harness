@@ -1,0 +1,45 @@
+{
+  "_source": "captured",
+  "session_id": "SESSION",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "prompt_id": "PROMPT-2",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/repo/greet.ts",
+    "old_string": "export function greet(name: string): string {\n  return `Hello, ${name}`;\n}",
+    "new_string": "export function greet(name: string, options: { shout?: boolean } = {}): string {\n  if (options.shout) return `Hello, ${name}!`.toUpperCase();\n  return `Hello, ${name}`;\n}",
+    "replace_all": false
+  },
+  "tool_response": {
+    "filePath": "/repo/greet.ts",
+    "oldString": "export function greet(name: string): string {\n  return `Hello, ${name}`;\n}",
+    "newString": "export function greet(name: string, options: { shout?: boolean } = {}): string {\n  if (options.shout) return `Hello, ${name}!`.toUpperCase();\n  return `Hello, ${name}`;\n}",
+    "originalFile": "export function greet(name: string): string {\n  return `Hello, ${name}`;\n}\n",
+    "structuredPatch": [
+      {
+        "oldStart": 1,
+        "oldLines": 3,
+        "newStart": 1,
+        "newLines": 4,
+        "lines": [
+          "-export function greet(name: string): string {",
+          "+export function greet(name: string, options: { shout?: boolean } = {}): string {",
+          "+  if (options.shout) return `Hello, ${name}!`.toUpperCase();",
+          "   return `Hello, ${name}`;",
+          " }"
+        ]
+      }
+    ],
+    "userModified": false,
+    "replaceAll": false,
+    "contentNotInModelContext": true
+  },
+  "tool_use_id": "TOOLU-8",
+  "duration_ms": 20
+}

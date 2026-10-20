@@ -1,0 +1,23 @@
+{
+  "_source": "captured",
+  "session_id": "SESSION",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "prompt_id": "PROMPT-1",
+  "permission_mode": "bypassPermissions",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__plugin_aos_aos__aos_run_start",
+  "tool_input": {
+    "brief": "Add a shout option to greet: greet(\"Ada\", { shout: true }) must return \"HELLO, ADA!\" while greet(\"Ada\") keeps returning \"Hello, Ada\". The failing test in greet.test.ts describes it."
+  },
+  "tool_response": "{\"runId\":\"01M5BB90GKCT7KHDWYKC9QHFN0\",\"tier\":\"bounded\",\"tierReason\":\"no tier rule matched; pack default is bounded\",\"stages\":[\"design\",\"build\",\"verify\"],\"stage\":\"design\",\"instructions\":\"# Bounded: design\\n\\nAgree on a short design before writing code.\\n\\n## What to do\\n\\n1. Read the code the change touches.\\n2. Present a short design in chat: the approach, the files you expect to touch, and how you will test it. A few paragraphs, not a spec.\\n3. If the work turns out bigger than a bounded change (a database schema, a migration, authentication, a public API, or a new service), stop and tell the human. They decide whether to start a different run. Do not keep going.\\n\\n## Skills\\n\\nUse superpowers:brainstorming when the approach is not obvious.\\n\\n## Write scope\\n\\nWrites are allowed only under `docs/specs/`, for a written design if one helps. Code waits for the build stage.\\n\\n## Model\\n\\nThis stage benefits from a reasoning model.\\n\\n## Finish\\n\\nCall `aos_request_approval` with the design summary, then stop and wait for the human. They approve with `aos approve` in their own terminal; never run it yourself. If they ask for changes, revise and request approval again.\\n\",\"notice\":\"AOS run 01M5BB90GKCT7KHDWYKC9QHFN0 started as bounded (no tier rule matched; pack default is bounded). Tell the human the tier and why. This session is bound to the run once this call returns.\"}",
+  "tool_use_id": "TOOLU-1",
+  "duration_ms": 158,
+  "mcp_server": {
+    "name": "plugin:aos:aos",
+    "source": "plugin"
+  }
+}
