@@ -181,6 +181,16 @@ test.each([
   // The CLI from source, through node or run directly
   ["node cli/src/index.ts approve", "approve"], ["./cli/src/index.ts run cancel 01J", "run cancel"],
   ["npx aos-harness status", null], ["npm exec other-tool -- approve", null], ["node index.ts approve", null],
+  // Wrappers that allocate a terminal, and inline interpreter code that can, carry the command anywhere
+  ["script -q /dev/null aos approve 01J design", "approve"], ["script -qc 'aos run cancel 01J' /dev/null", "run cancel"],
+  ["expect -c 'spawn aos approve 01J; send y\\r; interact'", "approve"], ["unbuffer aos approve 01J", "approve"],
+  ["socat - EXEC:'aos approve 01J',pty", "approve"], ["unbuffer npx -y aos-harness waive 01J", "waive"],
+  [`python3 -c "import pty; pty.spawn(['aos', 'approve', '01J'])"`, "approve"],
+  [`perl -e 'exec "/usr/local/bin/aos", "approve", "01J"'`, "approve"], [`node -e "spawn('aos', ['approve'])"`, "approve"],
+  [`ruby -e 'system("aos run cancel 01J")'`, "run cancel"], [`deno eval "Deno.run({cmd: ['aos', 'approve']})"`, "approve"],
+  // ...but a wrapper or interpreter that does not carry one is ordinary, and so is a script file
+  ["script -q /dev/null bun test", null], ['python3 -c "print(1)"', null], ["python3 tools/aos_approve.py", null],
+  ["node scripts/chaos approve", null], ['git commit -m "script -q /dev/null aos approve"', null],
 ])("matchHumanOnly(%j)", (cmd, want) => expect(matchHumanOnly(cmd)).toBe(want));
 
 test.each([

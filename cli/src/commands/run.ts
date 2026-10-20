@@ -4,7 +4,7 @@
 import { cancelRun, ChainError, humanActor, loadState, OpError, projector, RunNotFoundError, unbindRun, verifyChain } from "@aos-harness/kernel";
 import type { RunLocation, RunState } from "@aos-harness/kernel";
 import type { CliIO, CommandFn } from "../io.ts";
-import { clipText, parseFlags, printable, readBindings, requireTty, resolveRoot, TTY_NOTE, UsageError } from "./shared.ts";
+import { clipText, parseFlags, printable, readBindings, requireHuman, resolveRoot, TTY_NOTE, UsageError } from "./shared.ts";
 
 const USAGE = `Usage: aos run cancel <run> --reason "..." [--root <path>]
 
@@ -40,7 +40,7 @@ export const runCommand: CommandFn = async (io) => {
     io.err('aos run cancel: --reason "..." is required; the run log keeps it.');
     return 2;
   }
-  if (!requireTty(io, "run cancel")) return 2;
+  if (!requireHuman(io, "run cancel")) return 2;
 
   const loc = { root: resolveRoot(io, flags), run };
   const opened = openRun(loc);

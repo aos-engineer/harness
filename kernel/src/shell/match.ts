@@ -86,21 +86,40 @@ const INVOCATION = [
   String.raw`(?:bun(?:\s+run)?|node|tsx)${RUNNER_FLAGS}\s+${SOURCE}`,
   SOURCE,
 ].join("|");
-const HUMAN_ONLY = new RegExp(
-  String.raw`^(?:${INVOCATION})(?:\s+--)?\s+(approve|waive|tier\s+lower|budget\s+extend|run\s+(?:pause|cancel))\b`,
-);
+const HUMAN_ONLY_SUB = String.raw`(approve|waive|tier\s+lower|budget\s+extend|run\s+(?:pause|cancel))\b`;
+const HUMAN_ONLY = new RegExp(String.raw`^(?:${INVOCATION})(?:\s+--)?\s+${HUMAN_ONLY_SUB}`);
+// The same invocation anywhere in a text, but not as the end of a longer word such as `chaos`.
+const HUMAN_ONLY_ANYWHERE = new RegExp(String.raw`(?<![\w.-])(?:${INVOCATION})(?:\s+--)?\s+${HUMAN_ONLY_SUB}`);
+// Programs that run a command under a pseudo-terminal they allocate, which would satisfy the CLI's TTY
+// check, and interpreters whose inline code can do the same (Python's pty.spawn, for one).
+const TTY_WRAPPERS = new Set(["script", "expect", "unbuffer", "socat"]);
+const INTERPRETER = /^(?:python[0-9.]*|perl|ruby|node|bun|deno)$/;
+const INLINE_CODE = /^(?:-[A-Za-z]*[cep]|--eval|--print|eval)$/;
 
 /** The human-only subcommand a leaf command invokes (for example "approve" or "run cancel"), or null. */
 export function matchHumanOnly(cmd: string): string | null {
   for (const leaf of walk(cmd).leaves) {
     // The full form keeps a path such as cli/src/index.ts that the basename would drop.
-    const m = HUMAN_ONLY.exec(leaf.command) ?? HUMAN_ONLY.exec(leaf.words.join(" "));
+    const m = HUMAN_ONLY.exec(leaf.command) ?? HUMAN_ONLY.exec(leaf.words.join(" ")) ?? wrappedHumanOnly(leaf);
     if (m !== null) return m[1].replace(/\s+/g, " ");
   }
   return null;
 }
 
-// Case-insensitive: default macOS filesystems fold case, so `.AOS/runs` reaches the same kernel files.
+/**
+ * A human-only command carried by a terminal wrapper or inline interpreter code, as in
+ * `script -q /dev/null aos approve R design` or `python3 -c "pty.spawn(['aos', 'approve', 'R'])"`. Those
+ * arguments are code or a command line of their own, so the invocation is searched for anywhere in them,
+ * with quotes, brackets, and commas read as spaces so a list of arguments reads as a command.
+ */
+function wrappedHumanOnly(leaf: Leaf): RegExpExecArray | null {
+  const name = leaf.command.split(" ")[0];
+  const wraps = TTY_WRAPPERS.has(name) || (INTERPRETER.test(name) && leaf.words.slice(1).some((w) => INLINE_CODE.test(w)));
+  if (!wraps) return null;
+  const text = leaf.words.slice(1).join(" ").replace(/[[\](){},;'"`]/g, " ");
+  return HUMAN_ONLY_ANYWHERE.exec(text);
+}
+
 // Matched against folded text (see foldName), so `.AOS` and other spellings of the same name count.
 const AOS_DIR = /(^|\/|>)\.aos(\/|$)/;
 const GLOB = /[*?[]/;
