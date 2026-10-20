@@ -1,6 +1,10 @@
 {
   "name": "aos-harness",
-  "owner": { "name": "aos-engineer", "url": "https://github.com/aos-engineer" },
+  "owner": {
+    "name": "aos-engineer",
+    "url": "https://github.com/aos-engineer"
+  },
+  "description": "The AOS plugin for Claude Code, served from the AOS Harness repository.",
   "plugins": [
     {
       "name": "aos",

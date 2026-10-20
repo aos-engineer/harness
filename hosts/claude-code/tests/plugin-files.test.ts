@@ -105,11 +105,15 @@ describe("plugin.json and .mcp.json", () => {
     expect(Object.keys(mcpJson.mcpServers)).toEqual(["aos"]);
   });
 
-  test("the manifest carries a version and description", () => {
+  test("the manifest carries a version, description, and attribution", () => {
     expect(pluginJson).toEqual({
       name: "aos",
       version: "1.0.0-next.0",
       description: "AOS run gates for Claude Code: staged gates, observed evidence, human approvals.",
+      author: { name: "AOS Engineer", url: "https://github.com/aos-engineer" },
+      homepage: "https://github.com/aos-engineer/harness/blob/main/docs/1.0/getting-started.md",
+      repository: "https://github.com/aos-engineer/harness",
+      license: "MIT",
     });
   });
 
