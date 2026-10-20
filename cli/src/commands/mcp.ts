@@ -4,6 +4,12 @@ import type { CommandFn } from "../io.ts";
 import { defaultPackDir } from "../pack-path.ts";
 
 const USAGE = "Usage: aos mcp [--pack <dir>]";
+const HELP = `${USAGE}
+
+Serves the AOS MCP tools on stdio, for a host that registers the CLI as its MCP server. The Claude Code
+plugin runs its own server and does not need this. The pack defaults to AOS_PACK, then the pack installed
+with the CLI. Hooks gate only sessions bound through the plugin's own server, so a session that uses this
+server instead is not gated.`;
 
 // Resolves only once the host closes the connection: returning earlier would end the process while
 // the host is still talking to it.
@@ -12,6 +18,10 @@ export const mcpCommand: CommandFn = async (io) => {
   let pack: string | undefined;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i] ?? "";
+    if (arg === "--help" || arg === "-h") {
+      io.out(HELP);
+      return 0;
+    }
     if (arg === "--pack" || arg.startsWith("--pack=")) {
       const value = arg === "--pack" ? args[++i] : arg.slice("--pack=".length);
       if (value === undefined || value === "") {
