@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { readFileSync, rmSync } from "node:fs";
+import { chmodSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { Actor, RunLocation } from "@aos-harness/kernel";
@@ -43,7 +43,7 @@ describe("aos status (all runs)", () => {
     expect(io.stdout).toContain(`No AOS runs under ${empty}.`);
   });
 
-  test("a run whose log cannot be replayed is listed as unreadable, and the rest still show", async () => {
+  test("a run whose log cannot be replayed is listed as tampered, and the rest still show", async () => {
     const good = newRun(root);
     request(loc); // a second event, whose link to the first one the edit below breaks
     mutateLine(loc, 0);
@@ -51,7 +51,28 @@ describe("aos status (all runs)", () => {
     const io = fakeIO({ argv: ["status"], cwd: root });
     expect(await statusCommand(io)).toBe(1);
     expect(io.stdout).toContain(`${good.run}  active  bounded  design`);
+    expect(io.stdout).toContain(`${run}  log tampered or corrupt at seq 2. Run aos doctor.`);
+  });
+
+  test("a run whose log cannot be read is listed as unreadable, and the rest still show", async () => {
+    chmodSync(runPaths(loc).log, 0o000);
+    const good = newRun(root);
+    const io = fakeIO({ argv: ["status"], cwd: root });
+    expect(await statusCommand(io)).toBe(1);
+    expect(io.stdout).toContain(`${good.run}  active  bounded  design`);
     expect(io.stdout).toMatch(new RegExp(`${run}  unreadable: .*Run aos doctor`));
+    chmodSync(runPaths(loc).log, 0o644);
+  });
+
+  test("a run whose log was edited in the middle is listed as tampered, even with a matching snapshot", async () => {
+    const good = newRun(root);
+    request(loc);
+    request(loc); // the edit below breaks the first link; the snapshot still matches the intact last event
+    mutateLine(loc, 0);
+    const io = fakeIO({ argv: ["status"], cwd: root });
+    expect(await statusCommand(io)).toBe(1);
+    expect(io.stdout).toContain(`${good.run}  active  bounded  design`);
+    expect(io.stdout).toContain(`${run}  log tampered or corrupt at seq 2. Run aos doctor.`);
   });
 
   test("--json lists runs as an array", async () => {

@@ -38,18 +38,25 @@ function listAll(io: CliIO, root: string, json: boolean): number {
   const rows: Array<{ run: string; status: string; tier: string; stage: string } | { run: string; error: string }> = [];
   for (const run of listRuns(root)) {
     try {
+      // The snapshot alone trusts any edit that keeps its last event intact, so the list checks the whole
+      // chain, as `aos status <run>` does: a person reading this should see a tampered run.
+      const chain = verifyChain({ root, run });
+      if (!chain.ok) {
+        rows.push({ run, error: `log tampered or corrupt at seq ${chain.badSeq ?? "?"}` });
+        continue;
+      }
       const { state } = loadState({ root, run }, projector);
       rows.push({ run, status: state.status, tier: state.tier, stage: state.current.stage });
     } catch (e) {
       // One damaged run must not hide the others.
-      rows.push({ run, error: e instanceof Error ? e.message : String(e) });
+      rows.push({ run, error: `unreadable: ${e instanceof Error ? e.message : String(e)}` });
     }
   }
   if (json) io.out(JSON.stringify(rows, null, 2));
   else if (rows.length === 0) io.out(`No AOS runs under ${root}.`);
   else {
     for (const r of rows) {
-      io.out(printable("error" in r ? `${r.run}  unreadable: ${r.error}. Run aos doctor.` : `${r.run}  ${r.status}  ${r.tier}  ${r.stage}`));
+      io.out(printable("error" in r ? `${r.run}  ${r.error}. Run aos doctor.` : `${r.run}  ${r.status}  ${r.tier}  ${r.stage}`));
     }
   }
   return rows.some((r) => "error" in r) ? 1 : 0;
