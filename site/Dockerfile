@@ -3,7 +3,9 @@ ARG SITE_BUILD_ID=local
 ARG BUILD_DATE=unknown
 
 # === Build stage ===
-FROM oven/bun:1.3.11 AS build
+# The same Bun as CI. Bun 1.3.11 fails to render the React islands with the dependencies the site
+# resolves now ("Expected CommonJS module to have a function wrapper" in react-dom/server.bun.js).
+FROM oven/bun:1.4.0 AS build
 
 ARG SITE_VERSION
 ARG SITE_BUILD_ID
