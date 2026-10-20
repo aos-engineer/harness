@@ -14,6 +14,10 @@ import { fx } from "../../hosts/claude-code/tests/fixture.ts";
 import { git, tmpDir, tmpGitRepo, writeFile } from "../../kernel/tests/helpers.ts";
 
 const BIN = join(import.meta.dirname, "../../hosts/claude-code/bin/aos-hook.ts");
+// AOS_E2E_HOOK=bundle runs every hook the way hooks.json does, through the launcher and the committed bundle,
+// so CI proves what a marketplace install runs. The default runs the sources, which are never stale.
+const LAUNCHER = join(import.meta.dirname, "../../hosts/claude-code/bin/aos.sh");
+const VIA_BUNDLE = process.env.AOS_E2E_HOOK === "bundle";
 const PACK = join(import.meta.dirname, "../../packs/feature-delivery");
 const HOST = "claude-code";
 // The name Claude Code gives a tool from the plugin's "aos" server; hooks.json matches on it.
@@ -157,7 +161,8 @@ export async function session(repo: string): Promise<Session> {
     for (const key of Object.keys(base)) if (key.startsWith("_")) delete base[key];
     const payload: Obj = { ...base, session_id: sessionId, cwd: repo, ...patch };
     if ("prompt_id" in base) payload.prompt_id = `prompt-${prompt}`;
-    const r = spawnSync(process.execPath, [BIN, ARG[event]], { cwd: repo, env, input: JSON.stringify(payload), encoding: "utf8", timeout: 30_000 });
+    const [cmd, args] = VIA_BUNDLE ? ["sh", [LAUNCHER, "hook", ARG[event]]] : [process.execPath, [BIN, ARG[event]]];
+    const r = spawnSync(cmd, args, { cwd: repo, env, input: JSON.stringify(payload), encoding: "utf8", timeout: 30_000 });
     // The entry point always exits 0 and speaks only through stdout; anything else is a finding.
     if (r.status !== 0) throw new Error(`hook ${event} exited ${r.status} (${r.signal ?? "no signal"}): ${r.stderr}`);
     return parseHook(r.stdout);

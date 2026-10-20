@@ -50,6 +50,12 @@ jobs:
       - name: Plugin bundles match the sources
         run: bun run build:plugin:check
 
+      # The same end-to-end runs, with every hook going through the launcher and the committed bundle.
+      - name: End-to-end through the shipped plugin
+        run: bun test ./tests/e2e
+        env:
+          AOS_E2E_HOOK: bundle
+
       - name: Packs and the marketplace entry are valid
         run: bun run validate:configs
 

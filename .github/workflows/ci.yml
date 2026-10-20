@@ -39,6 +39,12 @@ jobs:
       - name: Plugin bundles are up to date
         run: bun run build:plugin:check
 
+      # The same end-to-end runs, with every hook going through the launcher and the committed bundle.
+      - name: End-to-end through the shipped plugin
+        run: bun test ./tests/e2e
+        env:
+          AOS_E2E_HOOK: bundle
+
   # What a release ships: one version across manifests, loadable packs, a marketplace entry that resolves.
   validate-configs:
     runs-on: ubuntu-latest
