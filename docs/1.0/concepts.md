@@ -220,8 +220,7 @@ Run state is a pure fold over these events, so a gate verdict can always be re-d
 Not every reader verifies the chain:
 
 - **Hooks and appends trust `state.json`** when it matches the log's last event (same sequence number and hash). They replay and verify the log only when it does not, so an edit to an earlier line is not caught by the next tool call.
-- **`aos approve`, `aos run cancel`, `aos status <run>`, and `aos doctor` verify the full chain** every time, and refuse or report a log that fails.
-- **Plain `aos status`** lists runs from their snapshots and does not verify them.
+- **`aos approve`, `aos run cancel`, `aos status` (the list and a single run), and `aos doctor` verify the full chain** every time, and refuse or report a log that fails.
 
 Every write AOS makes under `.aos/` refuses to go through a symlink: if `.aos` or any existing path component below it is a link, the write fails with `AOS refuses to write through the symlink <path>; remove it and rerun`, so a planted link cannot redirect the run's records.
 

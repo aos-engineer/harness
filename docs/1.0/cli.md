@@ -92,7 +92,7 @@ aos status [run] [--json] [--root <path>]
 
 Read-only; it needs no terminal.
 
-**Without a run**, it lists every run under the root, one line each: `<run>  <status>  <tier>  <stage>`. With no runs it prints `No AOS runs under <root>.` The list reads each run's `state.json` snapshot, so it is fast and does not verify chains; a run whose state cannot be read is listed as `unreadable` and the command exits 1.
+**Without a run**, it lists every run under the root, one line each: `<run>  <status>  <tier>  <stage>`. With no runs it prints `No AOS runs under <root>.` The list verifies each run's whole log first. A run whose chain is broken is listed as `<run>  log tampered or corrupt at seq <n>. Run aos doctor.`, a run that cannot be read is listed as `<run>  unreadable: <reason>. Run aos doctor.`, and in either case the other runs are still listed and the command exits 1.
 
 **With a run**, it verifies the run's whole log first, then:
 
