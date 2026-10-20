@@ -47,6 +47,14 @@ export class TreeError extends Error {
   }
 }
 
+/** A write the kernel refused because its path under `.aos` passes through a symlink. */
+export class UnsafePathError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "UnsafePathError";
+  }
+}
+
 export class ChainError extends Error {
   badSeq: number | null;
   constructor(message: string, badSeq: number | null, options?: ErrorOptions) {

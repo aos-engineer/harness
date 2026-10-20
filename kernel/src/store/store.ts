@@ -1,14 +1,14 @@
 // The run store: the log plus a state.json snapshot of its projection. The log is the source of truth;
 // the snapshot exists so hooks can read run state without replaying the log on every tool call.
 import { randomBytes } from "node:crypto";
-import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { EventDraft, EventEnvelope, Projector, RunLocation, RunState, StateFile } from "../types.ts";
 import { ChainError, OpError, RunNotFoundError } from "../util/errors.ts";
 import { sha256Tag } from "../util/hash.ts";
 import { withLock } from "./lock.ts";
 import { aosDir, runPaths } from "./paths.ts";
-import { errCode, fsyncDir } from "./fs-internal.ts";
+import { appendQuietly, errCode, fsyncDir, refuseSymlinks } from "./fs-internal.ts";
 import { appendLocked, checkChain, parseLines, readLogBytes, readStateFile, readTail, scanLog } from "./log-internal.ts";
 import type { Tail } from "./log-internal.ts";
 
@@ -45,12 +45,9 @@ function readLogTail(loc: RunLocation): Tail {
 }
 
 // Best effort, in the same line format the hooks use, so `aos doctor` surfaces it with theirs.
+// Nowhere left to report a failure of this; the lagging snapshot still rebuilds on the next read.
 function trace(root: string, message: string): void {
-  try {
-    appendFileSync(join(aosDir(root), "hook-errors.log"), `${new Date().toISOString()} store ${message}\n`);
-  } catch {
-    // Nowhere left to report to; the lagging snapshot still rebuilds on the next read.
-  }
+  appendQuietly(root, join(aosDir(root), "hook-errors.log"), `${new Date().toISOString()} store ${message}\n`);
 }
 
 // The snapshot is a cache that loadState can always rebuild, so it is renamed into place without an fsync.
@@ -58,7 +55,8 @@ function writeStateFile(loc: RunLocation, body: string): void {
   const path = runPaths(loc).state;
   const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   try {
-    writeFileSync(tmp, body);
+    // "wx" refuses a planted file or symlink at the temporary name; the rename replaces a link at `path`.
+    writeFileSync(tmp, body, { flag: "wx" });
     renameSync(tmp, path);
     fsyncDir(dirname(path));
   } catch (e) {
@@ -86,6 +84,7 @@ function syncNewEntries(dir: string, firstCreated: string | undefined): void {
 
 export function createRun(loc: RunLocation, started: EventDraft<"run.started">, projector: Projector): StateFile {
   const paths = runPaths(loc);
+  refuseSymlinks(loc.root, paths.dir);
   const firstCreated = mkdirSync(dirname(paths.dir), { recursive: true });
   try {
     mkdirSync(paths.dir);
@@ -123,6 +122,8 @@ export interface AppendOptions {
 export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: Projector, opts: AppendOptions = {}): { events: EventEnvelope[]; file: StateFile } {
   const paths = runPaths(loc);
   if (!existsSync(paths.dir)) throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`);
+  // Before the lock: a symlinked run directory would put the lock file, then every event, somewhere else.
+  refuseSymlinks(loc.root, paths.lock);
   return withLock(paths.lock, (held) => {
     const snapshot = readStateFile(paths.state);
     // Filled in by the check, which runs before the batch is written: a projection or serialization that
