@@ -4,7 +4,10 @@
 // way, n times per scenario, and reports p50, p95, and max. The target is p95 under 100 ms; it is a
 // target, not a gate, so the script always exits 0.
 //
-//   bun run scripts/bench-hook.ts [--n 50]
+//   bun run scripts/bench-hook.ts [--n 50] [--bundle]
+//
+// --bundle times the committed dist/aos-hook.js, which is what a marketplace install runs (the launcher
+// execs it under Bun); the default times the sources, which also pays for transpiling them.
 //
 // It runs in a throwaway shallow clone of this checkout, so the fingerprint scenario hashes a tree the
 // size of this repository without writing .aos/ into the checkout. Two reference rows separate process
@@ -19,7 +22,9 @@ import { join } from "node:path";
 import { bindSession, openContext, runStart } from "@aos-harness/kernel";
 
 const CHECKOUT = join(import.meta.dirname, "..");
-const BIN = join(CHECKOUT, "hosts/claude-code/bin/aos-hook.ts");
+const BIN = process.argv.includes("--bundle")
+  ? join(CHECKOUT, "hosts/claude-code/dist/aos-hook.js")
+  : join(CHECKOUT, "hosts/claude-code/bin/aos-hook.ts");
 const PACK = join(CHECKOUT, "packs/feature-delivery");
 const HOST = "claude-code";
 const WARMUP = 2;
@@ -134,7 +139,7 @@ function main(): void {
     const rows = scenarios.map((s) => measure(s, repo, env, n));
     const files = spawnSync("git", ["ls-files"], { cwd: repo, encoding: "utf8" }).stdout.split("\n").filter((l) => l !== "").length;
 
-    console.log(`Hook latency, n=${n} per scenario after ${WARMUP} warm-up runs, bun ${Bun.version}, ${process.platform}/${process.arch}, clone of ${files} tracked files`);
+    console.log(`Hook latency (${BIN.endsWith(".js") ? "bundle" : "sources"}), n=${n} per scenario after ${WARMUP} warm-up runs, bun ${Bun.version}, ${process.platform}/${process.arch}, clone of ${files} tracked files`);
     console.log("");
     const width = Math.max(...rows.map((r) => r.scenario.length));
     console.log(`${"scenario".padEnd(width)}  ${"p50 ms".padStart(8)}  ${"p95 ms".padStart(8)}  ${"max ms".padStart(8)}  errors`);
