@@ -251,10 +251,10 @@ The workspace CLI imports `@aos-harness/kernel` from source, and that package is
 
 ## Performance
 
-Every hook is a fresh Bun process, and its wall time is added to the tool call. The plugin README records the measurements: on an Apple Silicon laptop with Bun 1.4.0, the PreToolUse guards measure a p95 of 43 to 49 ms, about 38 ms of which is starting Bun and loading the hook's modules; a PostToolUse that records a test run also fingerprints the working tree, and measured a p95 of about 95 ms on a clone of this repository under load. That cost grows with the size of the working tree. The target is a p95 under 100 ms per hook. Measure your own machine and repository with:
+Every hook is a fresh Bun process, and its wall time is added to the tool call. The plugin README records the measurements of the shipped bundle: on an Apple Silicon laptop with Bun 1.4.0, the PreToolUse guards measure a median of about 50 ms and a p95 of 54 to 60 ms, about 45 ms of which is starting Bun and loading the bundle; a PostToolUse that records a test run also fingerprints the working tree, and measured a median of 107 ms and a p95 of 123 ms on a clone of this repository, over the target. That cost grows with the size of the working tree. The target is a p95 under 100 ms per hook. Measure your own machine and repository with (`--bundle` times the shipped bundle; without it the sources are timed, which also pays for transpiling them):
 
 ```bash
-bun run scripts/bench-hook.ts
+bun run scripts/bench-hook.ts --bundle
 ```
 
 This is why the hook path avoids ajv, computes the tree fingerprint at most once per call, and pays only one binding lookup in an unbound session. It does replay the run's log on every call, which measured about 1.3 ms at p95 for 200 events and 3.5 ms for 1,000, because trusting the snapshot let an edited `state.json` change what AOS enforced.

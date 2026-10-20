@@ -88,7 +88,7 @@ The [feature-delivery pack README](../../packs/feature-delivery/README.md) has t
 
 An allowed tool call prints nothing, so your own permission prompts still apply: AOS never approves a tool call on your behalf. Hook errors go to `.aos/hook-errors.log`, which `aos doctor` reports.
 
-Each hook is a new Bun process. On an Apple Silicon laptop with Bun 1.4.0, the PreToolUse guards measure a p95 of 43 to 49 ms, of which about 38 ms is starting Bun and loading the hook's modules. A PostToolUse that records a test run also fingerprints the working tree, and measured a p95 of about 95 ms on a clone of this repository while parallel work loaded the machine; that cost grows with the size of the working tree. The target is a p95 under 100 ms per hook. Measure your own machine and repository with `bun run scripts/bench-hook.ts`.
+Each hook is a new Bun process. Timing the shipped bundle on an Apple Silicon laptop with Bun 1.4.0 (100 runs per scenario), the PreToolUse guards measure a median of about 50 ms and a p95 of 54 to 60 ms, of which about 45 ms is starting Bun and loading the bundle. A PostToolUse that records a test run also fingerprints the working tree: on a clone of this repository (510 tracked files) it measured a median of 107 ms and a p95 of 123 ms, which misses the 100 ms target, and that cost grows with the size of the working tree. It runs once, after the test command has finished. Measure your own machine and repository with `bun run scripts/bench-hook.ts --bundle`.
 
 ## What AOS does not defend
 
