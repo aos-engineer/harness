@@ -104,9 +104,10 @@ export function parseLines(lines: string[]): EventEnvelope[] {
 }
 
 /** Checks seq contiguity from 1 and that every prev is the hash of the line before it. */
-export function checkLines(lines: string[]): ChainCheck {
-  let prev = GENESIS_PREV;
-  for (let i = 0; i < lines.length; i++) {
+export function checkLines(lines: string[], from = 0, prevOfFrom: string = GENESIS_PREV): ChainCheck {
+  // `from` and `prevOfFrom` check only the lines after an already verified prefix.
+  let prev = prevOfFrom;
+  for (let i = from; i < lines.length; i++) {
     const want = i + 1;
     let e: { seq?: unknown; prev?: unknown };
     try {

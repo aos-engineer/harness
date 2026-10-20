@@ -10,7 +10,7 @@ import { sha256Tag } from "../util/hash.ts";
 import { withLock } from "./lock.ts";
 import { aosDir, runPaths } from "./paths.ts";
 import { appendQuietly, errCode, fsyncDir, refuseSymlinks } from "./fs-internal.ts";
-import { appendLocked, checkChain, parseLines, readLogBytes, readStateFile, scanLog } from "./log-internal.ts";
+import { appendLocked, checkAgainstState, checkChain, checkLines, parseLines, readLogBytes, readStateFile, scanLog } from "./log-internal.ts";
 
 function project(projector: Projector, base: RunState | null, events: EventEnvelope[]): RunState | null {
   let state = base;
@@ -109,6 +109,10 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
   if (!existsSync(paths.dir)) throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`);
   // Before the lock: a symlinked run directory would put the lock file, then every event, somewhere else.
   refuseSymlinks(loc.root, paths.lock);
+  // The full verified replay is the costly part of an append, so it runs before the lock; under the lock
+  // only what other writers appended since is checked and applied. Replaying under the lock made holds
+  // long enough that writers contending for one run timed out.
+  const before = replayUnlocked(loc, projector);
   return withLock(paths.lock, (held) => {
     const snapshot = readStateFile(paths.state);
     // Filled in by the check, which runs before the batch is written: a projection or serialization that
@@ -117,7 +121,7 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
     const { events } = appendLocked(loc, drafts, { held, check: (sealed, lastLine) => {
       // Replayed, never taken from state.json, for the same reason as loadState: the precondition and the
       // next snapshot must build on what the log says, not on an edited cache.
-      const base = rebuild(loc, projector, snapshot).state;
+      const base = catchUp(loc, projector, before, snapshot, sealed[0].seq - 1);
       if (opts.precondition) {
         if (base === null) throw new RunNotFoundError(`run ${loc.run} has no events to check against`);
         opts.precondition(base);
@@ -133,6 +137,35 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
     if (held()) writeStateFile(loc, out.body);
     return { events, file: out.file };
   });
+}
+
+/** A verified replay taken without the lock: the state and the seq and hash of the last line it covers. */
+interface Replay { state: RunState | null; seq: number; head: string }
+
+function replayUnlocked(loc: RunLocation, projector: Projector): Replay | null {
+  try {
+    // The snapshot is read before the log, as rebuild expects: a writer may be mid-append right now.
+    const { state, lines } = rebuild(loc, projector, readStateFile(runPaths(loc).state));
+    return lines.length === 0 ? null : { state, seq: lines.length, head: sha256Tag(lines[lines.length - 1]) };
+  } catch {
+    return null; // replayed again under the lock, which reports the problem
+  }
+}
+
+/**
+ * The state at `lastSeq`, the log's end as the lock holder sees it. When `before` is a prefix of the
+ * current log (same line at its seq), only the lines after it are chain-checked and applied; otherwise the
+ * whole log is replayed. The snapshot's pin on the end of the log is checked either way, since that is what
+ * catches an edited last event.
+ */
+function catchUp(loc: RunLocation, projector: Projector, before: Replay | null, snapshot: StateFile | null, lastSeq: number): RunState | null {
+  if (before === null || before.seq > lastSeq) return rebuild(loc, projector, snapshot).state;
+  const { lines } = scanLog(readLogBytes(loc));
+  if (lines.length !== lastSeq || sha256Tag(lines[before.seq - 1]) !== before.head) return rebuild(loc, projector, snapshot).state;
+  const links = checkLines(lines, before.seq, before.head);
+  const check = links.ok ? checkAgainstState(lines, snapshot) : links;
+  if (!check.ok) throw new ChainError(`run ${loc.run}: ${check.reason}`, check.badSeq);
+  return project(projector, before.state, parseLines(lines.slice(before.seq)));
 }
 
 /**
