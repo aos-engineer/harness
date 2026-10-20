@@ -69,8 +69,8 @@ bun run scripts/bench-hook.ts   # hook latency benchmark
 
 AOS Harness is a language-agnostic orchestration system for multi-agent AI workflows. It supports two orchestration patterns:
 
-- **Deliberation** — Agents debate a strategic question, the Arbiter synthesizes ranked recommendations with documented dissent. Output: structured memo.
-- **Execution** — A CTO/CIO/CEO orchestrator delegates production work to agents who produce architecture, task breakdowns, security reviews, and implementation plans. Output: execution package.
+- **Deliberation**: Agents debate a strategic question, the Arbiter synthesizes ranked recommendations with documented dissent. Output: structured memo.
+- **Execution**: A CTO/CIO/CEO orchestrator delegates production work to agents who produce architecture, task breakdowns, security reviews, and implementation plans. Output: execution package.
 
 The harness ships with:
 
@@ -84,7 +84,7 @@ The harness ships with:
 
 ## Quick Start
 
-> **0.6.0 migration note:** adapters are no longer bundled with the CLI. Install the adapter(s) for the AI CLI(s) you want to drive. See [CHANGELOG](./CHANGELOG.md#060).
+> **0.6.0 migration note:** adapters are no longer bundled with the CLI. Install the adapter(s) for the AI CLI(s) you want to drive. See [CHANGELOG](./CHANGELOG.md#060---2026-04-14).
 
 ### Prerequisites
 
@@ -307,14 +307,14 @@ AOS Harness includes advanced features for production orchestration:
 
 ## Platform (Enterprise Tier)
 
-The harness is fully functional standalone — every session writes a local JSONL transcript you can replay with `aos replay`. For teams that want live, multi-session observability, AOS also streams session events to an optional **hosted Platform** (a separate commercial offering). The open-source harness in this repository is complete on its own and never requires it.
+The harness is fully functional standalone: every session writes a local JSONL transcript you can replay with `aos replay`. For teams that want live, multi-session observability, AOS also streams session events to an optional **hosted Platform** (a separate commercial offering). The open-source harness in this repository is complete on its own and never requires it.
 
 When a platform endpoint is configured, each adapter batches transcript events to it in real time, providing:
 
-- **Live observability dashboard** — watch deliberations and executions stream in as they happen, across every session.
-- **Session timeline & history** — a searchable record of agent stances, dissent, costs, and artifacts.
-- **Team management** — shared projects, roles, and access control.
-- **Analytics** — spend, round counts, and outcome tracking across runs.
+- **Live observability dashboard**: watch deliberations and executions stream in as they happen, across every session.
+- **Session timeline & history**: a searchable record of agent stances, dissent, costs, and artifacts.
+- **Team management**: shared projects, roles, and access control.
+- **Analytics**: spend, round counts, and outcome tracking across runs.
 
 Connect the open-source harness to a platform with a URL and an ingest token:
 
@@ -325,7 +325,7 @@ aos run strategic-council \
   --platform-url https://platform.example.com
 ```
 
-Adapters advertise `transcript_streaming: "local+platform"`: events always land in the local transcript, and additionally stream to the platform when `--platform-url` (or `AOS_PLATFORM_URL`) is set. No platform, no problem — the harness runs identically without one.
+Adapters advertise `transcript_streaming: "local+platform"`: events always land in the local transcript, and additionally stream to the platform when `--platform-url` (or `AOS_PLATFORM_URL`) is set. No platform, no problem: the harness runs identically without one.
 
 ---
 
