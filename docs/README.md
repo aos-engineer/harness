@@ -1,6 +1,6 @@
 # Documentation
 
-The AOS 1.0 documentation lives in [`docs/1.0/`](1.0/). AOS 1.0 is in prerelease: the CLI is `aos-harness@next` on npm, and the Claude Code plugin installs from this repository's marketplace.
+The AOS 1.0 documentation lives in [`docs/1.0/`](1.0/). AOS 1.0 is in prerelease: the CLI is published to npm under the `next` tag from 1.0.0-next.0 on (until then `next` still names an old 0.x release candidate), and the Claude Code plugin installs from this repository's marketplace.
 
 ## Using AOS
 

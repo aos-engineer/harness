@@ -128,7 +128,7 @@ Every requirement names a `kind` and a minimum `provenance`, and can set `fresh`
 
 When a command line matches more than one action, the highest-priority one decides, in this order: `deploy`, `pr_create`, `push`, `commit`. `git commit -m x && git push` is judged as a push.
 
-In the reference pack, commit and push patterns accept git's global options before the subcommand (such as `-C <dir>` or `-c key=value`), `pr_create` covers creating a pull request with `gh` (in this release, `gh pr create`, `gh pr new`, and `gh api` calls that create a pull request through REST or GraphQL; a `gh api` read of pull requests stays allowed), and `deploy` covers `vercel`, `netlify`, and `fly` deploys, `kubectl apply` and `rollout`, `terraform apply`, `helm install` and `upgrade`, Dokploy deploy scripts, and `gh workflow run`. The exact expressions are in [`pack.yaml`](../../packs/feature-delivery/pack.yaml).
+In the reference pack, commit and push patterns accept git's global options before the subcommand (such as `-C <dir>` or `-c key=value`, including a quoted value with spaces), `pr_create` covers creating a pull request with `gh` (in this release, `gh pr create`, `gh pr new`, and `gh api` calls that create a pull request through REST or GraphQL; a `gh api` read of pull requests stays allowed), and `deploy` covers `vercel`, `netlify`, and `fly` deploys, `kubectl apply` and `rollout`, `terraform apply`, `helm install` and `upgrade`, Dokploy deploy scripts, and `gh workflow run`. The exact expressions are in [`pack.yaml`](../../packs/feature-delivery/pack.yaml).
 
 ## What the loader checks
 
@@ -182,7 +182,7 @@ The reference pack defines no architectural tier, so its architectural rule (dat
 
 `roles` maps a role name to the commands that play it. A shell command plays a role when one of the simple commands it runs equals a listed command or starts with it followed by a space: with `test: ["bun test"]`, both `bun test` and `bun test ./src` count, while `bunx vitest` does not. Roles are checked in pack order, and the first match wins.
 
-Before matching, AOS reduces the command line to the simple commands that actually run, in normal form: quotes removed, the command word reduced to its basename (so `/usr/local/bin/bun test` reads as `bun test`), single spaces. It sees through environment assignments (`CI=1 bun test`), `cd dir &&`, grouping, `time`, transparent wrappers (`command`, `exec`, `nohup`, `nice`, `sudo`, `timeout`, `env`), and scripts given to shells or `eval`. `xargs` and `watch` are not unwrapped, because they run the command on their own terms.
+Before matching, AOS reduces the command line to the simple commands that actually run, in normal form: quotes removed, the command word reduced to its basename and lowercased (so `/usr/local/bin/bun test` reads as `bun test`, and `Git push`, which the default macOS filesystem runs as git, reads as `git push`), whitespace inside a quoted word shown as `␣` (so `git -C "my dir" push` reads as `git -C my␣dir push` and `-C \S+` still sees one value), single spaces between words. Write patterns with a lowercase command word. It sees through environment assignments (`CI=1 bun test`), `cd dir &&`, grouping, `time`, transparent wrappers (`command`, `exec`, `nohup`, `nice`, `sudo`, `timeout`, `env`), and scripts given to shells or `eval`. `xargs` and `watch` are not unwrapped, because they run the command on their own terms.
 
 A role match after the tool call becomes observed command evidence with its exit code. Some runs do not count as a pass:
 

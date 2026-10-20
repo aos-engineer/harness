@@ -105,7 +105,7 @@ From here on, this session is gated. Other sessions are not; see [sessions and b
 
 ### 2. Design
 
-Claude reads the code and presents a short design in chat. In this stage it may write only under `docs/specs/`. An edit anywhere else is refused before it happens:
+Claude reads the code and presents a short design in chat. In this stage it may write only under `docs/specs/`. An edit with a file tool (Write, Edit, MultiEdit, NotebookEdit) anywhere else in the repository is refused before it happens; shell commands are not checked against the scope (see [security](security.md)):
 
 ```
 AOS: stage "design" allows writes only under docs/specs/. Pass its gate with aos_stage_advance first.
@@ -203,7 +203,7 @@ A spike has two stages. In **frame**, Claude writes no files; it states the ques
 AOS: push is not allowed in a spike run. Spike code is throwaway by design; start a bounded run to build it for real.
 ```
 
-A brief that mentions a database schema or schema change, a migration, authentication or authorization, a public API, or a new service classifies as architectural. This release has no architectural tier, so the run is refused with the reason, and Claude asks you how to proceed. Claude will not reword the brief to get a lower tier, and it cannot lower a tier at all. You can do that work outside a run, or split off a piece that is genuinely bounded.
+A brief that mentions a database schema or schema change, a migration, authentication or authorization, a public API, or a new service classifies as architectural. The architectural rule is checked first, so a brief such as `spike: is it possible to add SSO` classifies as architectural too. This release has no architectural tier, so the run is refused with the reason, and Claude asks you how to proceed. The skill tells Claude not to reword the brief to get a lower tier, and `aos_run_start` refuses a lower tier outright. You can do that work outside a run, or split off a piece that is genuinely bounded.
 
 ## Daily use
 
@@ -213,7 +213,7 @@ A brief that mentions a database schema or schema change, a migration, authentic
 - **Read block messages.** Every refusal lists what is missing. Claude is told to close those gaps rather than work around them, and so should you.
 - **Run tests on their own.** `bun test`, not `bun test | tail`. `cd app && bun test` is fine: `&&` keeps the test's failure.
 - **Compaction and resume are safe.** `/compact`, `claude --resume`, and `claude --continue` keep the session id, so the session stays bound and gated, and the SessionStart hook re-injects the run's stage, gate, and open gaps.
-- **A new session cannot rejoin a run.** `/clear`, a fork, or a new window starts a session with a new id, which is not bound to the run and not gated; rejoining a run from a new session is not supported in this release. The unbound-session notice says so, and Claude does not continue the old run: it asks whether you want to cancel it and start a new run here, or go back to the original session with `claude --resume`.
+- **A new session cannot rejoin a run.** `/clear`, a fork, or a new window starts a session with a new id, which is not bound to the run and not gated; rejoining a run from a new session is not supported in this release. The unbound-session notice says so, and Claude does not continue the old run: it tells you, and asks whether you want to cancel it and start a new run here. To go on with the old run instead, return to its original session with `claude --resume`.
 - **Subagents are gated.** Their tool calls carry the parent session, so the same scopes and policies apply to them.
 - **A completed run still guards push.** The session stays bound after the run completes, and push and PR create keep checking the verify gate at the current tree. For more work, start a new run.
 
@@ -225,7 +225,7 @@ To end a run, run this in your own terminal and type `cancel` when asked:
 aos run cancel 01JB2Q4X7N5K8M3R6T9V0W1Y2Z --reason "superseded by a smaller change"
 ```
 
-Cancelling records the reason in the run log and unbinds every session bound to the run, so they go back to normal Claude Code behavior. It works even when the run's log is damaged.
+Cancelling records the reason in the run log and unbinds every session bound to the run, so they go back to normal Claude Code behavior. When the run's log is damaged it still releases the sessions, but it cannot record the cancel, and it says so; run `aos doctor` to see what is wrong.
 
 There is no pause command in this release. A run waits on disk indefinitely: nothing times out, and the iteration budget is only spent when Claude tries to stop with work left. To pause, stop prompting. To pick the run up later, go back to the same session with `claude --resume` or `claude --continue`: it keeps the session id, so the run is still bound and gated. A new session cannot rejoin the run in this release.
 
@@ -236,6 +236,8 @@ claude plugin update aos@aos-harness
 npm install -g aos-harness@next    # or: bun add -g aos-harness@next
 aos doctor
 ```
+
+Restart Claude Code after `claude plugin update`: the update needs a restart to apply.
 
 ## Uninstall
 

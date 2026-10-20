@@ -4,7 +4,7 @@
 
 | Version | Status |
 |---|---|
-| 1.0 prereleases (`aos-harness@next`, the Claude Code plugin from this repository) | Fixes land on `main` and ship in the next prerelease. |
+| 1.0 prereleases (`aos-harness` 1.0.0-next.N on the npm `next` tag, and the Claude Code plugin from this repository) | Fixes land on `main` and ship in the next prerelease. |
 | 0.11.x (`aos-harness@latest`) | Fixes land on the `release/0.11` branch. |
 | Older 0.x | Not supported. |
 
@@ -20,8 +20,8 @@ AOS's hooks are a guardrail that keeps an agent on a process, not a security bou
 
 Within that model, these are vulnerabilities we want to hear about:
 
-- AOS itself writing outside the project's `.aos/` directory, or following a link out of it.
-- A credential in a format the redaction list names reaching a run log unmasked.
+- AOS itself writing outside the project's `.aos/` directory, or following a link out of it. The expected exceptions come from the tree fingerprint: a temporary copy of the git index under the OS temp directory, removed after use, and the blob and tree objects `git add` and `git write-tree` store in `.git`.
+- A credential in a format the redaction list names reaching a command's recorded output tail unmasked. Redaction applies only to command evidence; briefs, summaries, review feedback, and notes are stored as the agent gave them.
 - `aos approve` or `aos run cancel` succeeding from an agent's shell without the agent clearing Claude Code's environment and allocating a terminal.
 - The MCP server or the hooks accepting input that makes them read or write paths they should not.
 - Anything in the published npm package or plugin bundle that differs from the source in this repository.

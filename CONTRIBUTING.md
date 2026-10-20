@@ -35,6 +35,7 @@ BUN_TMPDIR="$TMPDIR" BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache" bun install
 | `packs/feature-delivery/` | The reference methodology pack. Data only. |
 | `cli/` | The `aos` CLI: `approve`, `status`, `doctor`, `run cancel`, `mcp`. |
 | `tests/e2e/` | Bounded and spike runs driven through the real MCP server and hook command. |
+| `tests/release/` | Tests for the release config check (`scripts/validate-configs.ts`). |
 | `scripts/` | The plugin build, the YAML safety lint, the hook benchmark, and the release scripts. |
 | `core/` | 0.x agent, profile, and domain content, kept because the docs site reads it at build time. |
 | `site/` | The docs site (Astro). Its own package, not a workspace member. |
@@ -82,13 +83,13 @@ Packs are data only: `pack.yaml` plus markdown instructions. The loader rejects 
 
 A marketplace install copies only `hosts/claude-code` into Claude Code's cache, so the plugin cannot reach this workspace's `node_modules` or `packs/`. `bun run build:plugin` bundles the hook and MCP entry points into `hosts/claude-code/dist` and copies the reference pack into `hosts/claude-code/pack`. Both are committed, because the marketplace installs straight from git.
 
-After changing anything the plugin bundles (the kernel, `hosts/claude-code/bin` or `src`, or the reference pack), rebuild and commit the output in the same change:
+After changing anything the plugin bundles (the kernel, `hosts/claude-code/bin` or `src`, or the reference pack), after any version bump (the MCP server embeds `kernel/package.json`'s version), and after a dependency change, rebuild and commit the output in the same change:
 
 ```bash
 bun run build:plugin
 ```
 
-CI runs `bun run build:plugin:check`, which fails when the committed files differ from a fresh build, then the end-to-end suite through the bundle. It also runs `bun run validate:configs` on every pull request: the versioned manifests must agree, every pack (including the plugin's copy) must load, the marketplace entry must point at the plugin, and `CHANGELOG.md` must have a non-empty section for the version.
+CI runs `bun run build:plugin:check`, which fails when the committed files differ from a fresh build, then the end-to-end suite through the bundled hook. `bun run test` also starts the bundled MCP server through `sh bin/aos.sh mcp` over stdio (`hosts/claude-code/tests/bundle-mcp.test.ts`), so the committed `dist/aos-mcp.js` runs in CI too. It also runs `bun run validate:configs` on every pull request: the versioned manifests must agree, every pack (including the plugin's copy) must load, the marketplace entry must point at the plugin, and `CHANGELOG.md` must have a non-empty section for the version.
 
 To run the plugin against a real session:
 

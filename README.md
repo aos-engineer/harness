@@ -24,6 +24,8 @@ Then install the CLI, which is how you approve gates and check runs:
 npm install -g aos-harness@next    # or: bun add -g aos-harness@next
 ```
 
+The reference pack's stages name skills from the [superpowers](https://github.com/obra/superpowers) plugin, so installing it is recommended; without it the agent follows each stage's written instructions.
+
 Start a run with `/aos:run <your request>`. [Getting started](docs/1.0/getting-started.md) walks through a first run, the two-step plugin install, pinning a release, and uninstalling.
 
 ### Documentation

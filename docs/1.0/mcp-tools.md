@@ -35,7 +35,7 @@ The SessionStart hook names the run id after a resume, so the agent can pass it.
 |---|---|
 | `invalid:` | The arguments are wrong: schema violations, unknown task or evidence ids, a line that does not exist, a request on a rule gate. Fix the call. |
 | `not_found:` | No run with that id under the repository. |
-| `refused:` | The call is well formed but not allowed: lowering a tier, a tier the pack does not define, evidence from outside the repository or under `.aos/`, any change to a completed or cancelled run, or a run that kept changing while the call ran. |
+| `refused:` | The call is well formed but not allowed: lowering a tier, a tier the pack does not define, evidence from outside the repository or under `.aos/` or `.git/`, any change to a completed or cancelled run, or a run that kept changing while the call ran. |
 | `internal:` | Something else failed, such as a pack that does not load or git failing. `aos doctor` usually explains it. |
 
 A completed or cancelled run accepts only `aos_status`. Any other call is refused with `Run <id> is <status>; only aos_status works on it. Start a new run with aos_run_start for further work.`
@@ -80,7 +80,7 @@ Read-only. Works on active, completed, and cancelled runs.
 | `runId`, `status`, `tier`, `stage`, `stages` | Where the run stands. |
 | `gate` | The current stage's gate evaluated now: `stage`, `verdict` (`pending`, `pass`, or `fail`), `gaps`, `fingerprint`, `weakFreshness`. |
 | `iterations` | `{ used, limit }` for the Stop loop's budget. |
-| `summary` | A short text summary, the same one the SessionStart hook injects. |
+| `summary` | A short text summary of the run. The SessionStart hook injects the same text plus a `Run id:` line and, once the gate passes with a later stage left, the reminder to call `aos_stage_advance`. |
 
 Each gap has `kind` (`missing`, `stale`, or `failed`), `who` (`agent` or `human`), `requirement` (for example `command:test`, `review`, `approval`, `tasks:t2`, `stage:verify`), and `text`, an instruction to act on.
 

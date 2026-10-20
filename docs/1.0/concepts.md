@@ -26,6 +26,8 @@ The tier scales the process to the risk. The pack's `classify` rules propose one
 | `bounded` | design, build, verify | matches no rule (the default) |
 | `architectural` | none in this release | mentions a database schema or schema change, a migration, authentication or authorization (OAuth, Auth0, SSO), a public API, or a new service |
 
+The reference pack checks the architectural rule first, so a brief that matches both, such as `spike: is it possible to add SSO`, is classified architectural and refused.
+
 The reason is recorded with the run and shown to the human, for example `matched /\bspike\b/ (spike rule)` or `no tier rule matched; pack default is bounded`.
 
 The agent may ask for a **higher** tier than proposed, and the reason then says `raised to <tier> on request`. It may never ask for a lower one: lowering a tier weakens the gates, and `aos_run_start` refuses with `Lowering the proposed tier (...) requires a human.` This release has no command for a human to lower a tier either.
@@ -116,7 +118,7 @@ AOS reads the command line the way a shell would split it, finds the commands th
 
 The exit code has to be the test command's own:
 
-- **Masked runs do not count.** In a pipe (`bun test | tail`), after `||`, `;`, or `&`, behind `!`, or inside a substitution, some other command decides the exit status. AOS records the run as masked, tells the agent, and the gate asks for a clean run. `&&` is fine, because it keeps the test's failure.
+- **Masked runs do not count.** Any operator other than `&&` between the commands at the test's level lets another command decide the exit status: a pipe (`bun test | tail`), `||`, `;`, `&`, or a newline. So `bun test; echo ok`, `cd app; bun test`, and a multi-line command are all masked, and so is a run behind `!` or inside a substitution. A trailing `;` or newline does not mask. AOS records the run as masked, tells the agent, and the gate asks for a clean run. `&&` is fine, because it keeps the test's failure: write `cd app && bun test`.
 - **Runs without an exit code are skipped.** A backgrounded, interrupted, or timed-out run has no status to judge, so AOS records nothing and tells the agent to run it in the foreground.
 
 A failing run is recorded too. The gate then reports `fail` until a newer passing run replaces it: the newest matching evidence decides.
@@ -164,7 +166,7 @@ When one command line holds several actions, the most consequential decides: dep
 
 Because `after_gate` is evaluated live, an edit after verify passed blocks push again until fresh tests and a fresh review exist. This holds after the run completes, too.
 
-The Bash guard also refuses, in every stage: the human-only `aos` commands (`approve`, `run cancel`, and subcommands reserved for later releases), however they are invoked, including through terminal wrappers such as `script` and inline interpreter code such as `python -c`; and any command that names `.aos/`, including `cd` targets, redirects, assignments, and globs or brace lists that would expand to it. Names are compared folded (Unicode case folding and NFKC), so `.AOS` counts too.
+The Bash guard also refuses, in every stage: the human-only `aos` commands (`approve`, `run cancel`, and subcommands reserved for later releases) in their common forms, including any letter case, terminal wrappers such as `script`, inline interpreter code such as `python -c`, and a command word or subcommand from a variable (forms it misses, such as `xargs aos approve`, are listed in [security](security.md); the CLI's own agent-session and terminal checks are the backstop); and any command that names `.aos/`, including `cd` targets, redirects, assignments, and globs or brace lists that would expand to it. Names are compared folded (Unicode case folding and NFKC), so `.AOS` counts too.
 
 ## The Stop loop
 
@@ -173,10 +175,10 @@ When the agent tries to end its turn, the Stop hook evaluates the current gate.
 - If the agent can close a gap, the stop is **blocked** and the gaps come back as its next instruction, ending with `Keep working on the gaps above.`
 - If the gate passes and a later stage exists, the agent is told to call `aos_stage_advance`.
 - If only the human can act, for example an approval is waiting, the agent may stop. The user sees `AOS: waiting on the human.` with the command to run.
-- If the same gaps were already sent back during this prompt, the agent may stop, and the user sees `AOS: no progress on these gaps since the last nudge, so handing back to you:` with the list. A new prompt, or any change in the gaps, allows one more nudge.
+- If these gaps are the ones last sent back during this prompt, the agent may stop, and the user sees `AOS: no progress on these gaps since the last nudge, so handing back to you:` with the list. A new prompt, a new stage, or a different set of gaps allows another nudge. Only the last set is remembered, so gaps that come back after a different set are nudged again.
 - When the iteration budget is used up, the agent may stop, with the open gaps listed.
 
-So the loop can never trap a session: it nudges at most once per distinct set of gaps per prompt, and never while only a human can act.
+So the loop can never trap a session: it never nudges the same gaps twice in a row within a prompt, the iteration budget caps the total, and it never nudges while only a human can act.
 
 ## The iteration budget
 
@@ -205,7 +207,7 @@ Each run lives in `.aos/runs/<id>/`:
 | File | Purpose |
 |---|---|
 | `log.jsonl` | The source of truth: one JSON event per line, append-only. |
-| `state.json` | A snapshot of the state the log projects to, so hooks need not replay the log on every tool call. Always rebuildable from the log. |
+| `state.json` | A snapshot of the state the log projects to, for reading a run at a glance. AOS never decides from its contents; `aos doctor` warns when it differs from the log, and the next append rewrites it. |
 | `log.lock` | A lock file held while one process appends. Hooks, the MCP server, and the CLI are separate processes. |
 | `artifacts/` | Content-addressed copies of artifact evidence, and any torn log tail saved during repair. |
 
@@ -217,10 +219,10 @@ The event types are `run.started`, `stage.entered`, `run.completed`, `run.cancel
 
 Run state is a pure fold over these events, so a gate verdict can always be re-derived from the log.
 
-Not every reader verifies the chain:
+Every reader verifies the chain:
 
-- **Hooks and appends trust `state.json`** when it matches the log's last event (same sequence number and hash). They replay and verify the log only when it does not, so an edit to an earlier line is not caught by the next tool call.
-- **`aos approve`, `aos run cancel`, `aos status` (the list and a single run), and `aos doctor` verify the full chain** every time, and refuse or report a log that fails.
+- **Hooks, MCP tools, and appends** verify and replay the whole log on every call and decide from that replay, never from the contents of `state.json`. The snapshot must still pin the end of the log (the sequence number and hash of its last event), which catches an edited or removed last event. A replay of a thousand events takes a few milliseconds. A hook that finds a broken chain treats it as a kernel error: push, PR create, and deploy are denied until `aos run cancel` releases the run's sessions.
+- **`aos approve`, `aos run cancel`, `aos status` (the list and a single run), and `aos doctor`** verify the full chain and refuse or report a log that fails. `aos doctor` also warns when `state.json` differs from what the log replays to: an edit, or a snapshot written by another AOS version.
 
 Every write AOS makes under `.aos/` refuses to go through a symlink: if `.aos` or any existing path component below it is a link, the write fails with `AOS refuses to write through the symlink <path>; remove it and rerun`, so a planted link cannot redirect the run's records.
 

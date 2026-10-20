@@ -17,10 +17,10 @@ aos <command> [options]
 ## Global behavior
 
 - `aos --help`, `aos -h`, or `aos` with no arguments prints the command list and exits 0. `aos --version` or `aos -v` prints `aos <version>` and exits 0.
-- `aos <command> --help` (or `-h`) prints that command's usage and exits 0. `aos mcp` has no help flag.
+- `aos <command> --help` (or `-h`) prints that command's usage and exits 0.
 - Value flags take `--flag value` or `--flag=value`. `--` ends the flags; everything after it is positional. A flag a command does not accept is an error, never silently ignored.
 - **Where runs live.** Commands that take `--root <path>` look for runs under `<path>/.aos/runs/`. Without it they use the git top level of the current directory, or the directory itself outside git. Runs always live at the repository top level, so any subdirectory works.
-- Text from run logs and agents (briefs, summaries, reasons, file names) is printed with control, format, and bidirectional characters shown as visible `\uXXXX` escapes, so a crafted summary cannot repaint the terminal or hide what is being approved.
+- Text from run logs and agents (briefs, summaries, reasons, file names) is printed with control, format, and bidirectional characters shown as visible `\uXXXX` escapes, so a crafted summary cannot repaint the terminal or hide what is being approved. `--json` output is plain JSON: control characters are JSON-escaped, but format and bidirectional characters are not, so a program that displays it should escape them itself.
 
 Exit codes shared by every command:
 
@@ -96,7 +96,7 @@ Read-only; it needs no terminal.
 
 **With a run**, it verifies the run's whole log first, then:
 
-- for an active run, evaluates the current gate against the current tree and prints the same summary the agent sees after compaction:
+- for an active run, evaluates the current gate against the current tree and prints the run's summary, the one the agent sees after compaction minus the `Run id:` line and the reminder to call `aos_stage_advance` once the gate passes:
 
   ```
   AOS run 01JB2Q4X7N5K8M3R6T9V0W1Y2Z (bounded, feature-delivery@1.0.0), active.
@@ -141,7 +141,7 @@ Checks everything AOS depends on and prints one line per finding: `OK`, `WARN` (
 | Repository | inside a git repository, and `.aos/` is gitignored | WARN: not in git (weak freshness), or `.aos/` not ignored (run logs could be committed) |
 | Pack | the pack loads | FAIL: lists every issue the loader found |
 | Bound skills | each skill a stage names is installed under `~/.claude/plugins/cache/` | WARN: not installed; the agent falls back to the stage's written instructions |
-| Runs | each run's hash chain verifies and its snapshot is current | FAIL: an active run's log is tampered or unreadable. WARN: an ended run's log is tampered, the log ends in torn bytes (repaired on the next append), or `state.json` lags (rebuilt on the next append) |
+| Runs | each run's hash chain verifies and its snapshot is current | FAIL: any run's log is unreadable, or an active run's log is tampered. WARN: an ended run's log is tampered, the log ends in torn bytes (repaired on the next append), `state.json` lags (rebuilt on the next append), or `state.json` does not match what the log replays to (AOS ignores its contents; the next append rewrites it) |
 | Session bindings | every binding points at a run that verifies | FAIL: a binding points at a run that is missing or fails verification; release it with `aos run cancel`. WARN: a binding file is unreadable; delete it to unbind that session |
 | Hook errors | `.aos/hook-errors.log` is empty or absent | WARN: shows the last three lines |
 

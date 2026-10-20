@@ -23,6 +23,7 @@ It checks Bun, git, Claude Code, whether `.aos/` is gitignored, the pack and its
 | `FAIL run <run>: log tampered or corrupt at seq <n>` | The run's gates and evidence cannot be trusted. Release its sessions with `aos run cancel <run> --reason "..."`, inspect `.aos/runs/<run>/log.jsonl`, then move the run's directory out of `.aos/runs` to retire it. An ended run with the same damage is a WARN. |
 | `WARN run <run>: the log ends in <n> torn bytes` | Crash damage, not tampering. The next append saves the bytes as an artifact and drops them. |
 | `WARN run <run>: state.json is at seq <a> but the log is at seq <b>` | Nothing; the snapshot is rebuilt on the next append. |
+| `WARN run <run>: state.json does not match what the log replays to` | Nothing breaks: AOS decides from the log, never from the snapshot's contents, and the next append rewrites it. It appears after an AOS upgrade in the middle of a run, or after something edited the file; if you did not upgrade, find out what wrote to `.aos/`. |
 | `FAIL session binding ... points at run <run>, which does not exist` (or fails verification) | `aos run cancel <run> --reason "..."` releases the binding. |
 | `WARN .aos/hook-errors.log has <n> lines` | See [the hook error log](#the-hook-error-log). |
 
@@ -35,7 +36,7 @@ When a hook or the run store fails, it appends one line to `.aos/hook-errors.log
 2026-10-19T14:05:40.117Z store run 01JB2Q4X7N5K8M3R6T9V0W1Y2Z: state.json not written (ENOSPC): <message>
 ```
 
-Causes are chained with `<-`, so a wrapped git or filesystem error keeps its origin. Logging never creates `.aos/`: a failure in a project with no `.aos/` directory is not logged anywhere.
+Causes are chained with `<-`, so a wrapped git or filesystem error keeps its origin. Logging never creates `.aos/`: a failure in a project with no `.aos/` directory is not logged anywhere. A hook process that crashes or cannot start is not logged either, because no AOS code ran: Claude Code blocks the Bash call (`onFailure: "block"`) and the log stays empty. So if a Bash call was blocked and the log is empty, the hook process itself failed before any AOS code ran; run `aos doctor` to check the toolchain. (A missing Bun does not block anything: the launcher steps aside instead.)
 
 `aos doctor` shows the last three lines. Fix the cause, then clear the file yourself (`: > .aos/hook-errors.log`); the agent cannot, because `.aos/` is off limits to it.
 
@@ -69,14 +70,14 @@ AOS will not write through a symlink at `.aos` or anywhere under it, because a l
 
 | Notice | Fix |
 |---|---|
-| `AOS: this test run's exit status was hidden by a pipe or chain, so it does not count as evidence. Re-run the test command on its own.` | Run `bun test`, not `bun test \| tail` or `bun test \|\| true`. `&&` before or after is fine. |
+| `AOS: this test run's exit status was hidden by a pipe or chain, so it does not count as evidence. Re-run the test command on its own.` | Run `bun test`, not `bun test \| tail`, `bun test \|\| true`, `cd app; bun test`, or several commands on separate lines. `&&` before or after is fine: `cd app && bun test`. |
 | `AOS: this test run produced no exit code (it was backgrounded, interrupted, or timed out), so it does not count. Run the test command in the foreground on its own.` | Run it in the foreground and let it finish. |
 | Gap: `No observed "test" run at the current tree. Run one of: ...` | The command must start with one of the listed prefixes. A test command the pack does not list, such as `npx vitest`, plays no role; add it to the pack's `test` role. |
 | Gap: `The last observed "test" run predates the current tree (...). Re-run it.` | Something changed since the last run. Run the tests again. |
 
 ## The agent will not stop, or stops too soon
 
-The Stop hook sends the agent back when it tries to stop with gaps it can close. It does this at most once per distinct set of gaps per prompt, never while only you can act, and at most 20 times per run in the reference pack.
+The Stop hook sends the agent back when it tries to stop with gaps it can close. It never sends the same gaps back twice in a row within a prompt, never while only you can act, and at most 20 times per run in the reference pack.
 
 | Message | Meaning |
 |---|---|

@@ -43,7 +43,7 @@ Three kinds of process write to a run, and none of them is long-lived except the
 | `kernel/src/ops/` | Operations: `agent.ts` for what the agent may do through MCP, `human.ts` for what only a person may do (approve, deny, cancel), and `context.ts` for where an operation runs. |
 | `kernel/src/hooks/` | The host-agnostic hook logic: binding, the guard, the observer, the Stop loop, SessionStart, and the fail-safe policy. |
 | `kernel/src/mcp/` | The MCP server and its tool catalog, exported only as `@aos-harness/kernel/mcp`. |
-| `kernel/src/util/` | ULIDs, hashing, typed errors, and the lazy ajv loader. |
+| `kernel/src/util/` | ULIDs, hashing, typed errors, the lazy ajv loader and the side-effect module bundles use to supply ajv (`ajv-static.ts`), and the name folding behind every `.aos` check (`fold.ts`). |
 | `hosts/claude-code/` | The Claude Code plugin: manifest, `hooks/hooks.json`, MCP registration in `.mcp.json`, the `/aos:run` skill, the launcher, and the entry points in `bin/`. `src/` translates Claude Code payloads into `HookInput` and `HookDecision` back into Claude Code's hook JSON. |
 | `cli/` | The `aos` CLI, the human side. |
 | `packs/feature-delivery/` | The reference pack. Data only. |
@@ -53,7 +53,7 @@ The boundaries that matter:
 - **Hosts translate; the kernel decides.** A host normalizes its payload into `HookInput` and renders a `HookDecision`. Every policy decision lives in the kernel, so a second host reuses all of it.
 - **The kernel is portable.** `kernel/src` imports only `node:` built-ins and its declared dependencies (`@modelcontextprotocol/sdk`, `ajv`, `js-yaml`): no `Bun.*`, no `bun:*`, no `import.meta.dir`. A host can load the kernel in-process under Node 22.18 or later, and the tests check that the barrel loads there and that the source uses no Bun-only APIs.
 - **The MCP SDK stays out of the barrel.** `@aos-harness/kernel` does not export the server; `@aos-harness/kernel/mcp` does, so a host that loads the kernel in-process does not pull in the SDK.
-- **The agent side never reaches the human operations.** `approve`, `deny`, `cancelRun`, and `humanActor` refuse a non-human actor, but a caller that passes a human actor is believed. So the MCP server and the hooks, which act for the agent, must never import them, and [`kernel/tests/ops-human/imports.test.ts`](../../kernel/tests/ops-human/imports.test.ts) reads their sources and fails if they do.
+- **The agent side never reaches the human operations.** `approve`, `deny`, and `cancelRun` refuse a non-human actor, but a caller that passes a human actor is believed, and `humanActor` builds one from the OS account for anyone who calls it. So the kernel's MCP server and hook code, which act for the agent, must never import them, and [`kernel/tests/ops-human/imports.test.ts`](../../kernel/tests/ops-human/imports.test.ts) reads every source under `kernel/src/mcp` and `kernel/src/hooks` and fails if one does. It does not scan the host's own code in `hosts/claude-code`.
 - **No tool can produce observed evidence.** No MCP schema has a provenance field, and `command` is not an evidence kind the agent can record. Observed evidence comes only from the hooks.
 
 ## From hook payload to decision
@@ -91,16 +91,16 @@ The process always exits 0 and speaks only through JSON on stdout, because Claud
 [`kernel/src/hooks/handle.ts`](../../kernel/src/hooks/handle.ts) never throws. In order:
 
 1. **Bind on run start.** For the PostToolUse of `aos_run_start`, `bindOnRunStart` finds the new run id in the serialized tool response, locates its `.aos/runs/<run>` under the session's repository root (from `cwd`, then the project directory), and, if the run is active, writes the session binding and appends `session.bound`. The MCP server never sees the host's session id, so this hook is where the session and the run meet.
-2. **Look up the binding.** `findBinding` walks up from a directory to the filesystem root looking for `.aos/sessions/<host>-<session>-<hash>.json`. `lookupBinding` tries the payload's `cwd`, then the project directory, then (for a file tool) the real directory of the file being written, skipping a walk an earlier one already covered. With no binding the hook allows and says nothing, except that SessionStart names any active run in the project that this session is not bound to. An unbound session pays for one lookup per hook.
-3. **Load the run.** `loadState` reads `state.json` and returns it as is when it pins the current end of the log (the fast path); otherwise it verifies and replays the log in memory. A cancelled run passes everything through.
+2. **Look up the binding.** `findBinding` walks up from a directory to the filesystem root looking for `.aos/sessions/<host>-<session>-<hash>.json`. `lookupBinding` tries the payload's `cwd`, then the project directory, then (for a file tool) the real directory of the file being written, skipping a walk an earlier one already covered. With no binding the hook allows and says nothing, except that SessionStart names any active run that this session is not bound to, found in `.aos/runs` of the session's directory and of the project directory (not their parents). An unbound session pays for one lookup per hook.
+3. **Load the run.** `loadState` verifies the whole log and replays it in memory on every call; the contents of `state.json` are never used, though the snapshot must still pin the log's end. A broken chain throws `ChainError`, which reaches the fail-safe path. A cancelled run passes everything through.
 4. **Dispatch.** `pre-tool` goes to the guard, `post-tool` and `post-tool-failure` to the observer, `stop` to the Stop loop, and `session-start` to the summary.
 
 | Handler | What it does |
 |---|---|
 | `guard.ts` (PreToolUse) | For file tools: refuses `.aos/`, then checks the stage's write scope. For Bash: refuses human-only `aos` commands, refuses commands that name `.aos/`, then matches the pack's actions and applies the tier's policy. Each deny appends `action.blocked`; each allowed guarded action appends `action.allowed`. |
 | `observe.ts` (PostToolUse, PostToolUseFailure) | Bash commands that match a role become observed command evidence with a redacted output tail and an output digest; file writes become `worktree.changed`; Skill calls become observed skill evidence. It runs on completed runs too, so a test run after completion can still block or re-open a push. |
-| `stop.ts` (Stop) | The retry loop: blocks the stop while the agent has gaps it can close, keyed on the prompt id and the gap set so the same gaps are never nudged twice in a prompt, and charges the iteration budget. |
-| `session-start.ts` (SessionStart) | Re-injects a capped run summary on every source (startup, resume, clear, compact), so compaction never loses the run. |
+| `stop.ts` (Stop) | The retry loop: blocks the stop while the agent has gaps it can close, keyed on the prompt id and the gap set, of which only the last is remembered, so the same gaps are never nudged twice in a row within a prompt; it charges the iteration budget, which caps the total. |
+| `session-start.ts` (SessionStart) | Re-injects a capped run summary whenever a bound session starts, which in practice means resume and compaction, so compaction never loses the run. After startup, `/clear`, or a fork the session id is new, so the session is unbound and gets the unbound notice instead (`unbound.ts`). |
 
 ### Rendering
 
@@ -118,9 +118,9 @@ The process always exits 0 and speaks only through JSON on stdout, because Claud
 Consequential actions fail closed; everything else fails open, so a kernel bug never breaks an ordinary session.
 
 1. **Kernel error.** Any throw inside `handleHook` is logged to `.aos/hook-errors.log` (the bound run's root, else the nearest existing `.aos` above the project directory or `cwd`) and answered by `failsafeDecision`: a PreToolUse whose raw command text matches a short list of consequential patterns (push, PR creation, deploy commands) is denied with `AOS error, run \`aos doctor\`: <message>`; everything else is allowed. The patterns are deliberately crude, because the pack itself may be what failed.
-2. **Recording failure.** An allowed guarded action must be recorded: if appending `action.allowed` fails, the throw reaches the fail-safe path and the action is denied. A failure to record a deny is only logged; the deny stands.
+2. **Recording failure.** If appending `action.allowed` fails, the throw reaches the fail-safe path, which denies push, PR create, and deploy commands; a commit goes through unrecorded. A failure to record a deny is only logged; the deny stands.
 3. **Unreadable payload.** A payload that does not parse or normalize goes to `payloadFailsafe`, which applies the same decision only when a `.aos` directory exists at or above the payload's `cwd` or the project directory, and logs only there. Anywhere else a change in the host's payload format must not block a push, and nothing is written.
-4. **A crashed or hung process.** Only the Bash matcher has `onFailure: "block"`, so a hook process that dies blocks the Bash command and lets file edits through. This needs Claude Code 2.1.295 or later, which `aos doctor` checks.
+4. **A failed process.** Only the Bash matcher has `onFailure: "block"`, so a hook process that fails, for example by crashing, blocks the Bash command and lets file edits through. This needs Claude Code 2.1.295 or later, which `aos doctor` checks.
 
 ## The event log and projection
 
@@ -151,23 +151,23 @@ Each line of `log.jsonl` is one envelope, serialized with a fixed key order beca
 | `id` | A ULID for the event. |
 | `run` | The run id. |
 | `ts` | ISO timestamp. |
-| `actor` | `{ kind, id, agent }`: `agent` (`mcp:<tool>`), `hook` (`claude-code:<event>`), `human` (the OS account), or `kernel` (`store`). `agent` carries a subagent's id when the host reports one. |
+| `actor` | `{ kind, id, agent }`: `agent` (`mcp:<tool>`), `hook` (`claude-code:<event>`, with the kernel's event name: `pre-tool`, `post-tool`, `post-tool-failure`, `stop`, or `session-start`), `human` (the OS account), or `kernel` (`store`). `agent` carries a subagent's id when the host reports one. |
 | `type` | One of the event types in `EventDataMap`, such as `run.started`, `evidence.recorded`, `approval.granted`, `action.blocked`. |
 | `data` | The type's payload. |
 | `prev` | `sha256:<hex>` of the previous line; the first event's `prev` is `GENESIS_PREV`, `sha256:` followed by 64 zeros. |
 
-`state.json` pins the log: its `seq` and `head` (the hash of the line at that seq) must match the log. That pin is what catches an edited or removed last event, which no later `prev` covers. `verifyChain` replays the whole chain and checks the pin; it detects edits, deletions, and truncation that break the chain. The chain is not signed, so a log and snapshot rewritten consistently end to end are not detected. Hooks and MCP appends skip this replay whenever the snapshot pins the log's last event; `aos status`, `aos approve`, `aos run cancel`, and `aos doctor` always run it.
+`state.json` pins the log: its `seq` and `head` (the hash of the line at that seq) must match the log. That pin is what catches an edited or removed last event, which no later `prev` covers. `verifyChain` replays the whole chain and checks the pin; it detects edits, deletions, and truncation that break the chain. The chain is not signed, so a log and snapshot rewritten consistently end to end are not detected. Every reader runs this check: hooks, MCP operations, and appends on every call, and `aos status`, `aos approve`, `aos run cancel`, and `aos doctor`. Given a projector, `verifyChain` also replays the events the snapshot reflects and reports a snapshot whose contents differ, which `aos doctor` shows as a WARN; that leaves the chain `ok`, because nothing trusts those contents and another AOS version can project the same events differently.
 
 ### Writing
 
 `appendEvents` takes the run's lock, then:
 
-1. reads the snapshot and the log's tail (a window that grows until it holds the last two whole lines, so an append costs the same on a long run as on a short one);
-2. uses the snapshot as the base state when it pins the current end of the log, and otherwise verifies and replays the full log, throwing `ChainError` on any break so a tampered run fails closed;
+1. reads the snapshot and the log's tail (a window that grows until it holds the last two whole lines), which it needs to repair a torn tail;
+2. verifies and replays the full log for the base state, never taking it from the snapshot, and throws `ChainError` on any break so a tampered run fails closed;
 3. runs the caller's **precondition** against that base state, then projects the new events. Either can throw, and a throw leaves the log untouched;
 4. writes the whole batch in one write and fsyncs it, then writes `state.json` through a temporary file and a rename.
 
-The snapshot is a cache. A failed snapshot write is traced to `hook-errors.log` and never reported as a failed append, because the events are already durable and a retry would duplicate them; the next reader rebuilds it.
+The snapshot is a convenience copy that no decision reads. A failed snapshot write is traced to `hook-errors.log` and never reported as a failed append, because the events are already durable and a retry would duplicate them; the next reader rebuilds it.
 
 **The lock** is `log.lock`, created exclusively and holding `{ pid, host, ts, nonce }`. A waiter retries with jitter for up to 3 s, then fails with `LockTimeoutError`. A lock is stale when it is older than 30 s or its pid is dead on the same host; breakers serialize on a short-lived marker and re-check that the lock is still the one they judged stale. A holder suspended past the stale age (a laptop asleep) re-checks that it still holds the lock and that the log has not grown before it writes, and gives up rather than fork the chain.
 
@@ -202,7 +202,7 @@ The tree fingerprint (`kernel/src/tree/fingerprint.ts`) stages everything into a
 
 ## Shell analysis
 
-The guard and the observer judge Bash commands by text. `kernel/src/shell/` lexes a command line without expanding or running anything, never splitting inside quotes, substitutions, or heredoc bodies, then reduces it to the simple commands that actually run, unwrapping environment assignments, `cd`, grouping, transparent wrappers, and scripts handed to a shell or `eval`, to a bounded depth. Each such command is matched in a normal form (quotes removed, the command word reduced to its basename, single spaces) against the pack's roles and action patterns and the human-only command list, and every word of every segment is checked for a path into `.aos/`. A command whose word bash would rewrite before running it cannot be classified from its text, so the guard reads the surrounding words conservatively. This is best-effort text analysis of a language it does not fully parse; [security.md](security.md) lists its limits.
+The guard and the observer judge Bash commands by text. `kernel/src/shell/` lexes a command line without expanding or running anything, never splitting inside quotes, substitutions, or heredoc bodies, then reduces it to the simple commands that actually run, unwrapping environment assignments, `cd`, grouping, transparent wrappers, and scripts handed to a shell or `eval`, to a bounded depth. Each such command is matched in a normal form (quotes removed, the command word reduced to its basename and lowercased, whitespace inside a word shown as `␣`, single spaces) against the pack's roles and action patterns and the human-only command list, and every word of every segment is checked for a path into `.aos/`. A command whose word bash would rewrite before running it cannot be classified from its text, so the guard reads the surrounding words conservatively. This is best-effort text analysis of a language it does not fully parse; [security.md](security.md) lists its limits.
 
 Command evidence keeps a sha256 of the full output and only the last 4096 bytes after redaction, which replaces common credential and personal-data formats with `[REDACTED]`. Redaction is best-effort by format.
 
@@ -257,7 +257,7 @@ Every hook is a fresh Bun process, and its wall time is added to the tool call. 
 bun run scripts/bench-hook.ts
 ```
 
-This is why the hook path avoids ajv, reads `state.json` instead of replaying the log, computes the tree fingerprint at most once per call, and pays only one binding lookup in an unbound session.
+This is why the hook path avoids ajv, computes the tree fingerprint at most once per call, and pays only one binding lookup in an unbound session. It does replay the run's log on every call, which measured about 1.3 ms at p95 for 200 events and 3.5 ms for 1,000, because trusting the snapshot let an edited `state.json` change what AOS enforced.
 
 ## Tests
 
