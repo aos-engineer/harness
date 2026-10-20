@@ -2,9 +2,38 @@
 
 ## Unreleased
 
+## 1.0.0-next.0 (2026-10-19)
+
+The first 1.0 prerelease. AOS is no longer a separate orchestrator: it runs inside Claude Code as a plugin and gates what the agent may do on evidence it observes. This is a preview for early adopters; npm `latest` stays on 0.11 until 1.0 is stable.
+
 ### Breaking
 
-- 1.0 development begins on `main`. The 0.x engine, workflow runner, adapters, and CLI are removed from `main`; 0.11.x patches go to `release/0.11`.
+- `main` is the 1.0 line. The 0.x engine, workflow runner, adapters, and CLI are removed from it; 0.11.x patches go to `release/0.11`, and `npm install aos-harness` still installs 0.11.
+- The `aos` CLI is new. Its commands are `approve`, `status`, `doctor`, `run cancel`, and `mcp`; none of the 0.x commands remain.
+
+### Added
+
+- **Runs with staged gates.** An agent starts a run from a brief. The reference pack classifies it as a spike (frame, probe) or a bounded change (design, build, verify), and each stage closes only when its gate passes.
+- **Observed evidence.** Hooks record test runs, file edits, and skill loads as they happen, fingerprinted against the git tree, so stale or claimed results cannot pass a rule gate that asks for observed ones.
+- **Human approvals.** Human gates pass only on `aos approve` from a real terminal. The agent can request an approval but cannot grant one.
+- **Guarded actions.** Push and pull request creation need the verify gate; deploys are never allowed inside a run; spike runs can never push. Each stage limits where file-edit tools may write.
+- **A Stop loop.** When the agent stops with open gaps it is told what remains, once per distinct gap set, and never while only a human can act. Run state is re-injected after compaction and resume.
+- **An append-only run log.** Each run lives in `.aos/runs/<id>/` as a hash-chained `log.jsonl` with a `state.json` projection; `aos doctor` verifies every chain.
+- **MCP tools** for the agent to start, inspect, and advance runs, record tasks and reviews, and request approvals. Calls default to the run the session started.
+- **The Claude Code plugin** ships from this repository's marketplace with bundled hooks, MCP server, and pack, so it runs without a checkout or `bun install`. It needs Bun on `PATH`; without Bun the hooks step aside and the session is told why.
+- **A session that a run does not cover is told so** at session start (for example after `/clear` or a fork), so nobody assumes gates apply.
+- **The `aos-harness` CLI** on the npm `next` tag: one self-contained file that runs under Bun.
+
+### Requirements
+
+- Bun 1.3.11 or newer, git, and Claude Code 2.1.295 or newer. The reference pack's stages name skills from the [superpowers](https://github.com/obra/superpowers) plugin; install it so Claude can load them.
+
+### Known limits
+
+- Hooks are a guardrail, not a security boundary. An agent with shell access can reach `.aos/` through processes hooks never see, Bash writes are not checked against write scopes, and the shell guards are best-effort text analysis. See `docs/1.0/security.md`.
+- Only Claude Code is supported, and only spike and bounded runs: briefs the pack classifies as architectural are refused.
+- Only the session that started a run is gated. A session started after `/clear` cannot rejoin its run.
+- Test evidence is fingerprinted when the test command finishes, so an edit made while tests run is not detected. Review evidence is recorded by the agent, not observed.
 
 ## 0.11.0 — Execution profiles run for real (2026-07-01)
 
