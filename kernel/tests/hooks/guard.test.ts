@@ -62,6 +62,7 @@ describe("file writes", () => {
   test("a differently cased .aos is denied too, since macOS folds case by default", () => {
     at(loc, "build");
     expect(denied(pre(writeTool(".AOS/runs/x/state.json")))).toBe(AOS_DIR);
+    expect(denied(pre(writeTool(".ao\u017f/runs/x/state.json")))).toBe(AOS_DIR);
   });
 
   test("a path that only starts with .aos is an ordinary file", () => {

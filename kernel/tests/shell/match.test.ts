@@ -198,4 +198,15 @@ test.each([
   ['cat "$(git rev-parse --show-toplevel)/.aos/runs/x"', true], ["cat $(echo .aos/x)", true],
   // Default macOS filesystems fold case, so .AOS reaches the same kernel files
   ["cat .AOS/runs/x/state.json", true], ["rm -rf /repo/.Aos", true], ["ls .AOSX", false],
+  // ...and fold Unicode case: long s (U+017F) is s. Ignorable code points and compatibility forms fold away.
+  ["cat .ao\u017f/runs/x/state.json", true], ["rm -rf .a\u200Bos", true], ["ls .\uFF41os", true],
+  // A glob or brace expansion that bash expands to .aos, as checked against real bash
+  ["rm -rf .a*", true], ["cat .ao?/runs/x/state.json", true], ["ls .[a]os", true], ["ls .[!x]os", true],
+  ["rm -rf .*", true], ["cp -r ./.* /tmp/x", true], ["rm -rf .{aos,git}", true], ["rm -rf .ao{r..t}", true],
+  ["cat {.aos,x}/runs/a", true], ["ls .A*", true], ["ls .[[:alpha:]]os", true], ["ls .a-*", false],
+  ["echo .{a,b}{c,d}{e,f}{g,h}{i,j}{k,l}{m,n}{o,p}{q,r}", true],
+  // Without a literal leading dot, a glob does not match a dot directory, unless dotglob is on
+  ["rm -rf dist/*", false], ["ls *", false], ["ls ?aos", false], ["ls [.]aos", false], ["ls .g*", false],
+  ["shopt -s dotglob; rm -rf *", true], ["ls .git/*", false], ["echo {1..1000000}", false],
+  ["echo ${HOME}", false], ["find . -name '*.ts' -exec wc -l {} +", false], ["ls .{git,github}", false],
 ])("mentionsAosDir(%j)", (cmd, want) => expect(mentionsAosDir(cmd)).toBe(want));
