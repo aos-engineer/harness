@@ -14,7 +14,9 @@
     "test": "bun test ./kernel ./hosts ./cli ./tests",
     "typecheck": "bun x tsc --noEmit -p tsconfig.json && bun x tsc --noEmit -p kernel/tsconfig.src.json",
     "lint:yaml-safety": "bun run scripts/check-yaml-safety.ts",
-    "lint": "bun run lint:yaml-safety && bun run typecheck"
+    "lint": "bun run lint:yaml-safety && bun run typecheck",
+    "build:plugin": "bun run scripts/build-plugin.ts",
+    "build:plugin:check": "bun run scripts/build-plugin.ts --check"
   },
   "devDependencies": {
     "@aos-harness/host-claude-code": "workspace:*",

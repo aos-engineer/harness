@@ -37,15 +37,17 @@ function kindOf(toolName: string): string {
 }
 
 describe("hooks.json", () => {
-  test("every hook command targets bin/aos-hook.ts with a known event", () => {
+  test("every hook command runs the launcher's hook entry with a known event", () => {
     for (const cmd of allCommands()) {
-      const ev = cmd.match(/aos-hook\.ts" (\S+)$/)![1]!;
+      const ev = cmd.match(/aos\.sh" hook (\S+)$/)![1]!;
       expect(Object.keys(CLI_EVENTS)).toContain(ev);
     }
   });
 
-  test("every command is exactly bun on the plugin-rooted hook entry point", () => {
-    for (const cmd of allCommands()) expect(cmd).toMatch(/^bun "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/aos-hook\.ts" [a-z-]+$/);
+  // The launcher runs the bundled entry point under Bun, and steps aside when Bun is missing instead of
+  // failing every Bash call.
+  test("every command is exactly sh on the plugin-rooted launcher", () => {
+    for (const cmd of allCommands()) expect(cmd).toMatch(/^sh "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/aos\.sh" hook [a-z-]+$/);
   });
 
   test("each command passes the event it is registered under", () => {
@@ -111,18 +113,24 @@ describe("plugin.json and .mcp.json", () => {
     });
   });
 
-  test("the MCP server runs bin/aos-mcp.ts with the reference pack and host name", () => {
+  test("the MCP server runs through the launcher with the pack shipped in the plugin", () => {
     expect(mcpJson.mcpServers.aos).toEqual({
-      command: "bun",
-      args: ["${CLAUDE_PLUGIN_ROOT}/bin/aos-mcp.ts"],
-      env: { AOS_PACK: "${CLAUDE_PLUGIN_ROOT}/../../packs/feature-delivery", AOS_HOST: "claude-code" },
+      command: "sh",
+      args: ["${CLAUDE_PLUGIN_ROOT}/bin/aos.sh", "mcp"],
+      env: { AOS_PACK: "${CLAUDE_PLUGIN_ROOT}/pack", AOS_HOST: "claude-code" },
     });
+  });
+
+  // A marketplace install copies only the plugin directory, so nothing may reach outside it.
+  test("no plugin-rooted path leaves the plugin directory", () => {
+    const all = [...allCommands(), ...mcpJson.mcpServers.aos.args, mcpJson.mcpServers.aos.env.AOS_PACK];
+    for (const p of all) expect(p).not.toContain("..");
   });
 
   test("every plugin-rooted path points at something that exists in the checkout", () => {
     const paths = [
       ...allCommands().map((c) => /"\$\{CLAUDE_PLUGIN_ROOT\}([^"]+)"/.exec(c)![1]!),
-      ...mcpJson.mcpServers.aos.args.map((a) => a.replace("${CLAUDE_PLUGIN_ROOT}", "")),
+      ...mcpJson.mcpServers.aos.args.filter((a) => a.startsWith("${CLAUDE_PLUGIN_ROOT}")).map((a) => a.replace("${CLAUDE_PLUGIN_ROOT}", "")),
       mcpJson.mcpServers.aos.env.AOS_PACK.replace("${CLAUDE_PLUGIN_ROOT}", ""),
     ];
     for (const p of new Set(paths)) expect(existsSync(join(pluginRoot, p))).toBe(true);

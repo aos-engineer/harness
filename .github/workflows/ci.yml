@@ -34,3 +34,7 @@ jobs:
 
       - name: Test
         run: bun run test
+
+      # The marketplace installs the plugin straight from git, so its bundles must match the sources.
+      - name: Plugin bundles are up to date
+        run: bun run build:plugin:check
