@@ -5,19 +5,19 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { aosDir, gitRoot, listRuns, loadPack, PackError, RunNotFoundError, runPaths, verifyChain } from "@aos-harness/kernel";
 import type { ResolvedPack } from "@aos-harness/kernel";
 import type { CliIO, CommandFn } from "../io.ts";
 import { parseFlags, printable, readBindings, resolveRoot, UsageError } from "./shared.ts";
 import type { BindingFile } from "./shared.ts";
+import { defaultPackDir } from "../pack-path.ts";
 
 const MIN_BUN = "1.3.11";
 // The first Claude Code release with onFailure: "block", which lets a dead hook process fail closed.
 const MIN_CLAUDE = "2.1.295";
 const PROBE_TIMEOUT_MS = 10_000;
 const HOOK_ERROR_LINES = 3;
-const DEFAULT_PACK = fileURLToPath(new URL("../../../packs/feature-delivery", import.meta.url));
+const DEFAULT_PACK = defaultPackDir();
 
 const USAGE = `Usage: aos doctor [--pack <dir>] [--root <path>]
 

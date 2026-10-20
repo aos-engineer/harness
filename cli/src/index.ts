@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+// Bundled builds cannot follow the kernel's lazy ajv require, so the CLI hands ajv over up front.
+import "@aos-harness/kernel/ajv-static";
 import { dispatch } from "./dispatch.ts";
 import { processIO } from "./io.ts";
 

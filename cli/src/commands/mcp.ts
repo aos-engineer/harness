@@ -1,7 +1,7 @@
 // `aos mcp`: the AOS tools over stdio, for hosts that register the CLI as an MCP server.
-import { join } from "node:path";
 import { serveStdio } from "@aos-harness/kernel/mcp";
 import type { CommandFn } from "../io.ts";
+import { defaultPackDir } from "../pack-path.ts";
 
 const USAGE = "Usage: aos mcp [--pack <dir>]";
 
@@ -26,7 +26,7 @@ export const mcpCommand: CommandFn = async (io) => {
   }
   await serveStdio({
     cwd: io.cwd,
-    packDir: pack ?? (io.env.AOS_PACK || join(import.meta.dirname, "../../../packs/feature-delivery")),
+    packDir: pack ?? (io.env.AOS_PACK || defaultPackDir()),
     host: io.env.AOS_HOST || "claude-code",
   });
   return 0;
