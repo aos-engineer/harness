@@ -6,23 +6,37 @@ The plugin does this with Claude Code's own extension points. MCP tools let Clau
 
 AOS is a guardrail for a cooperating agent, not a security boundary. [What AOS does not defend](#what-aos-does-not-defend) says exactly where it stops.
 
-## Install for dogfood
+The full documentation is in [`docs/1.0`](../../docs/1.0/): [getting started](../../docs/1.0/getting-started.md), [concepts](../../docs/1.0/concepts.md), the [CLI](../../docs/1.0/cli.md) and [MCP tool](../../docs/1.0/mcp-tools.md) references, [packs](../../docs/1.0/packs.md), the [security model](../../docs/1.0/security.md), and [troubleshooting](../../docs/1.0/troubleshooting.md).
 
-You need [Bun](https://bun.sh) 1.3.11 or newer, git, and Claude Code 2.1.295 or newer, which the Bash guard's fail-closed setting (`onFailure: "block"`) needs. The reference pack's stages name skills from the [superpowers](https://github.com/obra/superpowers) plugin; install it so Claude can load them.
+## Install
+
+You need Claude Code 2.1.295 or newer, which the Bash guard's fail-closed setting (`onFailure: "block"`) needs, [Bun](https://bun.sh) 1.3.11 or newer on `PATH`, and git. The reference pack's stages name skills from the [superpowers](https://github.com/obra/superpowers) plugin; install it so Claude can load them.
+
+Install the plugin in Claude Code:
+
+```
+/plugin install aos --marketplace aos-engineer/harness
+```
+
+Or in two steps, `/plugin marketplace add aos-engineer/harness` then `/plugin install aos@aos-harness`. From a shell: `claude plugin marketplace add aos-engineer/harness` then `claude plugin install aos@aos-harness --scope user`. To pin a release instead of following `main`, add the marketplace as `aos-engineer/harness#v1.0.0-next.0`. Start a new session afterwards so the hooks and the MCP server load.
+
+The plugin is self-contained: `dist/` holds the bundled hook and MCP entry points, and `pack/` holds a copy of the reference pack. `bin/aos.sh` runs them under Bun; without Bun it steps aside, hooks pass through, and each new session says why AOS is off.
+
+Then install the human-side CLI and prepare your project:
 
 ```bash
-git clone https://github.com/aos-engineer/harness.git
-cd harness && bun install
-alias aos="bun $PWD/cli/src/index.ts"     # the human-side CLI, from this checkout
+npm install -g aos-harness@next           # or: bun add -g aos-harness@next
 
 cd /path/to/your/project
 echo ".aos/" >> .gitignore                # run logs are AOS's records, not your project's
-claude --plugin-dir /path/to/harness/hosts/claude-code
+aos doctor
 ```
 
-The plugin loads the reference pack from the checkout (`packs/feature-delivery`, two directories above the plugin) until a later release bundles it. Point `--plugin-dir` at `hosts/claude-code` inside a full checkout, not at a copy of that directory.
+`aos doctor` checks Bun, git, Claude Code, the pack, its bound skills, session bindings, and every run log.
 
-Run `aos doctor` in your project to check Bun, git, Claude Code, the pack, its bound skills, and every run log.
+### From a checkout
+
+To work on the plugin itself, run it from a clone with `claude --plugin-dir /path/to/harness/hosts/claude-code`. That runs the committed bundles in `dist/`; set `AOS_PLUGIN_SOURCE=1` to run the TypeScript sources in `bin/` instead, which needs `bun install` in the clone. [CONTRIBUTING.md](../../CONTRIBUTING.md) covers rebuilding the bundles.
 
 ## First run
 
@@ -54,7 +68,7 @@ In your terminal:
 | `aos doctor [--pack <dir>]` | Check the toolchain, the pack, its skills, session bindings, and every run's hash chain. |
 | `aos run cancel <run> --reason "..."` | End a run and release its sessions, so they go back to pass-through. |
 
-Each takes `--root <path>` when the runs live in another checkout. `aos approve` and `aos run cancel` are human-only: they need an interactive terminal, which Claude's Bash tool does not have, and in a session bound to a run the Bash guard refuses them outright.
+Each takes `--root <path>` when the runs live in another checkout. `aos approve` and `aos run cancel` are human-only: they need an interactive terminal, which Claude's Bash tool does not have, they refuse when Claude Code's environment variables show an agent's shell started them, and in a session bound to a run the Bash guard refuses them outright. The [CLI reference](../../docs/1.0/cli.md) lists every flag and exit code.
 
 The MCP tools Claude uses are `aos_run_start`, `aos_status`, `aos_gate_check`, `aos_stage_advance`, `aos_task_add`, `aos_task_complete`, `aos_evidence_record`, and `aos_request_approval`. None of them can approve, cancel, lower a tier, or record a test run: evidence recorded through MCP is always marked as claimed, and only the hooks record observed evidence.
 
@@ -83,14 +97,18 @@ AOS stops lazy or accidental bypass by an agent that is trying to follow the pro
 - **Hooks are not a security boundary.** They see the tool calls Claude Code reports to them, and nothing else.
 - **An agent with shell access can get around the log.** It can write `.aos/` through a process the hooks cannot see, such as a script or an interpreter, or rebuild the whole hash chain and snapshot. The chain detects edits to a log; it cannot detect a log rewritten end to end. Defending against that needs an anchor outside the agent's reach: host sandboxing, CI verification of exported runs, or signed attestations.
 - **Bash writes are not checked against write scopes.** Scopes apply to the file-edit tools only. The tree fingerprint still sees what a shell command changed, so evidence recorded before the change goes stale.
-- **The terminal check on human-only commands stops lazy bypass, not a determined one.** A process can allocate a pseudo-terminal. The run log records who decided and why.
+- **The shell guards are best-effort text analysis.** They split a command line the way a shell would and follow `bash -c`, `eval`, scripts piped or fed to a shell, wrappers, substitutions, and inline `git -c alias.NAME=...` aliases, but they never expand variables or run anything. Aliases saved with `git config`, interpreter one-liners, and a script file that pushes are not seen.
+- **Redaction is best-effort by format.** A test run's output is kept as a digest plus a redacted 4,096-byte tail. Redaction recognizes common key, token, and personal-data formats; a secret in another format can reach the log.
+- **The terminal check on human-only commands stops lazy bypass, not a determined one.** A process can allocate a pseudo-terminal and clear its environment. The run log records who decided and why.
 - **Test evidence is fingerprinted when the test command finishes.** An edit that a parallel agent makes while the tests run can ride on that run's pass.
+- **Review evidence is claimed by the agent.** AOS records the review Claude reports; it does not verify that the review happened.
+
+The [security model](../../docs/1.0/security.md) has the complete list, including how each hook fails.
 
 ## Known limits in this release
 
-- **Payload shapes are partly docs-derived.** The plugin's hook fixtures were shaped from the Claude Code docs, and a capture session has not yet confirmed all of them, notably the response Claude Code passes to PostToolUse for an MCP tool (which session binding reads) and the Bash success shape. The plugin rejects a payload it cannot read rather than guessing, so a changed shape fails safe, but it can stop binding or observing. `tools/README.md` describes how to capture and check real payloads.
-- **Subagents may not be gated.** Whether a subagent's tool calls carry the parent session id is unconfirmed. If they do not, a subagent's tool calls are not gated.
-- **Only the session that started a run is gated.** Calling `aos_run_start` binds the calling session to the run, and nothing else binds one. Any other session in the same repository is not gated, including a second terminal and a session after `/clear` or a fork, which gets a new session id: write scopes, action policies, the `aos approve` refusal, and the `.aos/` guard do not apply there. SessionStart in such a session names the active run, and Claude then tells you, does not continue the old run, and asks whether you want to end it (you run `aos run cancel <run> --reason "..."` in your own terminal) and start a new run in this session.
-- **The pack loads from the checkout** until a later release bundles it.
+- **Payload shapes come from fixtures.** The contract tests run against payloads captured from a real Claude Code session, including the `aos_run_start` response that session binding reads and the Bash success shape, plus docs-derived fixtures for cases a capture has not covered yet, such as SessionStart after compaction. A Claude Code upgrade can change a shape. The plugin rejects a payload it cannot read rather than guessing, so a changed shape fails safe, but it can stop binding or observing. Re-capture after upgrading; `tools/README.md` describes how.
+- **Only the session that started a run is gated.** Calling `aos_run_start` binds the calling session to the run, and nothing else binds one. Its subagents are gated too: a subagent's tool calls carry the parent session id, which a live session confirmed, and the evidence they produce records which agent it came from. Any other session in the same repository is not gated, including a second terminal and a session after `/clear` or a fork, which gets a new session id: write scopes, action policies, the `aos approve` refusal, and the `.aos/` guard do not apply there. SessionStart in such a session names the active run, and Claude then tells you, does not continue the old run, and asks whether you want to end it (you run `aos run cancel <run> --reason "..."` in your own terminal) and start a new run in this session.
+- **The plugin always uses its bundled reference pack.** Its MCP registration points `AOS_PACK` at `pack/`; [packs](../../docs/1.0/packs.md#using-a-custom-pack-with-the-claude-code-plugin) explains what that means for a custom pack.
 - **The iteration budget lets Claude stop when it runs out;** it does not block further tool calls.
 - **Not in this release:** context packets for subagents, a structured decision tool, waivers, `aos run pause`, budgets beyond iterations (wall time, tool calls, cost), raising the tier mid-run, the architectural tier (a brief that classifies as architectural is refused, with the reason), resuming a run, a status line, an agent reviewer, a `pre-push` git hook backstop, `aos pack add` and a pack lockfile, pack overlays, Codex and Pi hosts, headless runs, and an `aos hook` CLI command.

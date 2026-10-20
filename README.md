@@ -1,14 +1,37 @@
 # AOS Harness
 
-> **`main` is AOS 1.0 development.** The released 0.x line (npm `latest`) lives on the `release/0.11` branch and tag `v0.11.0`. 1.0 pre-releases will publish on the npm `next` tag.
+> **`main` is AOS 1.0 development.** 1.0 prereleases publish on the npm `next` tag. The released 0.x line (npm `latest`) lives on the `release/0.11` branch and tag `v0.11.0`.
 
 [![CI](https://github.com/aos-engineer/harness/actions/workflows/ci.yml/badge.svg)](https://github.com/aos-engineer/harness/actions/workflows/ci.yml)
 
 ## AOS 1.0 on `main`
 
-AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Every run is an append-only, hash-chained log under `.aos/runs/`, so edits to it are detectable and its gate verdicts can be re-derived from the log.
+AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Push and pull request creation wait for the last gate, and deploys are never allowed inside a run. Every run is an append-only, hash-chained log under `.aos/runs/`, so edits to it are detectable and its gate verdicts can be re-derived from the log.
 
-Claude Code is the first host, and this release is for dogfooding. Start with the [Claude Code plugin README](./hosts/claude-code/README.md). AOS is a guardrail for a cooperating agent, not a security boundary; the plugin README lists what it does not defend.
+Claude Code is the first host, and 1.0 is in prerelease. AOS is a guardrail for a cooperating agent, not a security boundary; [the security model](docs/1.0/security.md) says what it does not defend.
+
+### Install
+
+You need Claude Code 2.1.295 or later, [Bun](https://bun.sh) 1.3.11 or later on `PATH`, and git. Install the plugin in Claude Code:
+
+```
+/plugin install aos --marketplace aos-engineer/harness
+```
+
+Then install the CLI, which is how you approve gates and check runs:
+
+```bash
+npm install -g aos-harness@next    # or: bun add -g aos-harness@next
+```
+
+Start a run with `/aos:run <your request>`. [Getting started](docs/1.0/getting-started.md) walks through a first run, the two-step plugin install, pinning a release, and uninstalling.
+
+### Documentation
+
+- [Getting started](docs/1.0/getting-started.md), [concepts](docs/1.0/concepts.md), and [troubleshooting](docs/1.0/troubleshooting.md)
+- Reference: [CLI](docs/1.0/cli.md), [MCP tools](docs/1.0/mcp-tools.md), [packs](docs/1.0/packs.md), and the [security model](docs/1.0/security.md)
+- For contributors: [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/1.0/architecture.md), and [releasing](docs/1.0/releasing.md)
+- [The docs index](docs/README.md), which also explains the 0.x material under `docs/`
 
 ### Repository layout
 
@@ -31,6 +54,8 @@ bun run test                    # every test suite
 bun run lint                    # YAML safety check and typecheck
 bun run scripts/bench-hook.ts   # hook latency benchmark
 ```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has the full setup, the rules tests and kernel code follow, and the pull request flow.
 
 ---
 

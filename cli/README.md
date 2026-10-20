@@ -2,17 +2,19 @@
 
 The human side of AOS 1.0. The agent drives a run through MCP tools inside its host; this CLI is how a person approves a gate, checks a run, diagnoses the setup, and ends a run that has gone wrong.
 
-> This is the 1.0 CLI, which is not published yet. The 0.x CLI (`aos init`, `aos run <profile>`, adapters) is `aos-harness` on npm `latest`, and its source is on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch.
+> This is the 1.0 prerelease, on the npm `next` tag. `aos-harness@latest` is still the 0.x CLI (`aos init`, `aos run <profile>`, adapters), whose source is on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch. Installing `@next` globally replaces a global 0.x `aos`.
 
-## Run it from a checkout
+## Install
 
 ```bash
-git clone https://github.com/aos-engineer/harness.git
-cd harness && bun install
-alias aos="bun $PWD/cli/src/index.ts"
+npm install -g aos-harness@next
+# or
+bun add -g aos-harness@next
+
+aos --version
 ```
 
-It needs Bun 1.3.11 or newer. To use it with Claude Code, see the [plugin README](../hosts/claude-code/README.md).
+The CLI needs [Bun](https://bun.sh) 1.3.11 or later on `PATH`, even when npm installs it: the `aos` binary is a Bun script. To use it with Claude Code, install the AOS plugin too; [Getting started](https://github.com/aos-engineer/harness/blob/main/docs/1.0/getting-started.md) covers both.
 
 ## Commands
 
@@ -23,12 +25,20 @@ It needs Bun 1.3.11 or newer. To use it with Claude Code, see the [plugin README
 | `aos status [run] [--json]` | Without a run, lists every run as run, status, tier, and stage. With one, verifies its log and prints its stage, gate, and open gaps. |
 | `aos doctor [--pack <dir>]` | Checks Bun, git, Claude Code, the pack and its bound skills, session bindings, `.aos/hook-errors.log`, and the hash chain of every run. Exits 1 if any check fails. |
 | `aos run cancel <run> --reason "..."` | Ends the run and unbinds its sessions, which go back to pass-through. The log keeps the reason. |
-| `aos mcp [--pack <dir>]` | Serves the AOS MCP tools on stdio, for a host that registers the CLI as its MCP server. |
+| `aos mcp [--pack <dir>]` | Serves the AOS MCP tools on stdio, for a host that registers the CLI as its MCP server. The Claude Code plugin runs its own server and does not need this. |
 
-`approve`, `status`, `doctor`, and `run cancel` take `--root <path>` for runs in another checkout; the default is the git top level of the current directory. `aos --help` lists the commands, and `aos <command> --help` shows one command's usage.
+`approve`, `status`, `doctor`, and `run cancel` take `--root <path>` for runs in another checkout; the default is the git top level of the current directory. `aos --help` lists the commands, and `aos <command> --help` shows one command's usage. Exit codes: 0 on success, 1 when the command ran and failed, 2 for a usage error. The [CLI reference](https://github.com/aos-engineer/harness/blob/main/docs/1.0/cli.md) lists every flag, message, and exit code.
 
 ## Human-only commands
 
-`aos approve` and `aos run cancel` decide things only a person may decide, so they refuse to run without an interactive terminal. An agent's shell tool has none, which keeps an agent from passing its own gate by accident or by shortcut, and in a Claude Code session bound to a run, the plugin's Bash guard refuses these commands before they run. Sessions that are not bound to a run get no such guard.
+`aos approve` and `aos run cancel` decide things only a person may decide. They refuse to run without an interactive terminal, and when the environment shows an agent's shell started them (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set). In a Claude Code session bound to a run, the plugin's Bash guard also refuses them before they run. Sessions that are not bound to a run get no such guard.
 
-Neither check is a security boundary. A determined process can allocate a terminal, and an agent with unrestricted shell access can write the run log directly. AOS hooks and these checks are guardrails for a cooperating agent; they stop lazy bypass, not a determined one. The run log records who decided each gate and why.
+None of these checks is a security boundary. A determined process can allocate a terminal and clear its environment, and an agent with unrestricted shell access can write the run log directly. AOS hooks and these checks are guardrails for a cooperating agent; they stop lazy bypass, not a determined one. The run log records who decided each gate and why. The [security model](https://github.com/aos-engineer/harness/blob/main/docs/1.0/security.md) says what AOS does and does not defend.
+
+## Run it from a checkout
+
+```bash
+git clone https://github.com/aos-engineer/harness.git
+cd harness && bun install
+alias aos="bun $PWD/cli/src/index.ts"
+```
