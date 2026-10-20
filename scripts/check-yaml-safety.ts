@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * AST-based YAML-safety lint. Spec D3 — syntactic check, accepts false
- * positives over false negatives. Inline escape: // yaml-safety-ignore <reason>
- * on the same or preceding line (reason text ≥ 10 chars).
+ * AST-based YAML-safety lint: every `load(...)` call must pass a safe `schema`. It is a syntactic check, so it
+ * prefers false positives to false negatives. Inline escape: // yaml-safety-ignore <reason> on the same or
+ * preceding line (a reason of at least 10 characters).
  */
 import * as ts from "typescript";
 import { readFileSync, readdirSync, statSync } from "node:fs";
