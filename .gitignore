@@ -1,8 +1,10 @@
 # Dependencies
 node_modules/
 bun.lock
-# The root lockfile is tracked so every lane worktree and CI resolve the same versions.
+# The root and site lockfiles are tracked so every checkout, CI, and the site's Docker build resolve the
+# same versions.
 !/bun.lock
+!/site/bun.lock
 
 # AOS session data
 .aos/
