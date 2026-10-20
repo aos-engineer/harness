@@ -86,8 +86,10 @@ jobs:
 
       # Trusted publishing: the aos-harness package on npmjs.com trusts this repository's release.yml in
       # the npm-publish environment, so no long-lived token exists to leak or expire.
+      # Verbose because npm reports why a trusted-publishing token exchange failed only at that level;
+      # otherwise a mismatch on npmjs.com shows up as a bare ENEEDAUTH.
       - name: Publish to npm
-        run: npm publish "$RUNNER_TEMP/npm/aos-harness" --access public --tag "${{ steps.disttag.outputs.tag }}" --provenance
+        run: npm publish "$RUNNER_TEMP/npm/aos-harness" --access public --tag "${{ steps.disttag.outputs.tag }}" --provenance --loglevel verbose
 
       - name: Wait for the registry, then install and run it
         run: bun run scripts/release/wait-for-npm.ts aos-harness "${GITHUB_REF_NAME#v}" "${{ steps.disttag.outputs.tag }}"
