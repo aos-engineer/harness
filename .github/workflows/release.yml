@@ -38,6 +38,14 @@ jobs:
       - name: Verify the tag, the branch, and every version
         run: bun run scripts/release/verify-tag.ts
 
+      # Before anything is published: a missing section found after `npm publish` would fail the job with
+      # the package already on npm, and a published version number can never be reused.
+      - name: Extract the release notes from CHANGELOG.md
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          awk -v v="$VER" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / && f {exit} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -n "$(tr -d '[:space:]' < "$RUNNER_TEMP/notes.md")" || { echo "CHANGELOG.md has no notes for $VER"; exit 1; }
+
       - name: Install
         run: bun install --frozen-lockfile
 
@@ -88,9 +96,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VER="${GITHUB_REF_NAME#v}"
-          # The release notes are the CHANGELOG section for this version.
-          awk -v v="$VER" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / && f {exit} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
-          test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $VER"; exit 1; }
+          # notes.md is the CHANGELOG section extracted before publishing.
           PRE=""; [[ "$VER" == *-* ]] && PRE="--prerelease"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" $PRE

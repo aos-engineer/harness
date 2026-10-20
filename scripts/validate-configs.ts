@@ -5,7 +5,9 @@
  *  1. every manifest in the release lockstep carries the same version;
  *  2. every pack (the sources under packs/ and the copy bundled into the plugin) loads as a valid,
  *     data-only pack;
- *  3. every marketplace entry points inside the repository at a plugin whose manifest has the same name.
+ *  3. every marketplace entry points inside the repository at a plugin whose manifest has the same name;
+ *  4. CHANGELOG.md has a non-empty section for that version, which the release workflow publishes as the
+ *     release notes.
  *
  * Usage: bun run scripts/validate-configs.ts [root]
  */
@@ -90,8 +92,35 @@ function checkMarketplace(root: string): string[] {
   return problems;
 }
 
+/**
+ * The CHANGELOG section for a version, read the way the release workflow's awk reads it: every line after
+ * a `## <version>` heading (alone or followed by a space) up to the next `## ` heading.
+ */
+export function changelogSection(changelog: string, version: string): string | null {
+  const lines = changelog.split("\n");
+  const start = lines.findIndex((line) => line === `## ${version}` || line.startsWith(`## ${version} `));
+  if (start < 0) return null;
+  const end = lines.findIndex((line, i) => i > start && line.startsWith("## "));
+  return lines.slice(start + 1, end < 0 ? lines.length : end).join("\n");
+}
+
+function checkChangelog(root: string): string[] {
+  const version = readVersions(root).get("package.json");
+  if (version === null || version === undefined) return []; // checkVersions reports it
+  let changelog: string;
+  try {
+    changelog = readFileSync(join(root, "CHANGELOG.md"), "utf8");
+  } catch {
+    return ["CHANGELOG.md: missing; the release workflow publishes its section for each version"];
+  }
+  const section = changelogSection(changelog, version);
+  if (section === null) return [`CHANGELOG.md: no "## ${version}" section, which the release workflow publishes as the notes`];
+  if (section.trim() === "") return [`CHANGELOG.md: the "## ${version}" section is empty`];
+  return [];
+}
+
 export function validateConfigs(root: string): string[] {
-  return [...checkVersions(root), ...checkPacks(root), ...checkMarketplace(root)];
+  return [...checkVersions(root), ...checkPacks(root), ...checkMarketplace(root), ...checkChangelog(root)];
 }
 
 if (import.meta.main) {
@@ -99,5 +128,5 @@ if (import.meta.main) {
   const problems = validateConfigs(root);
   for (const problem of problems) console.error(`validate-configs: ${problem}`);
   if (problems.length > 0) process.exit(1);
-  console.log("validate-configs: versions agree, every pack loads, and the marketplace points at its plugin");
+  console.log("validate-configs: versions agree, every pack loads, the marketplace points at its plugin, and the CHANGELOG has notes");
 }
