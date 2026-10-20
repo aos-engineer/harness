@@ -134,6 +134,13 @@ test.each<[string, ActionName | null]>([
 ])("matchAction reads scripts fed to a shell(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
 
 test.each<[string, ActionName | null]>([
+  // The default macOS filesystem runs `Git` as git, and a quoted value with spaces is still one value
+  ["Git push", "push"], ["GIT push origin main", "push"], ["Gh pr create --fill", "pr_create"],
+  ['git -C "my dir" push', "push"], ['git -c "user.name=A B" push origin main', "push"],
+  ['git commit -m "fix: a b c"', "commit"], ['echo "Git push"', null], ['git log --grep "git push"', null],
+])("matchAction folds case and keeps quoted words whole(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
+
+test.each<[string, ActionName | null]>([
   // A command word that comes from an expansion cannot be classified, so its arguments decide
   ["G=git; $G push", "push"], ['G=git && "$G" push origin main', "push"], ["${G} push", "push"],
   ["$(echo git) push", "push"], ["`echo git` push", "push"], ["$(echo git push)", "push"],
@@ -191,6 +198,10 @@ test.each([
   // ...but a wrapper or interpreter that does not carry one is ordinary, and so is a script file
   ["script -q /dev/null bun test", null], ['python3 -c "print(1)"', null], ["python3 tools/aos_approve.py", null],
   ["node scripts/chaos approve", null], ['git commit -m "script -q /dev/null aos approve"', null],
+  // A command word or subcommand from an expansion, and the case the default macOS filesystem ignores
+  ["A=aos; $A approve 01J", "approve"], ['"$(which aos)" approve 01J', "approve"], ['"$AOS" run cancel 01J', "run cancel"],
+  ["x=approve; aos $x 01J", "$x"], ["AOS approve 01J", "approve"], ["Aos run cancel 01J", "run cancel"],
+  ["$A status", null], ["aos status $RUN", null], ['"$EDITOR" approve.md', null],
 ])("matchHumanOnly(%j)", (cmd, want) => expect(matchHumanOnly(cmd)).toBe(want));
 
 test.each([

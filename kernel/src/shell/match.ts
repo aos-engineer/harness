@@ -95,6 +95,8 @@ const HUMAN_ONLY_ANYWHERE = new RegExp(String.raw`(?<![\w.-])(?:${INVOCATION})(?
 const TTY_WRAPPERS = new Set(["script", "expect", "unbuffer", "socat"]);
 const INTERPRETER = /^(?:python[0-9.]*|perl|ruby|node|bun|deno)$/;
 const INLINE_CODE = /^(?:-[A-Za-z]*[cep]|--eval|--print|eval)$/;
+// A word bash rewrites before running it: a variable, a substitution, a glob, or a brace list.
+const EXPANSION = /[$`*?]|\[.*\]|\{[^}]*(?:,|\.\.)[^}]*\}/;
 
 /** The human-only subcommand a leaf command invokes (for example "approve" or "run cancel"), or null. */
 export function matchHumanOnly(cmd: string): string | null {
@@ -102,7 +104,26 @@ export function matchHumanOnly(cmd: string): string | null {
     // The full form keeps a path such as cli/src/index.ts that the basename would drop.
     const m = HUMAN_ONLY.exec(leaf.command) ?? HUMAN_ONLY.exec(leaf.words.join(" ")) ?? wrappedHumanOnly(leaf);
     if (m !== null) return m[1].replace(/\s+/g, " ");
+    const expanded = expandedHumanOnly(leaf);
+    if (expanded !== null) return expanded;
   }
+  return null;
+}
+
+/**
+ * A human-only command whose command word or subcommand comes from an expansion, which no pattern over
+ * the words as written can see: `A=aos; $A approve`, `"$(which aos)" approve`, and `x=approve; aos $x`.
+ * The first two are judged by the words after the command word. The last could be any subcommand, so it
+ * is refused and named as written.
+ */
+function expandedHumanOnly(leaf: Leaf): string | null {
+  if (!leaf.expanded) {
+    const [name, sub] = leaf.command.split(" ");
+    return name === "aos" && sub !== undefined && EXPANSION.test(leaf.words[1] ?? "") ? leaf.words[1]! : null;
+  }
+  const [a, b] = [leaf.words[1], leaf.words[2]];
+  if (a === "approve" || a === "waive") return a;
+  if ((a === "run" && (b === "cancel" || b === "pause")) || (a === "tier" && b === "lower") || (a === "budget" && b === "extend")) return `${a} ${b}`;
   return null;
 }
 

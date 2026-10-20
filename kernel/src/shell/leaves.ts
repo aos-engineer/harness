@@ -101,13 +101,25 @@ function visit(lexed: Lexed, depth: number, outerMasked: boolean, out: Walk): vo
   });
 }
 
+// A word that quoting kept whole, shown with this in place of its whitespace so patterns still see one word.
+const SPACE_IN_WORD = "\u2423";
+
+/**
+ * The form commands are matched in. The command word is reduced to its basename and lowercased, because
+ * the default macOS filesystem runs `Git push` and `AOS approve` as git and aos. Whitespace inside a word
+ * becomes ␣, so `git -C "my dir" push` reads as `git -C my␣dir push` and `-C <value>` stays one value.
+ */
+function normalForm(values: string[]): string {
+  return [basename(values[0]).toLowerCase(), ...values.slice(1)].map((w) => w.replace(/\s/g, SPACE_IN_WORD)).join(" ");
+}
+
 /** Records a leaf, then the command a `git -c alias.NAME=...` alias it invokes would run. */
 function addLeaf(values: string[], text: string, masked: boolean, depth: number, out: Walk, hops = 0): void {
   const git = gitSubcommand(values);
   out.leaves.push({
     text,
     words: values,
-    command: [basename(values[0]), ...values.slice(1)].join(" "),
+    command: normalForm(values),
     masked,
     expanded: EXPANDED.test(values[0]) || (git !== null && git.at < values.length && EXPANDED.test(values[git.at])),
   });
@@ -145,7 +157,7 @@ interface GitSubcommand {
 
 /** Where a git invocation's subcommand sits, past its global options, and the aliases those options define. */
 function gitSubcommand(values: string[]): GitSubcommand | null {
-  if (basename(values[0]) !== "git") return null;
+  if (basename(values[0]).toLowerCase() !== "git") return null;
   const aliases = new Map<string, string>();
   let j = 1;
   while (j < values.length) {
