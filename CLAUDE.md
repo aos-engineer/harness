@@ -10,7 +10,7 @@
 - `packs/feature-delivery/`: the reference methodology pack. Data only.
 - `cli/`: the `aos` CLI (`approve`, `status`, `doctor`, `run cancel`, `mcp`).
 - `core/`: 0.x agent, profile, and domain content, kept because the docs site reads it at build time.
-- `site/`: the docs site (Astro). Its own package, not a workspace member. `site/bun.lock` is gitignored, so site installs are not pinned.
+- `site/`: the docs site (Astro). Its own package, not a workspace member. `site/bun.lock` is tracked, and the site's Docker build installs from it with `--frozen-lockfile`.
 
 ## Commands
 
