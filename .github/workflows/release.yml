@@ -11,7 +11,8 @@ on:
 
 permissions:
   contents: write
-  # npm provenance: the registry links each published version to this workflow run.
+  # npm trusted publishing: npm trades this job's OIDC token for a short-lived publish credential, and
+  # links each published version to this workflow run as provenance.
   id-token: write
 
 jobs:
@@ -29,11 +30,11 @@ jobs:
         with:
           bun-version: "1.4.0"
 
+      # No registry-url: it writes an .npmrc that expects a token, and publishing here uses none.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Verify the tag, the branch, and every version
         run: bun run scripts/release/verify-tag.ts
@@ -78,14 +79,14 @@ jobs:
         run: |
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then echo "tag=next" >> "$GITHUB_OUTPUT"; else echo "tag=latest" >> "$GITHUB_OUTPUT"; fi
 
-      - name: Check the npm token
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm whoami
+      # Trusted publishing needs npm 11.5.1 or later; pinned so a release never depends on whichever npm
+      # the runner's Node happens to bundle.
+      - name: Use an npm that supports trusted publishing
+        run: npm install -g npm@11.21.1 && npm --version
 
+      # Trusted publishing: the aos-harness package on npmjs.com trusts this repository's release.yml in
+      # the npm-publish environment, so no long-lived token exists to leak or expire.
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish "$RUNNER_TEMP/npm/aos-harness" --access public --tag "${{ steps.disttag.outputs.tag }}" --provenance
 
       - name: Wait for the registry, then install and run it
