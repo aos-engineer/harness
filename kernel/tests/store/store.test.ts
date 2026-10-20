@@ -68,10 +68,39 @@ describe("a run with two events", () => {
     appendEvents(loc, [worktreeDraft()], testProjector);
   });
 
-  test("loadState returns the snapshot when it matches the log", () => {
+  // state.json can be rewritten without touching the chain, so its contents never decide anything.
+  test("loadState ignores an edited snapshot that still pins the log", () => {
     const cur = stateOnDisk();
     writeFileSync(runPaths(loc).state, JSON.stringify({ ...cur, state: { ...cur.state, brief: "from snapshot" } }));
-    expect(loadState(loc, testProjector).state.brief).toBe("from snapshot");
+    expect(loadState(loc, testProjector).state.brief).not.toBe("from snapshot");
+    expect(loadState(loc, testProjector).state).toEqual(cur.state);
+  });
+
+  test("an append builds on the log, not on an edited snapshot", () => {
+    const cur = stateOnDisk();
+    writeFileSync(runPaths(loc).state, JSON.stringify({ ...cur, state: { ...cur.state, brief: "from snapshot" } }));
+    let seen: string | null = null;
+    const { file } = appendEvents(loc, [worktreeDraft(9)], testProjector, { precondition: (base) => { seen = base.brief; } });
+    expect(seen).not.toBe("from snapshot");
+    expect(file.state.brief).not.toBe("from snapshot");
+    expect(stateOnDisk().state.brief).not.toBe("from snapshot");
+  });
+
+  test("verifyChain with a projector reports an edited snapshot without failing the chain", () => {
+    const cur = stateOnDisk();
+    writeFileSync(runPaths(loc).state, JSON.stringify({ ...cur, state: { ...cur.state, brief: "from snapshot" } }));
+    const report = verifyChain(loc, testProjector);
+    expect(report.ok).toBe(true);
+    expect(report.reason).toContain("state.json does not match what the log replays to");
+    expect(verifyChain(loc).reason).toBeNull();
+  });
+
+  test("verifyChain finds no drift in an untouched run, whatever the snapshot's key order", () => {
+    expect(verifyChain(loc, testProjector).reason).toBeNull();
+    const cur = stateOnDisk();
+    const reordered = Object.fromEntries(Object.entries(cur.state).reverse());
+    writeFileSync(runPaths(loc).state, JSON.stringify({ ...cur, state: reordered }));
+    expect(verifyChain(loc, testProjector).reason).toBeNull();
   });
 
   test("loadState rebuilds in memory when state.json lags, without writing", () => {

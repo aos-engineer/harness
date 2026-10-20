@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { aosDir, gitRoot, listRuns, loadPack, PackError, RunNotFoundError, runPaths, verifyChain } from "@aos-harness/kernel";
+import { aosDir, gitRoot, listRuns, loadPack, PackError, projector, RunNotFoundError, runPaths, verifyChain } from "@aos-harness/kernel";
 import type { ResolvedPack } from "@aos-harness/kernel";
 import type { CliIO, CommandFn } from "../io.ts";
 import { parseFlags, printable, readBindings, resolveRoot, UsageError } from "./shared.ts";
@@ -208,7 +208,8 @@ function checkRuns(root: string): Finding[] {
     const loc = { root, run };
     let chain;
     try {
-      chain = verifyChain(loc);
+      // With the projector, so a hand-edited state.json is reported even though nothing trusts it.
+      chain = verifyChain(loc, projector);
     } catch (e) {
       found.push({ level: "FAIL", text: `run ${run}: log unreadable (${printable(e instanceof Error ? e.message : String(e))})`, fix: "inspect the run directory under .aos/runs" });
       continue;

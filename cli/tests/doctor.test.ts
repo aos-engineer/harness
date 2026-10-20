@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { appendEvents, cancelRun, humanActor, projector, runPaths } from "@aos-harness/kernel";
 import type { RunLocation } from "@aos-harness/kernel";
@@ -50,6 +50,16 @@ describe("aos doctor", () => {
     expect(io.stdout).toMatch(/^OK +git /m);
     expect(io.stdout).toContain(`feature-delivery@${PACK.version}`);
     expect(io.stdout).toContain(`run ${loc.run}`);
+  });
+
+  test("a hand-edited state.json is a WARN, since no reader trusts its contents", async () => {
+    const path = runPaths(loc).state;
+    const file = JSON.parse(readFileSync(path, "utf8")) as { state: { status: string } };
+    file.state.status = "completed";
+    writeFileSync(path, JSON.stringify(file));
+    const io = doctor();
+    expect(await doctorCommand(io)).toBe(0);
+    expect(io.stdout).toMatch(/^WARN +run .*state\.json does not match what the log replays to/m);
   });
 
   test("a tampered log is a FAIL", async () => {

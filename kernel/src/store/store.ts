@@ -1,7 +1,8 @@
-// The run store: the log plus a state.json snapshot of its projection. The log is the source of truth;
-// the snapshot exists so hooks can read run state without replaying the log on every tool call.
+// The run store: the log plus a state.json snapshot of its projection. The log is the source of truth, and
+// every read replays it. The snapshot is a convenience for people and tools reading a run's state at a
+// glance; `aos doctor` reports one that differs from the log.
 import { randomBytes } from "node:crypto";
-import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { EventDraft, EventEnvelope, Projector, RunLocation, RunState, StateFile } from "../types.ts";
 import { ChainError, OpError, RunNotFoundError } from "../util/errors.ts";
@@ -9,8 +10,7 @@ import { sha256Tag } from "../util/hash.ts";
 import { withLock } from "./lock.ts";
 import { aosDir, runPaths } from "./paths.ts";
 import { appendQuietly, errCode, fsyncDir, refuseSymlinks } from "./fs-internal.ts";
-import { appendLocked, checkChain, parseLines, readLogBytes, readStateFile, readTail, scanLog } from "./log-internal.ts";
-import type { Tail } from "./log-internal.ts";
+import { appendLocked, checkChain, parseLines, readLogBytes, readStateFile, scanLog } from "./log-internal.ts";
 
 function project(projector: Projector, base: RunState | null, events: EventEnvelope[]): RunState | null {
   let state = base;
@@ -27,21 +27,6 @@ function rebuild(loc: RunLocation, projector: Projector, file: StateFile | null)
   const check = checkChain(lines, file);
   if (!check.ok) throw new ChainError(`run ${loc.run}: ${check.reason}`, check.badSeq);
   return { state: project(projector, null, parseLines(lines)), lines };
-}
-
-function readLogTail(loc: RunLocation): Tail {
-  let fd: number;
-  try {
-    fd = openSync(runPaths(loc).log, "r");
-  } catch (e) {
-    if (errCode(e) === "ENOENT") throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`, { cause: e });
-    throw e;
-  }
-  try {
-    return readTail(fd, fstatSync(fd).size);
-  } finally {
-    closeSync(fd);
-  }
 }
 
 // Best effort, in the same line format the hooks use, so `aos doctor` surfaces it with theirs.
@@ -130,9 +115,9 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
     // throws there leaves the log untouched.
     const out: { file: StateFile | null; body: string } = { file: null, body: "" };
     const { events } = appendLocked(loc, drafts, { held, check: (sealed, lastLine) => {
-      const lastSeq = sealed[0].seq - 1;
-      const pinned = snapshot !== null && lastSeq > 0 && snapshot.seq === lastSeq && snapshot.head === sealed[0].prev;
-      const base = pinned ? snapshot.state : rebuild(loc, projector, snapshot).state;
+      // Replayed, never taken from state.json, for the same reason as loadState: the precondition and the
+      // next snapshot must build on what the log says, not on an edited cache.
+      const base = rebuild(loc, projector, snapshot).state;
       if (opts.precondition) {
         if (base === null) throw new RunNotFoundError(`run ${loc.run} has no events to check against`);
         opts.precondition(base);
@@ -151,17 +136,13 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
 }
 
 /**
- * Returns the run's state without taking the lock. When state.json pins the end of the log, it is returned
- * as is: this is the hook fast path. Otherwise the log is verified and replayed in memory; nothing is
- * written, because repairs belong to writers holding the lock.
+ * Returns the run's state without taking the lock: the log, verified and replayed in memory. state.json is
+ * never trusted for its contents. Anything can rewrite it without touching the hash chain, so returning it
+ * whenever it pinned the last event let a one-field edit pass a gate. A replay of a thousand events takes a
+ * few milliseconds. Nothing is written, because repairs belong to writers holding the lock.
  */
 export function loadState(loc: RunLocation, projector: Projector): StateFile {
-  const paths = runPaths(loc);
-  const snapshot = readStateFile(paths.state);
-  const tail = readLogTail(loc);
-  if (tail.lastLine !== null && snapshot !== null && snapshot.seq === tail.lastSeq && snapshot.head === sha256Tag(tail.lastLine)) {
-    return snapshot;
-  }
+  const snapshot = readStateFile(runPaths(loc).state);
   const { state, lines } = rebuild(loc, projector, snapshot);
   if (state === null) throw new RunNotFoundError(`run ${loc.run} has no events`);
   return { v: 1, seq: lines.length, head: sha256Tag(lines[lines.length - 1]), state };

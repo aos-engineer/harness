@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { handleHook, type HookDeps } from "../../src/hooks/handle.ts";
 import type { HookDecision, HookTool, RunLocation, TreeState } from "../../src/types.ts";
@@ -49,6 +49,14 @@ describe("file writes", () => {
     mkdirSync(sub);
     expect(pre(writeTool("specs/x.md"), sub)).toEqual(ALLOW);
     expect(pre(writeTool("notes.md"), sub).kind).toBe("deny");
+  });
+
+  test("a stage forged into state.json does not widen the write scope", () => {
+    const path = join(repo, ".aos", "runs", loc.run, "state.json");
+    const file = JSON.parse(readFileSync(path, "utf8")) as { state: { current: { stage: string; index: number } } };
+    file.state.current = { ...file.state.current, stage: "build", index: 1 };
+    writeFileSync(path, JSON.stringify(file));
+    expect(pre(writeTool("src/x.ts")).kind).toBe("deny");
   });
 
   test("writes under .aos are denied in every stage", () => {
