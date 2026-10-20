@@ -10,18 +10,10 @@
  * Usage: bun run scripts/release/verify-tag.ts [tag]   (defaults to GITHUB_REF_NAME)
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readVersions, VERSIONED } from "./versioned.ts";
 
 const ROOT = join(import.meta.dirname, "../..");
-const VERSIONED = [
-  "package.json",
-  "cli/package.json",
-  "kernel/package.json",
-  "hosts/claude-code/package.json",
-  "hosts/claude-code/.claude-plugin/plugin.json",
-  "packs/feature-delivery/package.json",
-];
 
 function git(...args: string[]): { ok: boolean; out: string } {
   const r = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" });
@@ -50,7 +42,7 @@ if (!git("merge-base", "--is-ancestor", "HEAD", "origin/main").ok) fail(`HEAD ${
 const dirty = git("status", "--porcelain").out;
 if (dirty !== "") fail(`the worktree is not clean:\n${dirty}`);
 
-const mismatched = VERSIONED.filter((file) => (JSON.parse(readFileSync(join(ROOT, file), "utf8")) as { version?: string }).version !== version);
+const mismatched = [...readVersions(ROOT)].filter(([, v]) => v !== version).map(([file]) => file);
 if (mismatched.length > 0) fail(`these files do not carry version ${version}: ${mismatched.join(", ")}`);
 
 console.log(`verify-tag: ${tag} matches HEAD on main, a clean tree, and ${VERSIONED.length} versioned manifests`);

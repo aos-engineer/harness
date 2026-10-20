@@ -50,6 +50,9 @@ jobs:
       - name: Plugin bundles match the sources
         run: bun run build:plugin:check
 
+      - name: Packs and the marketplace entry are valid
+        run: bun run validate:configs
+
       - name: Pack the CLI
         run: bun run scripts/release/pack-cli.ts "$RUNNER_TEMP/npm"
 

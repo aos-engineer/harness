@@ -27,6 +27,7 @@
     "tests/**/*.ts",
     "scripts/bench-hook.ts",
     "scripts/build-plugin.ts",
+    "scripts/validate-configs.ts",
     "scripts/release/*.ts"
   ]
 }

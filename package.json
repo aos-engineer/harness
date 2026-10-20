@@ -16,7 +16,8 @@
     "lint:yaml-safety": "bun run scripts/check-yaml-safety.ts",
     "lint": "bun run lint:yaml-safety && bun run typecheck",
     "build:plugin": "bun run scripts/build-plugin.ts",
-    "build:plugin:check": "bun run scripts/build-plugin.ts --check"
+    "build:plugin:check": "bun run scripts/build-plugin.ts --check",
+    "validate:configs": "bun run scripts/validate-configs.ts"
   },
   "devDependencies": {
     "@aos-harness/host-claude-code": "workspace:*",
