@@ -6,7 +6,9 @@ The npm `latest` tag stays on the 0.x line until 1.0.0 final. 0.11.x patches rel
 
 ## Before you start
 
-You need push access to the repository (to push the tag), `gh` authenticated, Bun 1.3.11 or later, and Claude Code for the plugin checks. The workflow itself publishes with the `NPM_TOKEN` secret in the `npm-publish` environment; you do not need npm credentials locally to release, only to roll back.
+You need push access to the repository (to push the tag), `gh` authenticated, Bun 1.3.11 or later, and Claude Code for the plugin checks. You do not need npm credentials to release, only to roll back.
+
+The workflow publishes through [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm trades the job's GitHub OIDC token for a short-lived credential, so there is no npm token to store, rotate, or let expire. It is set up once, on npmjs.com: the `aos-harness` package's **Settings > Trusted Publisher** names GitHub Actions, organization `aos-engineer`, repository `harness`, workflow `release.yml`, and environment `npm-publish`. If any of those change (a renamed workflow file or environment, a moved repository), update the trusted publisher first, or the publish step fails with an authentication error.
 
 ## 1. Pick the version
 
@@ -102,8 +104,8 @@ Pushing a `v*` tag runs `.github/workflows/release.yml` on Ubuntu in the `npm-pu
 9. **Pack the CLI.** `scripts/release/pack-cli.ts` bundles the CLI with the kernel and its dependencies into `dist/aos.js`, copies the reference pack to `pack/`, adds the CLI README and the license, and writes a manifest with no runtime dependencies.
 10. **Smoke the packed CLI** by running `bun dist/aos.js --version` from the packed directory.
 11. **Choose the dist-tag:** `next` if the tag contains a hyphen, otherwise `latest`.
-12. **Check the npm token** with `npm whoami`, so a bad or expired `NPM_TOKEN` fails here rather than at publish.
-13. **Publish** with `npm publish --access public --tag <dist-tag> --provenance`.
+12. **Install npm 11.21.1**, pinned, because trusted publishing needs npm 11.5.1 or later.
+13. **Publish** with `npm publish --access public --tag <dist-tag> --provenance`, authenticated by trusted publishing.
 14. **Wait for the registry.** `scripts/release/wait-for-npm.ts` asks npm for `aos-harness@<dist-tag>` up to 30 times, 10 seconds apart, until it resolves to the new version. It then installs that exact version into a scratch directory and runs the installed `dist/aos.js --version` under Bun, so the release is proven installable from the registry, not only uploaded.
 15. **Create the GitHub release** with the notes extracted in step 2. If a release for the tag already exists it edits its notes; otherwise it creates one with `--verify-tag`. Prerelease versions are marked `--prerelease`.
 
@@ -144,7 +146,7 @@ The `#v1.0.0-next.1` suffix pins the marketplace to that git ref: a ref that exi
 
 Look at which step failed before re-running anything.
 
-- **Before `npm publish`:** nothing reached npm. If the cause was outside the repository (an expired `NPM_TOKEN`, a registry outage), fix it and re-run the workflow for the same tag. If the fix needs a new commit, the tag no longer points at what you want to release, and the pushed tag may already be pinned by someone installing the plugin, so do not move it: bump to the next version and start again from step 2.
+- **Before `npm publish`:** nothing reached npm. If the cause was outside the repository (a trusted-publisher setting on npmjs.com that does not match the repository, workflow, or environment; a registry outage), fix it and re-run the workflow for the same tag. If the fix needs a new commit, the tag no longer points at what you want to release, and the pushed tag may already be pinned by someone installing the plugin, so do not move it: bump to the next version and start again from step 2.
 - **The registry wait or the install smoke failed (step 14):** the package is on npm and may be broken. Do not finish the release by hand: go to step 10 and roll forward.
 - **After `npm publish` and the install smoke succeeded,** and only the GitHub release step failed: re-running the workflow fails at `npm publish`, because that version already exists. Create the release by hand. Write the notes to a file and run:
 
