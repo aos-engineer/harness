@@ -39,7 +39,7 @@ export interface ResolvedPack extends PackDocument {
 }
 
 // ---- Evidence ----
-export type EvidenceKind = "artifact" | "command" | "review" | "citation" | "skill"; // test-report, decision: M2, M3
+export type EvidenceKind = "artifact" | "command" | "review" | "citation" | "skill"; // test-report and decision evidence come in a later release
 interface EvidenceBase { id: string; provenance: Provenance; fingerprint: string; changes: number; stage: string; agent: string | null }
 export interface CommandEvidence extends EvidenceBase { kind: "command"; role: string; command: string; exitCode: number | null; masked: boolean; outputSha256: string; tail: string }
 export interface ArtifactEvidence extends EvidenceBase { kind: "artifact"; path: string; sha256: string }
