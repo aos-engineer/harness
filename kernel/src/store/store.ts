@@ -139,14 +139,44 @@ export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: 
   });
 }
 
-/** A verified replay taken without the lock: the state and the seq and hash of the last line it covers. */
-interface Replay { state: RunState | null; seq: number; head: string }
+/**
+ * A verified replay taken without the lock: the state, the seq and hash of the last line it covers, and a
+ * digest of every line up to it, so a later reuse can tell that no earlier line has changed since.
+ */
+interface Replay { state: RunState | null; seq: number; head: string; prefix: string }
+
+function prefixDigest(lines: string[], seq: number): string {
+  return sha256Tag(lines.slice(0, seq).join("\n"));
+}
+
+// The last state this process verified from each run's log, per projector, so a long-lived writer (the
+// MCP server, or a script appending in a loop) catches up on what others appended since instead of
+// replaying the whole log for every append. It only ever holds state replayed from the log by this process,
+// never anything read from state.json. A one-shot hook process starts empty and replays in full.
+const verified = new WeakMap<Projector, Map<string, Replay>>();
+
+function remember(loc: RunLocation, projector: Projector, replay: Replay): Replay {
+  let runs = verified.get(projector);
+  if (runs === undefined) verified.set(projector, (runs = new Map()));
+  runs.set(runPaths(loc).log, replay);
+  return replay;
+}
 
 function replayUnlocked(loc: RunLocation, projector: Projector): Replay | null {
   try {
+    const known = verified.get(projector)?.get(runPaths(loc).log);
+    if (known !== undefined) {
+      const { lines } = scanLog(readLogBytes(loc));
+      // Every line it covered is unchanged: chain-check and apply only the lines after it. Any edit to an
+      // earlier line changes the digest and falls through to a full replay, which reports it.
+      if (lines.length >= known.seq && prefixDigest(lines, known.seq) === known.prefix && checkLines(lines, known.seq, known.head).ok) {
+        const state = project(projector, known.state, parseLines(lines.slice(known.seq)));
+        return remember(loc, projector, { state, seq: lines.length, head: sha256Tag(lines[lines.length - 1]), prefix: prefixDigest(lines, lines.length) });
+      }
+    }
     // The snapshot is read before the log, as rebuild expects: a writer may be mid-append right now.
     const { state, lines } = rebuild(loc, projector, readStateFile(runPaths(loc).state));
-    return lines.length === 0 ? null : { state, seq: lines.length, head: sha256Tag(lines[lines.length - 1]) };
+    return lines.length === 0 ? null : remember(loc, projector, { state, seq: lines.length, head: sha256Tag(lines[lines.length - 1]), prefix: prefixDigest(lines, lines.length) });
   } catch {
     return null; // replayed again under the lock, which reports the problem
   }

@@ -6,7 +6,9 @@ import { closeSync, openSync, readFileSync, rmSync, statSync, unlinkSync, writeS
 import { hostname } from "node:os";
 import { LockTimeoutError } from "../util/errors.ts";
 
-const DEFAULT_TIMEOUT_MS = 3000;
+// Claude Code gives each hook 15 s, and a hook can take the lock twice, so two full waits and the hook's
+// own work still fit. Contending writers on a slow CI runner needed more than the earlier 3 s.
+const DEFAULT_TIMEOUT_MS = 5000;
 const DEFAULT_STALE_MS = 30_000;
 
 interface LockBody { pid: number; host: string; ts: number; nonce: string }
