@@ -2,7 +2,6 @@
 // JSON schema only, validates it against the public pack schema, checks the cross-references a schema
 // cannot express, and refuses anything that looks like code. Every problem is collected, so a pack author
 // fixes them in one pass instead of one per run.
-import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import type { ErrorObject, ValidateFunction } from "ajv";
 import { JSON_SCHEMA, load } from "js-yaml";
@@ -12,6 +11,7 @@ import type {
 } from "../types.ts";
 import { PackError } from "../util/errors.ts";
 import { integrityOf, readPack, type PackEntry } from "./files.ts";
+import { loadAjv } from "../util/ajv.ts";
 
 // pack.yaml as the schema admits it, before defaults are filled in.
 type RawRequirement =
@@ -78,11 +78,10 @@ export function loadPack(dir: string): ResolvedPack {
 // Compiling the schema takes tens of milliseconds and importing ajv about as long again. A hook process
 // may import the kernel barrel on every tool call without ever loading a pack, so both wait for the first
 // loadPack call.
-const requireFromHere = createRequire(import.meta.url);
 let compiled: ValidateFunction | undefined;
 function validator(): ValidateFunction {
   if (!compiled) {
-    const { Ajv } = requireFromHere("ajv") as typeof import("ajv");
+    const { Ajv } = loadAjv();
     // The discriminator option reports errors only from the union member a value selects
     // (by `allow` or `kind`), instead of one error per member.
     compiled = new Ajv({ allErrors: true, discriminator: true }).compile(schema);

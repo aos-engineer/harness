@@ -6,6 +6,7 @@ export * from "./types.ts";
 export * from "./util/ulid.ts";
 export * from "./util/hash.ts";
 export * from "./util/errors.ts";
+export * from "./util/ajv.ts";
 
 // Storage: run log, lock, state snapshot, artifacts, session bindings
 export * from "./store/paths.ts";

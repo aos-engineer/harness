@@ -1,7 +1,6 @@
 // The AOS MCP server: the agent's only way to change run state. It validates every call against the
 // tool's schema, runs the matching operation, and turns any failure into a tool error, so a bad call
 // can never take the server down mid-session.
-import { createRequire } from "node:module";
 import type { Readable, Writable } from "node:stream";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -16,6 +15,7 @@ import type { OpContext } from "../ops/context.ts";
 import type { Tier } from "../types.ts";
 import { OpError } from "../util/errors.ts";
 import { ARGUMENT_SCHEMAS, TOOLS } from "./tools.ts";
+import { loadAjv } from "../util/ajv.ts";
 
 type Args = Record<string, unknown>;
 
@@ -94,14 +94,13 @@ function callTool(context: () => OpContext, session: { run: string | null }, nam
 
 const failure = (text: string): CallToolResult => ({ isError: true, content: [{ type: "text", text }] });
 
-// ajv loads at runtime through require, the same way the pack loader loads it, so the subpath also
-// imports cleanly under Node, where ajv is a CommonJS module.
-const requireFromHere = createRequire(import.meta.url);
+// ajv loads on first use through the shared loader, so the subpath imports cleanly under Node (ajv is
+// CommonJS) and a bundled entry point can supply it.
 const validators = new Map<string, ValidateFunction>();
 function validator(name: string): ValidateFunction {
   let v = validators.get(name);
   if (v === undefined) {
-    const { Ajv } = requireFromHere("ajv") as typeof import("ajv");
+    const { Ajv } = loadAjv();
     v = new Ajv({ allErrors: true, discriminator: true }).compile(ARGUMENT_SCHEMAS[name] ?? {});
     validators.set(name, v);
   }
