@@ -45,10 +45,11 @@ const manifest = {
   version: workspace.version,
   description: workspace.description,
   license: workspace.license,
-  repository: workspace.repository,
+  // In the forms npm normalizes them to, so npm publish has nothing to correct and warns about nothing.
+  repository: { type: "git", url: "git+https://github.com/aos-engineer/harness.git" },
   homepage: workspace.homepage,
   type: "module",
-  bin: { aos: "./dist/aos.js" },
+  bin: { aos: "dist/aos.js" },
   engines: workspace.engines,
   files: ["dist/", "pack/", "README.md", "LICENSE"],
   keywords: ["ai", "agents", "claude-code", "governance", "gates", "mcp"],

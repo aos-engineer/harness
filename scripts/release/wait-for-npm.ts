@@ -38,7 +38,8 @@ if (install.status !== 0) {
   console.error(`npm install ${name}@${version} failed:\n${install.stderr}`);
   process.exit(1);
 }
-const smoke = run("bun", [join(dir, "node_modules", name, "dist", "aos.js"), "--version"]);
+// Through the installed bin, as a user runs it, so a package that lost its bin entry fails here.
+const smoke = run(join(dir, "node_modules", ".bin", "aos"), ["--version"]);
 if (smoke.status !== 0 || !smoke.stdout.includes(version)) {
   console.error(`the installed CLI did not report ${version}:\n${smoke.stdout}${smoke.stderr}`);
   process.exit(1);
