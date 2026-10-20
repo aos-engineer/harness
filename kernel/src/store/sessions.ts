@@ -7,7 +7,7 @@ import type { Binding } from "../types.ts";
 import { OpError } from "../util/errors.ts";
 import { sha256Hex } from "../util/hash.ts";
 import { aosDir } from "./paths.ts";
-import { errCode } from "./fs-internal.ts";
+import { errCode, refuseSymlinks } from "./fs-internal.ts";
 
 function sessionsDir(root: string): string {
   return join(aosDir(root), "sessions");
@@ -55,11 +55,12 @@ function tryRead(file: string): Binding | null {
 export function bindSession(root: string, host: string, session: string, run: string): Binding {
   const binding: Binding = { host, session, run, root: resolve(root), boundAt: new Date().toISOString() };
   const dir = sessionsDir(binding.root);
-  mkdirSync(dir, { recursive: true });
   const file = join(dir, sessionFileName(host, session));
+  refuseSymlinks(binding.root, file);
+  mkdirSync(dir, { recursive: true });
   const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   try {
-    writeFileSync(tmp, JSON.stringify(binding));
+    writeFileSync(tmp, JSON.stringify(binding), { flag: "wx" });
     renameSync(tmp, file);
   } catch (e) {
     rmSync(tmp, { force: true });

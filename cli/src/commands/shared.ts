@@ -83,21 +83,34 @@ export function resolveRoot(io: CliIO, flags: Pick<Flags, "root">): string {
   return gitRoot(io.cwd) ?? resolve(io.cwd);
 }
 
+// Claude Code sets these in every command its agent runs, and a person's own terminal has none of them.
+// They still mark an agent's shell when a wrapper such as `script` has given it a terminal.
+const AGENT_SESSION_VARS = ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID"];
+
 /**
- * Human-only commands refuse to run without a terminal, because an agent's shell tool has none. This stops
- * an agent from passing its own gate by accident or shortcut. It is not a security boundary: a process
- * that wants to can allocate a pseudo-terminal.
+ * Human-only commands refuse inside an agent session and without a terminal, because an agent's shell tool
+ * has none. This stops an agent from passing its own gate by accident or shortcut. Neither check is a
+ * security boundary: a process that wants to can clear the variables and allocate a pseudo-terminal.
  */
-export function requireTty(io: CliIO, cmd: string): boolean {
+export function requireHuman(io: CliIO, cmd: string): boolean {
+  const agentVar = AGENT_SESSION_VARS.find((name) => (io.env[name] ?? "") !== "");
+  if (agentVar !== undefined) {
+    io.err(
+      `aos ${cmd} must be run by a person in their own terminal. This shell belongs to an agent session ` +
+        `(${agentVar} is set). Run it from a terminal outside Claude Code.`,
+    );
+    return false;
+  }
   if (io.isTTY) return true;
   io.err(`aos ${cmd} needs an interactive terminal (TTY). Run it yourself, not through an agent.`);
   return false;
 }
 
 export const TTY_NOTE =
-  "It needs an interactive terminal, which an agent's shell tool does not have, so an agent cannot pass\n" +
-  "its own gate by accident or shortcut. The check is not a security boundary: a determined process can\n" +
-  "allocate a terminal. The run log records who decided and why.";
+  "It refuses inside an agent session and needs an interactive terminal, which an agent's shell tool does\n" +
+  "not have, so an agent cannot pass its own gate by accident or shortcut.\n" +
+  "These checks are not a security boundary: a determined process can clear the variables and allocate a\n" +
+  "terminal. The run log records who decided and why.";
 
 // Control characters (Cc) and format characters (Cf: bidi overrides and isolates, zero-width characters, the
 // byte order mark, the Arabic letter mark), plus the line and paragraph separators, which some terminals

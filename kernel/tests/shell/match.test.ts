@@ -16,7 +16,7 @@ const actions: Record<ActionName, ActionDef> = {
     policy: { spike: { allow: "never" }, bounded: { allow: "after_gate", gate: "verify" } },
   },
   pr_create: {
-    patterns: ["^gh\\s+pr\\s+create\\b"],
+    patterns: ["^gh\\s+pr\\s+(create|new)\\b", "^gh\\s+api\\b.*\\bpulls\\b"],
     policy: { spike: { allow: "never" }, bounded: { allow: "after_gate", gate: "verify" } },
   },
   deploy: {
@@ -103,8 +103,64 @@ test.each<[string, ActionName | null]>([
   // Still not a push
   ['git commit -m "explain git push"', "commit"], [heredocCommit("It's about git push."), "commit"],
   ['echo "git push"', null], ["git stash push", null], ["xargs git push", null],
-  ["cat <<EOF\n$(git push)\nEOF", null],
+  ["cat <<'EOF'\n$(git push)\nEOF", null], ["cat <<EOF\n$(git push)\nEOF", "push"],
+  ["git commit -F- <<'EOF'\nfix: stop `git push` early\nEOF", "commit"],
+  ["git commit -F- <<EOF\nfix: stop `git push` early\nEOF", "push"],
 ])("matchAction unwraps(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
+
+test.each<[string, ActionName | null]>([
+  // A shell with no script operand runs what arrives on stdin: a heredoc, a herestring, or a pipe
+  ["bash <<'EOF'\ngit push -q origin main\nEOF", "push"], ["bash <<EOF\ngit push\nEOF", "push"],
+  ["sh <<-EOF\n\tgit push\n\tEOF", "push"], ["bash << 'EOF'\necho hi\ngit push\nEOF", "push"],
+  ["/bin/bash -s <<'EOF'\ngit push\nEOF", "push"], ["bash -s -- a b <<'EOF'\ngit push\nEOF", "push"],
+  ["bash - <<'EOF'\ngit push\nEOF", "push"], ["bash /dev/stdin <<'EOF'\ngit push\nEOF", "push"],
+  ["sudo bash <<'EOF'\ngit push\nEOF", "push"], ["x=$(bash <<'EOF'\ngit push\nEOF\n)", "push"],
+  ["bash <<<'git push'", "push"], ['bash <<< "git push origin main"', "push"], ["zsh 0<<<'git push'", "push"],
+  ["echo 'git push origin main' | bash", "push"], ["printf 'git push\\n' | sh", "push"],
+  ["printf '%s\\n' 'git push' | sh", "push"], ["echo git push | bash", "push"],
+  ["cat <<'EOF' | bash\ngit push\nEOF", "push"],
+  // Each heredoc body belongs to the command that opened it
+  ["cat <<'A' && bash <<'B'\nnot code\nA\ngit push\nB", "push"],
+  ["bash <<'A' && cat <<'B'\ngit status\nA\ngit push\nB", null],
+  // Every common shell takes -c, by name or by path
+  ["dash -c 'git push'", "push"], ["ksh -c 'git push'", "push"], ["fish -c 'git push'", "push"],
+  ["fish --command 'git push'", "push"], ["fish --command='git push'", "push"], ["/usr/local/bin/fish -c 'git push'", "push"],
+  ["mksh -c 'git push'", "push"], ["/bin/dash -ec 'git push'", "push"],
+  // Still data: the heredoc goes to another command, to a script file, or to a -c script that reads it
+  ["git commit -F - <<'EOF'\ngit push\nEOF", "commit"], ["cat <<'EOF'\ngit push\nEOF", null],
+  ["bash script.sh <<'EOF'\ngit push\nEOF", null], ["bash -c 'cat' <<'EOF'\ngit push\nEOF", null],
+  ["bash < notes.txt", null], ["echo 'git push' | grep push", null], ["tee x <<<'git push'", null],
+  ["echo 'git push' > notes.txt", null],
+])("matchAction reads scripts fed to a shell(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
+
+test.each<[string, ActionName | null]>([
+  // A command word that comes from an expansion cannot be classified, so its arguments decide
+  ["G=git; $G push", "push"], ['G=git && "$G" push origin main', "push"], ["${G} push", "push"],
+  ["$(echo git) push", "push"], ["`echo git` push", "push"], ["$(echo git push)", "push"],
+  ['eval "$(echo git push)"', "push"], ["$GH pr create --fill", "pr_create"], ["$GH pr new", "pr_create"],
+  ["$GH api repos/o/r/pulls -f title=x", "pr_create"], ["$(echo git) commit -m x", "commit"],
+  ["$V deploy --prod", "deploy"], ["$K apply -f k8s/", "deploy"], ["$GH workflow run release.yml", "deploy"],
+  // An expanded command word with ordinary arguments is not an action
+  ['"$(git rev-parse --show-toplevel)/node_modules/.bin/tsc" --noEmit', null], ["$EDITOR notes.md", null],
+  ['"$ROOT/scripts/push-docs.sh"', null],
+  // git runs, but a subcommand from an expansion could be any of its subcommands
+  ["S=push; git $S", "push"], ['git "$SUB" origin main', "push"], ["git -C repo $(echo push)", "push"],
+  ["git -c user.name=x ${CMD}", "push"], ["git status $FILE", null], ['git log "$RANGE"', null],
+])("matchAction treats an expanded command word conservatively(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
+
+test.each<[string, ActionName | null]>([
+  // An alias defined with -c runs its value, and a value starting with ! runs as a shell command
+  ["git -c alias.p=push p", "push"], ["git -c alias.p=push p origin main", "push"],
+  ["git -c 'alias.p=!git push' p", "push"], ["git -c 'alias.x=!git' x push", "push"],
+  ["git -c alias.a=b -c alias.b=push a", "push"], ["git -c alias.P=push p", "push"],
+  ["git -c alias.p=push -C . p", "push"], ["git -c alias.c=commit c -m x", "commit"],
+  ["bash -c 'git -c alias.p=push p'", "push"],
+  // A builtin always wins over an alias of the same name, and an unused alias changes nothing
+  ["git -c alias.push=status push", "push"], ["git -c alias.st=status st", null], ["git -c alias.p=push status", null],
+  // PR creation through the other gh spellings
+  ["gh pr new --fill", "pr_create"], ["gh api repos/o/r/pulls -f title=x -f head=b", "pr_create"],
+  ["gh api -X POST /repos/o/r/pulls", "pr_create"], ["gh api repos/o/r/issues", null],
+])("matchAction resolves aliases and PR spellings(%j)", (cmd, want) => expect(matchAction(cmd, actions)).toBe(want));
 
 test.each([
   ["aos approve 01J design", "approve"], ["bun cli/src/index.ts approve 01J", "approve"],
@@ -125,6 +181,16 @@ test.each([
   // The CLI from source, through node or run directly
   ["node cli/src/index.ts approve", "approve"], ["./cli/src/index.ts run cancel 01J", "run cancel"],
   ["npx aos-harness status", null], ["npm exec other-tool -- approve", null], ["node index.ts approve", null],
+  // Wrappers that allocate a terminal, and inline interpreter code that can, carry the command anywhere
+  ["script -q /dev/null aos approve 01J design", "approve"], ["script -qc 'aos run cancel 01J' /dev/null", "run cancel"],
+  ["expect -c 'spawn aos approve 01J; send y\\r; interact'", "approve"], ["unbuffer aos approve 01J", "approve"],
+  ["socat - EXEC:'aos approve 01J',pty", "approve"], ["unbuffer npx -y aos-harness waive 01J", "waive"],
+  [`python3 -c "import pty; pty.spawn(['aos', 'approve', '01J'])"`, "approve"],
+  [`perl -e 'exec "/usr/local/bin/aos", "approve", "01J"'`, "approve"], [`node -e "spawn('aos', ['approve'])"`, "approve"],
+  [`ruby -e 'system("aos run cancel 01J")'`, "run cancel"], [`deno eval "Deno.run({cmd: ['aos', 'approve']})"`, "approve"],
+  // ...but a wrapper or interpreter that does not carry one is ordinary, and so is a script file
+  ["script -q /dev/null bun test", null], ['python3 -c "print(1)"', null], ["python3 tools/aos_approve.py", null],
+  ["node scripts/chaos approve", null], ['git commit -m "script -q /dev/null aos approve"', null],
 ])("matchHumanOnly(%j)", (cmd, want) => expect(matchHumanOnly(cmd)).toBe(want));
 
 test.each([
@@ -142,4 +208,15 @@ test.each([
   ['cat "$(git rev-parse --show-toplevel)/.aos/runs/x"', true], ["cat $(echo .aos/x)", true],
   // Default macOS filesystems fold case, so .AOS reaches the same kernel files
   ["cat .AOS/runs/x/state.json", true], ["rm -rf /repo/.Aos", true], ["ls .AOSX", false],
+  // ...and fold Unicode case: long s (U+017F) is s. Ignorable code points and compatibility forms fold away.
+  ["cat .ao\u017f/runs/x/state.json", true], ["rm -rf .a\u200Bos", true], ["ls .\uFF41os", true],
+  // A glob or brace expansion that bash expands to .aos, as checked against real bash
+  ["rm -rf .a*", true], ["cat .ao?/runs/x/state.json", true], ["ls .[a]os", true], ["ls .[!x]os", true],
+  ["rm -rf .*", true], ["cp -r ./.* /tmp/x", true], ["rm -rf .{aos,git}", true], ["rm -rf .ao{r..t}", true],
+  ["cat {.aos,x}/runs/a", true], ["ls .A*", true], ["ls .[[:alpha:]]os", true], ["ls .a-*", false],
+  ["echo .{a,b}{c,d}{e,f}{g,h}{i,j}{k,l}{m,n}{o,p}{q,r}", true],
+  // Without a literal leading dot, a glob does not match a dot directory, unless dotglob is on
+  ["rm -rf dist/*", false], ["ls *", false], ["ls ?aos", false], ["ls [.]aos", false], ["ls .g*", false],
+  ["shopt -s dotglob; rm -rf *", true], ["ls .git/*", false], ["echo {1..1000000}", false],
+  ["echo ${HOME}", false], ["find . -name '*.ts' -exec wc -l {} +", false], ["ls .{git,github}", false],
 ])("mentionsAosDir(%j)", (cmd, want) => expect(mentionsAosDir(cmd)).toBe(want));

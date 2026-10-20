@@ -3,7 +3,7 @@
 import { approve, ChainError, deny, humanActor, loadState, OpError, pendingApproval, projector, RunNotFoundError, verifyChain } from "@aos-harness/kernel";
 import type { RunState } from "@aos-harness/kernel";
 import type { CommandFn } from "../io.ts";
-import { clipText, parseFlags, printable, requireTty, resolveRoot, TTY_NOTE, UsageError } from "./shared.ts";
+import { clipText, parseFlags, printable, requireHuman, resolveRoot, TTY_NOTE, UsageError } from "./shared.ts";
 
 const SUMMARY_CHARS = 2000;
 
@@ -39,7 +39,7 @@ export const approveCommand: CommandFn = async (io) => {
     io.err('aos approve: --deny needs --reason "..." so the agent knows what to revise.');
     return 2;
   }
-  if (!requireTty(io, "approve")) return 2;
+  if (!requireHuman(io, "approve")) return 2;
 
   const verb = flags.deny ? "deny" : "approve";
   const loc = { root: resolveRoot(io, flags), run };

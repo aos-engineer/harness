@@ -10,14 +10,21 @@ import { sha256Tag } from "../util/hash.ts";
 
 // A whole key block, body included. A block cut off before its END line is redacted to the end of the text.
 const PRIVATE_KEY_BLOCK = String.raw`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)`;
-// Credentials recognizable by their prefix alone: OpenAI-style keys, AWS key ids, GitHub, npm, and Slack tokens.
-const PREFIXED_TOKEN = String.raw`\b(?:sk-[A-Za-z0-9_-]{16,}|AKIA[A-Z0-9]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|npm_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9-]{10,})\b`;
+// Credentials recognizable by their prefix alone: OpenAI-style keys, AWS key ids, GitHub, npm, and Slack
+// tokens, Stripe secret, restricted, and webhook keys, GitLab tokens, and SendGrid keys.
+const PREFIXED_TOKEN = String.raw`\b(?:sk-[A-Za-z0-9_-]{16,}|AKIA[A-Z0-9]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|npm_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{16,}|whsec_[A-Za-z0-9]{16,}|glpat-[A-Za-z0-9_-]{20,}|SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,})\b`;
+// Formats whose alphabet includes "-", where a closing \b would fail on a trailing dash and miss the whole
+// token: Google API keys and JWTs (a JSON header and payload, so both start with eyJ, then a signature).
+const GOOGLE_API_KEY = String.raw`\bAIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])`;
+const JWT = String.raw`\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*`;
+// The user and password in a URL such as https://user:token@host, which git remotes and CI logs print.
+const URL_USERINFO = String.raw`(?<=:\/\/)[^\/\s:@]{1,256}:[^\/\s@]{1,256}(?=@)`;
 // `name = value` where the name contains a credential word, so GITHUB_TOKEN and AWS_SECRET_ACCESS_KEY match.
 // The affixes are bounded: an unbounded leading \w* would rescan long words from every position.
 const KEY_NAME = String.raw`(?:api[_-]?key|access[_-]?token|access[_-]?key|secret[_-]?access[_-]?key|private[_-]?key|password|secret|authorization|token)`;
 const KEY_VALUE = String.raw`\w{0,40}${KEY_NAME}\w{0,40}\s*["']?\s*[:=]\s*["']?(?:(?:Basic|Bearer)\s+)?\S{6,}`;
 const BEARER = String.raw`\bBearer\s+\S+`;
-const SECRET = new RegExp([PRIVATE_KEY_BLOCK, PREFIXED_TOKEN, KEY_VALUE, BEARER].join("|"), "gi");
+const SECRET = new RegExp([PRIVATE_KEY_BLOCK, PREFIXED_TOKEN, GOOGLE_API_KEY, JWT, URL_USERINFO, KEY_VALUE, BEARER].join("|"), "gi");
 // The email branch starts only where a run of address characters starts. The 0.x form started at every
 // word boundary inside the run, so a long `a.a.a...` line rescanned the run from each one, which is
 // quadratic. Every address it found is still found, because the match from the run's start covers it.

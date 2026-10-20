@@ -2,7 +2,9 @@
 // each word's value is once quotes are removed. It is not a parser. It never expands variables and never
 // runs anything. Nothing splits inside quotes, $(...), backticks, ${...}, <(...), or heredoc bodies,
 // because a guard that splits inside them would mistake data (a commit message, a heredoc) for commands.
-// Substitution bodies are still recorded per word, since bash runs them; heredoc bodies are dropped.
+// Substitution bodies are still recorded per word, since bash runs them. Heredoc bodies are recorded on
+// the word that opened them and never lexed here: only the caller knows whether the command reading them
+// is a shell that will run them.
 // Not exported from the package barrel: split.ts and match.ts are the public surface.
 
 export interface Word {
@@ -10,11 +12,17 @@ export interface Word {
   raw: string; // as written
   at: number; // offset of raw within its segment's text
   subs: string[]; // bodies of the $(...), `...`, <(...), and >(...) substitutions in this word
+  heredoc: HeredocBody | null; // the body of the heredoc whose delimiter this word names
+}
+
+export interface HeredocBody {
+  body: string; // filled in when the line that opened it ends
 }
 
 export interface Segment {
   text: string; // trimmed source of one simple command, comments dropped
   words: Word[];
+  piped: boolean; // its stdin is the previous segment's output (the operator before it is `|`)
 }
 
 export interface Lexed {
@@ -26,9 +34,14 @@ export interface Lexed {
 // The closer of the opaque span being scanned: null at top level.
 type Close = null | ")" | "}" | "`";
 
-interface Heredoc {
+interface Heredoc extends HeredocBody {
   delim: string;
   stripTabs: boolean;
+  // An unquoted delimiter lets bash expand $(...) and backticks in the body before the command reads it,
+  // so those substitutions run whatever the command is; they are added to the opening word's subs.
+  expands: boolean;
+  subs: string[];
+  level: number;
 }
 
 interface ScanResult extends Lexed {
@@ -65,14 +78,15 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
   let depth = 0;
   let pending: Heredoc[] = [];
   let words: Word[] = [];
-  let cur: { start: number; value: string; subs: string[] } | null = null;
+  let cur: { start: number; value: string; subs: string[]; heredoc: HeredocBody | null } | null = null;
   let segStart = start;
+  let piped = false;
   let commentStart: number | null = null;
   let opsAtLastSegment = 0;
   let i = start;
 
   const begin = (at: number) => {
-    if (cur === null) cur = { start: at, value: "", subs: [] };
+    if (cur === null) cur = { start: at, value: "", subs: [], heredoc: null };
     return cur;
   };
   const addSubs = (found: string[]) => {
@@ -80,7 +94,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
     subs.push(...found);
   };
   const endWord = (at: number) => {
-    if (cur !== null) words.push({ value: cur.value, raw: src.slice(cur.start, at), at: cur.start, subs: cur.subs });
+    if (cur !== null) words.push({ value: cur.value, raw: src.slice(cur.start, at), at: cur.start, subs: cur.subs, heredoc: cur.heredoc });
     cur = null;
   };
   const endSegment = (at: number) => {
@@ -89,8 +103,9 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
     const text = raw.trim();
     if (text !== "") {
       const textStart = segStart + (raw.length - raw.trimStart().length);
-      segments.push({ text, words: words.map((w) => ({ ...w, at: w.at - textStart })) });
+      segments.push({ text, words: words.map((w) => ({ ...w, at: w.at - textStart })), piped });
       opsAtLastSegment = operators.length;
+      piped = false;
     }
     words = [];
     commentStart = null;
@@ -98,6 +113,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
   const operator = (op: string, at: number) => {
     endSegment(at);
     operators.push(op);
+    if (op === "|") piped = true;
     segStart = at + op.length;
   };
   const result = (end: number, closed: boolean): ScanResult => ({
@@ -204,7 +220,7 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
     if (c === "(" || c === ")") {
       // Parentheses are metacharacters: a subshell's `(` and `)` are words of their own, never part of one.
       endWord(i);
-      words.push({ value: c, raw: c, at: i, subs: [] });
+      words.push({ value: c, raw: c, at: i, subs: [], heredoc: null });
       i++;
       continue;
     }
@@ -223,8 +239,11 @@ function scan(src: string, start: number, close: Close, level: number): ScanResu
       }
       const d = readDelimiter(src, i);
       if (d.end > i) {
-        begin(i).value += d.delim;
-        pending.push({ delim: d.delim, stripTabs });
+        const w = begin(i);
+        const h: Heredoc = { delim: d.delim, stripTabs, body: "", expands: !d.quoted, subs: w.subs, level };
+        w.value += d.delim;
+        w.heredoc = h;
+        pending.push(h);
         i = d.end;
       }
       continue;
@@ -296,16 +315,19 @@ function readDouble(src: string, start: number, level: number): { value: string;
 }
 
 /** Read a heredoc delimiter word. Quoting it only disables expansion in the body, so quotes are removed. */
-function readDelimiter(src: string, start: number): { delim: string; end: number } {
+function readDelimiter(src: string, start: number): { delim: string; end: number; quoted: boolean } {
   let delim = "";
+  let quoted = false;
   let i = start;
   while (i < src.length && !DELIM_STOP.has(src[i])) {
     const c = src[i];
     if (c === "'" || c === '"') {
+      quoted = true;
       const j = src.indexOf(c, i + 1);
       delim += src.slice(i + 1, j < 0 ? src.length : j);
       i = j < 0 ? src.length : j + 1;
     } else if (c === "\\") {
+      quoted = true;
       delim += src[i + 1] ?? "";
       i += 2;
     } else {
@@ -313,19 +335,26 @@ function readDelimiter(src: string, start: number): { delim: string; end: number
       i++;
     }
   }
-  return { delim, end: Math.min(i, src.length) };
+  return { delim, end: Math.min(i, src.length), quoted };
 }
 
-/** Skip the bodies of the heredocs opened on the line that just ended; return where commands resume. */
+/** Read the bodies of the heredocs opened on the line that just ended into each one; return where commands resume. */
 function skipHeredocBodies(src: string, start: number, pending: Heredoc[]): number {
   let i = start;
   for (const h of pending) {
+    const lines: string[] = [];
     while (i < src.length) {
       const j = src.indexOf("\n", i);
-      const line = src.slice(i, j < 0 ? src.length : j);
+      const raw = src.slice(i, j < 0 ? src.length : j);
       i = j < 0 ? src.length : j + 1;
-      if ((h.stripTabs ? line.replace(/^\t+/, "") : line) === h.delim) break;
+      const line = h.stripTabs ? raw.replace(/^\t+/, "") : raw;
+      if (line === h.delim) break;
+      lines.push(line);
     }
+    h.body = lines.join("\n");
+    // The body expands like double-quoted text in which `"` is an ordinary character, so neutralize
+    // quotes and let the double-quote reader find the substitutions.
+    if (h.expands) h.subs.push(...readDouble(`${h.body.replace(/"/g, " ")}"`, 0, h.level + 1).subs);
   }
   return i;
 }

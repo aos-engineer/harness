@@ -103,6 +103,16 @@ const commands: [string, ActionName | null][] = [
   ["git push origin main", "push"], ["git -c core.sshCommand=ssh push", "push"],
   ["git commit -m \"explain the git push guard\"", "commit"], ["git log --grep push", null],
   ["gh pr create --fill", "pr_create"], ["gh pr view 12", null],
+  // gh's alias for create, and the REST and GraphQL calls that open a PR without the pr subcommand
+  ["gh pr new --fill", "pr_create"], ["gh api repos/o/r/pulls -f title=x -f head=b", "pr_create"],
+  ["gh api -X POST /repos/o/r/pulls", "pr_create"], ["gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'", "pr_create"],
+  ["gh api repos/o/r/issues", null], ["gh pr newline", null],
+  // gh api sends GET unless fields, an input body, or another method are given: listing PRs is a read
+  ["gh api repos/o/r/pulls", null], ["gh api --paginate repos/o/r/pulls/12/files", null],
+  ["gh api -X GET repos/o/r/pulls", null], ["gh api --method=get repos/o/r/pulls", null],
+  ["gh api repos/o/r/pulls --input pr.json", "pr_create"], ["gh api -XPOST repos/o/r/pulls", "pr_create"],
+  ["gh api --method POST repos/o/r/pulls", "pr_create"], ["gh api repos/o/r/pulls -F draft=true", "pr_create"],
+  ["gh api repos/o/r/pulls --raw-field title=x", "pr_create"],
   ["vercel deploy --prod", "deploy"], ["kubectl apply -f k8s/", "deploy"], ["terraform apply", "deploy"],
   ["helm upgrade api ./chart", "deploy"], ["gh workflow run release.yml", "deploy"], ["terraform plan", null],
   // Global options before the subcommand must not hide it, and a subcommand's own "push" is not a push.

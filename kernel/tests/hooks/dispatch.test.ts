@@ -400,7 +400,11 @@ describe("payloadFailsafe", () => {
 
 describe("failsafeDecision", () => {
   const err = new Error("state.json is unreadable");
-  const denied = ["git push", "git -C repo push origin main", "cd x && git push", "gh pr create --fill", "vercel deploy --prod", "bun run deploy"];
+  const denied = [
+    "git push", "git -C repo push origin main", "cd x && git push", "gh pr create --fill", "vercel deploy --prod", "bun run deploy",
+    // The spellings the shell layer also resolves: gh's other PR routes, an expanded command word, an alias
+    "gh pr new", "gh api repos/o/r/pulls -f title=x", "G=git; $G push", "git -c alias.p=push p", "bash <<'EOF'\ngit push\nEOF",
+  ];
   const allowed = ["ls", "git status", "gh pr view", "bun test"];
 
   test("denies consequential commands on pre-tool with the doctor hint", () => {

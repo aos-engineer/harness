@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { RunLocation } from "../types.ts";
 import { RunNotFoundError } from "../util/errors.ts";
 import { sha256Hex } from "../util/hash.ts";
-import { fsyncDir } from "./fs-internal.ts";
+import { fsyncDir, refuseSymlinks } from "./fs-internal.ts";
 import { runPaths } from "./paths.ts";
 
 /**
@@ -18,6 +18,7 @@ export function writeArtifact(loc: RunLocation, content: string | Uint8Array): s
   const file = join(paths.artifacts, hex);
   if (existsSync(file)) return "sha256:" + hex;
 
+  refuseSymlinks(loc.root, file);
   const created = mkdirSync(paths.artifacts, { recursive: true });
   const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   try {

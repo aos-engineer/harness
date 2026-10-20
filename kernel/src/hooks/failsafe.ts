@@ -10,7 +10,9 @@ import { errorMessage, logHookError, nearestAosRoot } from "./report.ts";
 // the pack may be the thing that failed to load.
 export const CONSEQUENTIAL: readonly RegExp[] = Object.freeze([
   /\bgit\b[^;&|]*\bpush\b/,
-  /\bgh\s+pr\s+create\b/,
+  /[$`][^;&|]*\bpush\b/, // a command word from an expansion, as in `G=git; $G push`
+  /\bgh\s+pr\s+(?:create|new)\b/,
+  /\bgh\s+api\b.*\b(?:pulls|createPullRequest)\b/,
   /\bdeploy\b/,
   /\bterraform\s+apply\b/,
   /\bkubectl\s+(?:apply|rollout)\b/,

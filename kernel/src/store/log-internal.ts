@@ -7,7 +7,7 @@ import { ChainError, LockTimeoutError, RunNotFoundError } from "../util/errors.t
 import { sha256Tag } from "../util/hash.ts";
 import { ulid } from "../util/ulid.ts";
 import { writeArtifact } from "./artifacts.ts";
-import { errCode } from "./fs-internal.ts";
+import { APPEND_READ_NOFOLLOW, errCode, refuseSymlinks } from "./fs-internal.ts";
 import { runPaths } from "./paths.ts";
 
 const NL = 0x0a;
@@ -230,7 +230,9 @@ export interface AppendGuard {
  * leaves it exactly as it was.
  */
 export function appendLocked(loc: RunLocation, drafts: EventDraft[], guard: AppendGuard): { events: EventEnvelope[]; lastLine: string | null } {
-  const fd = openSync(runPaths(loc).log, "a+");
+  const log = runPaths(loc).log;
+  refuseSymlinks(loc.root, log);
+  const fd = openSync(log, APPEND_READ_NOFOLLOW, 0o644);
   try {
     const sizeAtRead = fstatSync(fd).size;
     const tail = readTail(fd, sizeAtRead);

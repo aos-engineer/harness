@@ -1,7 +1,8 @@
 // How hook failures are described: a short line for the agent, and the full cause chain for
 // hook-errors.log, where `aos doctor` and a human debugging the hook will look.
-import { appendFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { appendQuietly } from "../store/fs-internal.ts";
 import { aosDir } from "../store/paths.ts";
 
 const MAX_REASON_CHARS = 300;
@@ -40,9 +41,6 @@ export function nearestAosRoot(cwd: string): string | null {
 /** Best effort: a hook that cannot log its error still returns its fail-safe decision. */
 export function logHookError(root: string | null, event: string, err: unknown): void {
   if (root === null) return;
-  try {
-    appendFileSync(join(aosDir(root), "hook-errors.log"), `${new Date().toISOString()} ${event} ${describeError(err)}\n`);
-  } catch {
-    // Nothing else to do: the log is the only place this could be reported.
-  }
+  // Nothing else to do on failure: the log is the only place this could be reported.
+  appendQuietly(root, join(aosDir(root), "hook-errors.log"), `${new Date().toISOString()} ${event} ${describeError(err)}\n`);
 }

@@ -27,6 +27,25 @@ describe("aos approve", () => {
     expect(types(loc)).not.toContain("approval.granted");
   });
 
+  // A wrapper such as `script` can give an agent's shell a terminal, but Claude Code's variables remain.
+  test.each(["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID"])("refuses before prompting when %s is set, even on a TTY", async (name) => {
+    request(loc);
+    const io = fakeIO({ argv: ["approve", run], cwd: root, isTTY: true, answers: ["design"], env: { [name]: "1" } });
+    expect(await approveCommand(io)).toBe(2);
+    expect(io.stderr).toContain(
+      `aos approve must be run by a person in their own terminal. This shell belongs to an agent session (${name} is set). Run it from a terminal outside Claude Code.`,
+    );
+    expect(io.prompts).toEqual([]);
+    expect(types(loc)).not.toContain("approval.granted");
+  });
+
+  test("an empty agent variable does not count as set", async () => {
+    request(loc);
+    const io = fakeIO({ argv: ["approve", run], cwd: root, isTTY: true, answers: ["design"], env: { CLAUDECODE: "" } });
+    expect(await approveCommand(io)).toBe(0);
+    expect(types(loc)).toContain("approval.granted");
+  });
+
   test("wrong typed stage does not approve", async () => {
     request(loc);
     const io = fakeIO({ argv: ["approve", run], cwd: root, isTTY: true, answers: ["build"] });
@@ -232,6 +251,13 @@ describe("aos run cancel", () => {
     const io = fakeIO({ argv: ["run", "cancel", run, "--reason", "x"], cwd: root, isTTY: false });
     expect(await runCommand(io)).toBe(2);
     expect(io.stderr).toContain("aos run cancel needs an interactive terminal (TTY).");
+    expect(types(loc)).not.toContain("run.cancelled");
+  });
+
+  test("refuses inside an agent session, even on a TTY", async () => {
+    const io = fakeIO({ argv: ["run", "cancel", run, "--reason", "x"], cwd: root, isTTY: true, env: { CLAUDECODE: "1" } });
+    expect(await runCommand(io)).toBe(2);
+    expect(io.stderr).toContain("aos run cancel must be run by a person in their own terminal.");
     expect(types(loc)).not.toContain("run.cancelled");
   });
 

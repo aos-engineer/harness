@@ -26,9 +26,12 @@ export interface FakeIOOptions {
  * excludesFile could ignore .aos/ on one machine and not another), a canned `claude --version` so doctor
  * never spawns claude, and a plugin cache that does not exist so doctor never reads ~/.claude.
  */
+const AGENT_VAR = /^(?:CLAUDECODE|CLAUDE_CODE_ENTRYPOINT|CLAUDE_CODE_SESSION_ID)$/;
+
 export function testEnv(overrides: Record<string, string | undefined> = {}): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = {};
-  for (const [k, v] of Object.entries(process.env)) if (!k.startsWith("GIT_") && !k.startsWith("AOS_")) env[k] = v;
+  // CLAUDECODE and its siblings are set when these tests run under Claude Code; human-only commands refuse on them.
+  for (const [k, v] of Object.entries(process.env)) if (!k.startsWith("GIT_") && !k.startsWith("AOS_") && !AGENT_VAR.test(k)) env[k] = v;
   env.GIT_CONFIG_GLOBAL = "/dev/null";
   env.GIT_CONFIG_NOSYSTEM = "1";
   env.AOS_DOCTOR_CLAUDE_VERSION = "2.1.295 (Claude Code)";
