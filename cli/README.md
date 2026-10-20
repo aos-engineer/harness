@@ -1,156 +1,44 @@
-# aos-harness
+# aos
 
-**Agentic Orchestration System** — Assemble specialized AI agents into deliberation and execution teams.
+The human side of AOS 1.0. The agent drives a run through MCP tools inside its host; this CLI is how a person approves a gate, checks a run, diagnoses the setup, and ends a run that has gone wrong.
 
-> **Breaking change in 0.6.0:** `aos-harness` no longer bundles adapter code. You must install the adapter(s) for the AI CLI(s) you want to use as separate packages. If you upgrade from 0.5.x and run `aos run` without the matching `@aos-harness/<name>-adapter` installed, the CLI will print an install hint and exit. See [CHANGELOG](../CHANGELOG.md#060) for the full migration note.
+> This is the 1.0 prerelease, on the npm `next` tag. `aos-harness@latest` is still the 0.x CLI (`aos init`, `aos run <profile>`, adapters), whose source is on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch. Installing `@next` globally replaces a global 0.x `aos`.
 
-## Prerequisites
-
-- [Bun](https://bun.sh) 1.0+
-
-## Getting Started
-
-### 1. Install the CLI
+## Install
 
 ```bash
-bun add -g aos-harness
-# or: npm i -g aos-harness
+npm install -g aos-harness@next
+# or
+bun add -g aos-harness@next
+
+aos --version
 ```
 
-Or install it into the current project:
+The CLI needs [Bun](https://bun.sh) 1.3.11 or later on `PATH`, even when npm installs it: the `aos` binary is a Bun script. To use it with Claude Code, install the AOS plugin too; [Getting started](https://github.com/aos-engineer/harness/blob/main/docs/1.0/getting-started.md) covers both.
 
-```bash
-bun add aos-harness
-# or: npm install aos-harness
-```
+## Commands
 
-### 2. Install an adapter
-
-Install the vendor CLI you want to drive first, then install the matching AOS adapter package. The adapter is the AOS integration layer on top of the vendor CLI:
-
-- `claude` + `@aos-harness/claude-code-adapter`
-- `codex` + `@aos-harness/codex-adapter`
-- `gemini` + `@aos-harness/gemini-adapter`
-- `pi` + `@aos-harness/pi-adapter`
-
-Pick the AI CLI you'll drive agents with and install the matching adapter. You can install more than one. Versions are lockstep — pin the adapter to the same version as the CLI.
-
-```bash
-bun add -g @aos-harness/claude-code-adapter   # Anthropic's Claude Code
-bun add -g @aos-harness/gemini-adapter         # Google's Gemini CLI
-bun add -g @aos-harness/codex-adapter          # OpenAI's Codex CLI
-bun add -g @aos-harness/pi-adapter             # Pi (https://pi.dev)
-```
-
-Project-local adapter install also works:
-
-```bash
-bun add @aos-harness/codex-adapter
-# or: npm install @aos-harness/codex-adapter
-```
-
-For Pi, `aos init --adapter pi` also writes `.pi/extensions/aos-harness.ts` so opening `pi` in the project makes `/aos-run` available. To install that shim once for every AOS project:
-
-```bash
-aos setup-pi --global
-```
-
-### 3. Initialize and run
-
-```bash
-# Initialize a project (writes .aos/ and copies core/ into the project)
-aos init
-# local install via Bun
-bunx aos init
-# local install via npm
-npx aos init
-
-# Or scan only in CI / automation
-aos init --non-interactive
-
-# Or install missing adapter packages after config generation
-aos init --apply
-
-# Make /aos-run available in Pi across all AOS projects
-aos setup-pi --global
-
-# Run a strategic deliberation
-aos run strategic-council --brief brief.md
-
-# Run a CTO execution workflow
-aos run cto-execution --brief feature-brief.md --domain saas
-
-# List available agents, profiles, and domains
-aos list
-
-# Create custom configs
-aos create agent my-analyst
-aos create profile my-review
-
-# Validate all configurations
-aos validate
-```
-
-### Adapter Model Selection
-
-`aos run` resolves model settings in this order:
-
-1. adapter-scoped settings in `.aos/config.yaml` `adapter_defaults`
-2. legacy `.aos/adapter.yaml`
-3. `AOS_MODEL_ECONOMY` / `AOS_MODEL_STANDARD` / `AOS_MODEL_PREMIUM`
-4. adapter defaults
-
-Default behavior:
-
-- `pi` pins explicit tier models by default
-- `codex`, `claude-code`, and `gemini` let the vendor CLI choose its default model unless you set explicit tier models
-
-Example:
-
-```yaml
-api_version: aos/config/v2
-adapters:
-  enabled: [codex, pi]
-  default: codex
-adapter_defaults:
-  codex:
-    use_vendor_default_model: true
-  pi:
-    use_vendor_default_model: false
-    models:
-      economy: anthropic/claude-haiku-4-5
-      standard: anthropic/claude-sonnet-4-6
-      premium: anthropic/claude-opus-4-7
-```
-
-Claude Code note:
-
-- `aos init` now checks `claude auth status --json`.
-- If Claude Code is being forced through `ANTHROPIC_API_KEY`, the readiness scan will tell you. If sessions fail with `Invalid API key`, unset or refresh that key, or switch back to `claude login` auth.
-
-## Exit Codes
-
-| Code | Meaning |
+| Command | What it does |
 |---|---|
-| 0 | Success |
-| 1 | Uncaught runtime error |
-| 2 | Invalid input (unknown adapter, bad path, bad URL, missing adapter package) |
-| 3 | Validation failure that requires user action (`aos init --non-interactive --adapter ...` selected adapter not ready, or profile tool-policy widening failure) |
+| `aos approve <run> [stage] [--reason "..."]` | Shows the pending approval request for the run's current stage and asks you to type the stage name to approve it. |
+| `aos approve <run> [stage] --deny --reason "..."` | Denies the request instead. The agent revises from the reason, so it is required. |
+| `aos status [run] [--json]` | Verifies each run's log, then, without a run, lists every run as run, status, tier, and stage, or, with one, prints its stage, gate, and open gaps. Exits 1 if a log fails verification. |
+| `aos doctor [--pack <dir>]` | Checks Bun, git, Claude Code, the pack and its bound skills, session bindings, `.aos/hook-errors.log`, and the hash chain of every run. Exits 1 if any check fails. |
+| `aos run cancel <run> --reason "..."` | Ends the run and unbinds its sessions, which go back to pass-through. The log keeps the reason. |
+| `aos mcp [--pack <dir>]` | Serves the AOS MCP tools on stdio, for a host that registers the CLI as its MCP server. The Claude Code plugin runs its own server and does not need this. |
 
-## What It Does
+`approve`, `status`, `doctor`, and `run cancel` take `--root <path>` for runs in another checkout; the default is the git top level of the current directory. `aos --help` lists the commands, and `aos <command> --help` shows one command's usage. Exit codes: 0 on success, 1 when the command ran and failed, 2 for a usage error. The [CLI reference](https://github.com/aos-engineer/harness/blob/main/docs/1.0/cli.md) lists every flag, message, and exit code.
 
-AOS Harness orchestrates multiple AI agents with distinct cognitive biases into structured deliberation and execution sessions:
+## Human-only commands
 
-- **Deliberation** — Agents debate a strategic question. An Arbiter synthesizes ranked recommendations with documented dissent.
-- **Execution** — A CTO orchestrator delegates production work through multi-phase workflows with review gates.
+`aos approve` and `aos run cancel` decide things only a person may decide. Before prompting, they refuse with exit 2 when the environment shows an agent's shell started them (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set to a non-empty value, which Claude Code does for every command its agent runs), and they refuse without an interactive terminal. Run them from a terminal outside Claude Code. In a Claude Code session bound to a run, the plugin's Bash guard also refuses them before they run, including through wrappers such as `script` and inline interpreter code. Sessions that are not bound to a run get no such guard.
 
-Ships with 13 agent personas, 6 orchestration profiles, 5 domain packs, and full constraint management (time, budget, rounds).
+None of these checks is a security boundary. A determined process can allocate a terminal and clear its environment, and an agent with unrestricted shell access can write the run log directly. AOS hooks and these checks are guardrails for a cooperating agent; they stop lazy bypass, not a determined one. The run log records who decided each gate and why. The [security model](https://github.com/aos-engineer/harness/blob/main/docs/1.0/security.md) says what AOS does and does not defend.
 
-## Documentation
+## Run it from a checkout
 
-- [Full documentation](https://aos.engineer/docs/getting-started)
-- [GitHub repository](https://github.com/aos-engineer/harness)
-
-## License
-
-MIT
+```bash
+git clone https://github.com/aos-engineer/harness.git
+cd harness && bun install
+alias aos="bun $PWD/cli/src/index.ts"
+```

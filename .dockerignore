@@ -5,9 +5,11 @@ node_modules
 site/node_modules
 site/dist
 site/.astro
-adapters/*/node_modules
-runtime/node_modules
 cli/node_modules
+kernel/node_modules
+hosts/*/node_modules
+packs/*/node_modules
+.worktrees
 **/.DS_Store
 .env
 .env.*

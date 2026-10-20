@@ -1,0 +1,24 @@
+{
+  "_source": "docs",
+  "_note": "returnCodeInterpretation is how the Bash tool reports a non-zero exit it treats as a normal result; its exact text is assumed until captured",
+  "session_id": "SESSION",
+  "prompt_id": "PROMPT-10",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "grep zzz a.txt",
+    "description": "Search a.txt for zzz"
+  },
+  "tool_response": {
+    "stdout": "",
+    "stderr": "",
+    "interrupted": false,
+    "isImage": false,
+    "returnCodeInterpretation": "No matches found"
+  },
+  "tool_use_id": "toolu_01ABC133",
+  "duration_ms": 6
+}

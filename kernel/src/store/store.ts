@@ -1,0 +1,169 @@
+// The run store: the log plus a state.json snapshot of its projection. The log is the source of truth, and
+// every read replays it. The snapshot is a convenience for people and tools reading a run's state at a
+// glance; `aos doctor` reports one that differs from the log.
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import type { EventDraft, EventEnvelope, Projector, RunLocation, RunState, StateFile } from "../types.ts";
+import { ChainError, OpError, RunNotFoundError } from "../util/errors.ts";
+import { sha256Tag } from "../util/hash.ts";
+import { withLock } from "./lock.ts";
+import { aosDir, runPaths } from "./paths.ts";
+import { appendQuietly, errCode, fsyncDir, refuseSymlinks } from "./fs-internal.ts";
+import { appendLocked, checkChain, parseLines, readLogBytes, readStateFile, scanLog } from "./log-internal.ts";
+
+function project(projector: Projector, base: RunState | null, events: EventEnvelope[]): RunState | null {
+  let state = base;
+  for (const e of events) state = projector.apply(state, e);
+  return state;
+}
+
+/**
+ * Replays the full log after verifying its chain against the snapshot that was read before it. Throws
+ * ChainError on any break, so a tampered run fails closed instead of being quietly re-projected.
+ */
+function rebuild(loc: RunLocation, projector: Projector, file: StateFile | null): { state: RunState | null; lines: string[] } {
+  const { lines } = scanLog(readLogBytes(loc));
+  const check = checkChain(lines, file);
+  if (!check.ok) throw new ChainError(`run ${loc.run}: ${check.reason}`, check.badSeq);
+  return { state: project(projector, null, parseLines(lines)), lines };
+}
+
+// Best effort, in the same line format the hooks use, so `aos doctor` surfaces it with theirs.
+// Nowhere left to report a failure of this; the lagging snapshot still rebuilds on the next read.
+function trace(root: string, message: string): void {
+  appendQuietly(root, join(aosDir(root), "hook-errors.log"), `${new Date().toISOString()} store ${message}\n`);
+}
+
+// The snapshot is a cache that loadState can always rebuild, so it is renamed into place without an fsync.
+function writeStateFile(loc: RunLocation, body: string): void {
+  const path = runPaths(loc).state;
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  try {
+    // "wx" refuses a planted file or symlink at the temporary name; the rename replaces a link at `path`.
+    writeFileSync(tmp, body, { flag: "wx" });
+    renameSync(tmp, path);
+    fsyncDir(dirname(path));
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    // The events are already durable in the log, so the append succeeded. Reporting failure here would
+    // invite a retry that duplicates them; a lagging snapshot is rebuilt by the next reader instead.
+    if (errCode(e) === undefined) throw e;
+    trace(loc.root, `run ${loc.run}: state.json not written (${errCode(e)}): ${(e as Error).message}`);
+  }
+}
+
+/**
+ * A new directory survives a crash only once its parent is synced. Syncs the parent of `dir`, and every
+ * ancestor up to the parent of `firstCreated` (what a recursive mkdir just made, if anything).
+ */
+function syncNewEntries(dir: string, firstCreated: string | undefined): void {
+  let d = dirname(dir);
+  fsyncDir(d);
+  if (firstCreated === undefined) return;
+  while (d !== dirname(firstCreated) && dirname(d) !== d) {
+    d = dirname(d);
+    fsyncDir(d);
+  }
+}
+
+export function createRun(loc: RunLocation, started: EventDraft<"run.started">, projector: Projector): StateFile {
+  const paths = runPaths(loc);
+  refuseSymlinks(loc.root, paths.dir);
+  const firstCreated = mkdirSync(dirname(paths.dir), { recursive: true });
+  try {
+    mkdirSync(paths.dir);
+  } catch (e) {
+    if (errCode(e) === "EEXIST") throw new OpError("refused", `run ${loc.run} already exists`, { cause: e });
+    throw e;
+  }
+  try {
+    syncNewEntries(paths.dir, firstCreated);
+    const { file } = appendEvents(loc, [started], projector);
+    // The snapshot rename syncs this directory too, but it can be skipped; the log's own entry must last.
+    fsyncDir(paths.dir);
+    return file;
+  } catch (e) {
+    // The directory is ours alone (the exclusive mkdir above), so a failed start leaves nothing behind.
+    rmSync(paths.dir, { recursive: true, force: true });
+    throw e;
+  }
+}
+
+/**
+ * Appends drafts under the run's lock and updates the snapshot. The batch is projected before it is written,
+ * so an event the projector rejects never reaches the log. The snapshot is trusted as the starting point
+ * only when it pins the current end of the log; otherwise the full log is verified and replayed.
+ */
+export interface AppendOptions {
+  /**
+   * Runs under the lock against the run's current state, before anything is written. Throw to refuse the
+   * batch: the log stays untouched. Operations use it to re-check what they read (status, stage, ids), so a
+   * concurrent writer cannot slip between an operation's read and its append.
+   */
+  precondition?: (state: RunState) => void;
+}
+
+export function appendEvents(loc: RunLocation, drafts: EventDraft[], projector: Projector, opts: AppendOptions = {}): { events: EventEnvelope[]; file: StateFile } {
+  const paths = runPaths(loc);
+  if (!existsSync(paths.dir)) throw new RunNotFoundError(`no run ${loc.run} under ${loc.root}`);
+  // Before the lock: a symlinked run directory would put the lock file, then every event, somewhere else.
+  refuseSymlinks(loc.root, paths.lock);
+  return withLock(paths.lock, (held) => {
+    const snapshot = readStateFile(paths.state);
+    // Filled in by the check, which runs before the batch is written: a projection or serialization that
+    // throws there leaves the log untouched.
+    const out: { file: StateFile | null; body: string } = { file: null, body: "" };
+    const { events } = appendLocked(loc, drafts, { held, check: (sealed, lastLine) => {
+      // Replayed, never taken from state.json, for the same reason as loadState: the precondition and the
+      // next snapshot must build on what the log says, not on an edited cache.
+      const base = rebuild(loc, projector, snapshot).state;
+      if (opts.precondition) {
+        if (base === null) throw new RunNotFoundError(`run ${loc.run} has no events to check against`);
+        opts.precondition(base);
+      }
+      const next = project(projector, base, sealed);
+      if (next === null) throw new Error("the projector returned no state for a non-empty batch");
+      out.file = { v: 1, seq: sealed[sealed.length - 1].seq, head: sha256Tag(lastLine), state: next };
+      out.body = JSON.stringify(out.file);
+    } });
+    if (events.length === 0) return { events, file: loadState(loc, projector) };
+    if (out.file === null) throw new Error("unreachable: a non-empty append was not projected");
+    // A snapshot written after losing the lock could overwrite a newer one; skipping it only makes it lag.
+    if (held()) writeStateFile(loc, out.body);
+    return { events, file: out.file };
+  });
+}
+
+/**
+ * Returns the run's state without taking the lock: the log, verified and replayed in memory. state.json is
+ * never trusted for its contents. Anything can rewrite it without touching the hash chain, so returning it
+ * whenever it pinned the last event let a one-field edit pass a gate. A replay of a thousand events takes a
+ * few milliseconds. Nothing is written, because repairs belong to writers holding the lock.
+ */
+export function loadState(loc: RunLocation, projector: Projector): StateFile {
+  const snapshot = readStateFile(runPaths(loc).state);
+  const { state, lines } = rebuild(loc, projector, snapshot);
+  if (state === null) throw new RunNotFoundError(`run ${loc.run} has no events`);
+  return { v: 1, seq: lines.length, head: sha256Tag(lines[lines.length - 1]), state };
+}
+
+// run ids, sorted ascending
+export function listRuns(root: string): string[] {
+  let names: string[];
+  try {
+    names = readdirSync(join(aosDir(root), "runs"));
+  } catch (e) {
+    if (errCode(e) === "ENOENT") return [];
+    throw e;
+  }
+  // A directory counts as a run once its name is a valid id and it holds a log; a start that crashed
+  // between mkdir and the first append leaves neither.
+  return names.filter((run) => {
+    try {
+      return existsSync(runPaths({ root, run }).log);
+    } catch {
+      return false;
+    }
+  }).sort();
+}

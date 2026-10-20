@@ -1,0 +1,12 @@
+{
+  "_source": "captured",
+  "session_id": "SESSION",
+  "transcript_path": "/home/user/.claude/projects/-repo/SESSION.jsonl",
+  "cwd": "/repo",
+  "hook_event_name": "SessionStart",
+  "source": "resume",
+  "seconds_since_last_response": 72,
+  "context_tokens": 71254,
+  "prompt_cache_likely_expired": false,
+  "estimated_cache_write_usd": 0.285
+}

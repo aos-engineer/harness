@@ -1,0 +1,15 @@
+{
+  "name": "aos-harness",
+  "owner": {
+    "name": "aos-engineer",
+    "url": "https://github.com/aos-engineer"
+  },
+  "description": "The AOS plugin for Claude Code, served from the AOS Harness repository.",
+  "plugins": [
+    {
+      "name": "aos",
+      "source": "./hosts/claude-code",
+      "description": "AOS run gates for Claude Code: risk-tiered stages, observed test evidence, and human approvals before an agent may push, open a PR, or deploy."
+    }
+  ]
+}

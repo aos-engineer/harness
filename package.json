@@ -1,44 +1,31 @@
 {
-  "name": "aos-harness",
-  "version": "0.11.0",
-  "description": "Agentic Orchestration System — assemble AI agents into deliberation and execution teams",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/aos-engineer/harness.git"
-  },
-  "homepage": "https://github.com/aos-engineer/harness",
-  "keywords": [
-    "ai",
-    "agents",
-    "orchestration",
-    "multi-agent",
-    "deliberation",
-    "execution",
-    "llm",
-    "harness"
-  ],
+  "name": "aos-harness-monorepo",
+  "version": "1.0.0-next.0",
   "private": true,
+  "license": "MIT",
+  "type": "module",
   "workspaces": [
-    "runtime",
-    "cli",
-    "adapters/*"
+    "kernel",
+    "hosts/*",
+    "packs/*",
+    "cli"
   ],
-  "bin": {
-    "aos": "./cli/src/index.ts"
-  },
   "scripts": {
-    "test": "bun test --cwd runtime",
-    "test:all": "bun test runtime tests adapters/shared adapters/claude-code/tests adapters/codex/tests adapters/gemini/tests",
-    "test:integration": "bun run tests/integration/validate-config.ts",
-    "validate": "bun run cli/src/index.ts validate",
-    "typecheck": "bun x tsc --noEmit --project runtime/tsconfig.json",
+    "test": "bun test ./kernel ./hosts ./cli ./tests",
+    "typecheck": "bun x tsc --noEmit -p tsconfig.json && bun x tsc --noEmit -p kernel/tsconfig.src.json",
     "lint:yaml-safety": "bun run scripts/check-yaml-safety.ts",
     "lint": "bun run lint:yaml-safety && bun run typecheck",
-    "prerelease": "bun run lint && bun run test:all",
-    "publish:dry-run": "bun run scripts/publish.ts --dry-run"
+    "build:plugin": "bun run scripts/build-plugin.ts",
+    "build:plugin:check": "bun run scripts/build-plugin.ts --check",
+    "validate:configs": "bun run scripts/validate-configs.ts"
   },
   "devDependencies": {
+    "@aos-harness/host-claude-code": "workspace:*",
+    "@aos-harness/kernel": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/bun": "^1.3.12",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "latest",
     "typescript": "^5.8.0"
   }
 }

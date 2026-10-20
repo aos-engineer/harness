@@ -18,24 +18,34 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.0"
+
+      # The kernel must load under Node too (the Pi host imports it in-process).
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
       - name: Install dependencies
-        run: |
-          cd runtime && bun install
-          cd ../cli && bun install
-          cd ../adapters/pi && bun install
-          cd ../../adapters/claude-code && bun install
+        run: bun install --frozen-lockfile
 
-      - name: Run tests
-        run: cd runtime && bun test
+      - name: Lint (YAML safety and typecheck)
+        run: bun run lint
 
-      - name: Run yaml-safety lint
-        run: bun run lint:yaml-safety
+      - name: Test
+        run: bun run test
 
-      - name: TypeScript type check
-        run: cd runtime && bun run typecheck
+      # The marketplace installs the plugin straight from git, so its bundles must match the sources.
+      - name: Plugin bundles are up to date
+        run: bun run build:plugin:check
 
+      # The same end-to-end runs, with every hook going through the launcher and the committed bundle.
+      - name: End-to-end through the shipped plugin
+        run: bun test ./tests/e2e
+        env:
+          AOS_E2E_HOOK: bundle
+
+  # What a release ships: one version across manifests, loadable packs, a marketplace entry that resolves.
   validate-configs:
     runs-on: ubuntu-latest
     steps:
@@ -44,44 +54,10 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.0"
 
-      - name: Install runtime dependencies
-        run: cd runtime && bun install
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-      - name: Validate all configs
-        run: |
-          cd runtime && bun -e "
-          import { loadAgent } from './src/config-loader';
-          import { loadProfile } from './src/config-loader';
-          import { loadDomain } from './src/config-loader';
-          import { readdirSync } from 'node:fs';
-          import { join } from 'node:path';
-
-          const core = join(import.meta.dir, '..', 'core');
-
-          // Validate all agents
-          for (const type of ['orchestrators', 'perspectives', 'operational']) {
-            const dir = join(core, 'agents', type);
-            for (const name of readdirSync(dir)) {
-              loadAgent(join(dir, name));
-              console.log('  Agent OK:', name);
-            }
-          }
-
-          // Validate all profiles
-          const profilesDir = join(core, 'profiles');
-          for (const name of readdirSync(profilesDir)) {
-            loadProfile(join(profilesDir, name));
-            console.log('  Profile OK:', name);
-          }
-
-          // Validate all domains
-          const domainsDir = join(core, 'domains');
-          for (const name of readdirSync(domainsDir)) {
-            loadDomain(join(domainsDir, name));
-            console.log('  Domain OK:', name);
-          }
-
-          console.log('All configs valid!');
-          "
+      - name: Validate release configs
+        run: bun run validate:configs

@@ -4,22 +4,18 @@ set shell := ["bash", "-lc"]
 default:
     @just --list
 
-# Run all runtime unit tests
+# Run every test suite
 test:
-    cd runtime && bun test
+    bun run test
 
-# Type check runtime
+# Type check the whole workspace
 typecheck:
-    cd runtime && bun x tsc --noEmit
+    bun run typecheck
 
-# Validate all core configs load correctly
-validate:
-    cd runtime && bun run ../tests/integration/validate-config.ts
+# YAML-safety lint plus typecheck
+lint:
+    bun run lint
 
-# Launch AOS via Pi adapter
-run:
-    cd adapters/pi && bun install --silent && pi -e src/index.ts
-
-# Clean session data
+# Clean local run data
 clean:
     rm -rf .aos/

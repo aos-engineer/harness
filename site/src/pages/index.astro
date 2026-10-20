@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import PreviewNotice from '../components/PreviewNotice.astro';
 import { loadAllAgents, loadAllProfiles, loadAllDomains, loadAllSkills } from '../lib/content';
 
 const agents = loadAllAgents();
@@ -16,6 +17,7 @@ const listAgents = agents.filter(a => ['catalyst', 'sentinel', 'architect', 'pro
   <!-- Hero -->
   <section class="px-6 pt-16 pb-12 md:pt-[120px] md:pb-20">
     <div class="mx-auto max-w-[800px] text-center">
+      <div class="mb-10 max-w-[640px] mx-auto"><PreviewNotice /></div>
       <h1 class="text-[32px] sm:text-[40px] md:text-5xl font-extrabold leading-[1.1] tracking-tight text-[var(--color-text)]">
         Agentic Orchestration System
       </h1>
@@ -227,9 +229,10 @@ const listAgents = agents.filter(a => ['catalyst', 'sentinel', 'architect', 'pro
         </div>
         <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
           <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Claude Code</h3>
-          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Use your existing Claude Code installation, add the adapter, then optionally install the project command pack. Readiness checks surface when <code>ANTHROPIC_API_KEY</code> is overriding Claude auth.</p>
+          <p class="text-[15px] text-[var(--color-text-secondary)] mt-2">Use your existing Claude Code installation, add the adapter, then optionally install the project command pack from the <code>release/0.11</code> branch, running the installer from your project. Readiness checks surface when <code>ANTHROPIC_API_KEY</code> is overriding Claude auth.</p>
           <pre class="mt-4 !bg-[var(--color-bg)] !border-[var(--color-border)] text-[13px]"><code><span class="text-[var(--color-text-muted)]">$</span> npm i -g @aos-harness/claude-code-adapter
-<span class="text-[var(--color-text-muted)]">$</span> bash plugins/aos-harness/claude-code/install.sh</code></pre>
+<span class="text-[var(--color-text-muted)]">$</span> git clone -b release/0.11 https://github.com/aos-engineer/harness.git ~/aos-harness-0.11
+<span class="text-[var(--color-text-muted)]">$</span> bash ~/aos-harness-0.11/plugins/aos-harness/claude-code/install.sh "$PWD/.claude/commands/aos"</code></pre>
         </div>
         <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 card-hover">
           <h3 class="text-[17px] font-semibold text-[var(--color-text)]">Codex CLI</h3>

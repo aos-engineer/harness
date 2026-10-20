@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AOS pack",
+  "description": "pack.yaml for an AOS methodology pack. Packs are data only: they declare tiers, stages, gates, write scopes, and action policies, and never contain executable code. Each stage needs instructions at stages/<tier>/<stage>.md.",
+  "type": "object",
+  "required": ["name", "version", "roles", "classify", "budget", "tiers", "actions"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "version": {
+      "description": "Semantic version, so overlays can pin a compatible base.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "roles": {
+      "description": "Named command roles. A command requirement names a role, and a shell command plays that role when it starts with one of the listed commands.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/name" },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "classify": {
+      "description": "Proposes a tier from the run brief. Rules run in order; the first rule with a matching pattern wins, otherwise the default applies.",
+      "type": "object",
+      "required": ["rules", "default"],
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["tier", "any"],
+            "additionalProperties": false,
+            "properties": {
+              "tier": { "$ref": "#/definitions/tier" },
+              "any": {
+                "description": "Regular expressions, matched case-insensitively against the brief.",
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "default": { "$ref": "#/definitions/tier" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": ["iterations"],
+      "additionalProperties": false,
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tiers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "spike": { "$ref": "#/definitions/tierDef" },
+        "bounded": { "$ref": "#/definitions/tierDef" },
+        "architectural": { "$ref": "#/definitions/tierDef" }
+      }
+    },
+    "actions": {
+      "description": "Consequential shell actions and when each tier allows them. Every action must be declared.",
+      "type": "object",
+      "required": ["commit", "push", "pr_create", "deploy"],
+      "additionalProperties": false,
+      "properties": {
+        "commit": { "$ref": "#/definitions/action" },
+        "push": { "$ref": "#/definitions/action" },
+        "pr_create": { "$ref": "#/definitions/action" },
+        "deploy": { "$ref": "#/definitions/action" }
+      }
+    }
+  },
+  "definitions": {
+    "name": {
+      "description": "Stage and role names. Stage names become file paths, so they cannot contain separators or dots.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "tier": { "enum": ["spike", "bounded", "architectural"] },
+    "provenance": { "enum": ["claimed", "observed", "attested"] },
+    "fresh": {
+      "description": "When true, only evidence recorded at the current tree counts.",
+      "type": "boolean",
+      "default": false
+    },
+    "tierDef": {
+      "type": "object",
+      "required": ["stages"],
+      "additionalProperties": false,
+      "properties": {
+        "stages": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/stage" } }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "required": ["name", "writes", "gate"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/definitions/name" },
+        "writes": {
+          "description": "\"any\" for anywhere except .aos/, or a list of relative path prefixes ending in /. Prefixes use forward slashes, with no empty, \".\", or \"..\" segment, and cannot start at .aos/. An empty list allows no file writes.",
+          "if": { "type": "string" },
+          "then": { "const": "any" },
+          "else": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.aos/)(?!(?:.*/)?\\.\\.?/)(?!.*//)[^\\\\]+/$"
+            }
+          }
+        },
+        "gate": { "$ref": "#/definitions/gate" },
+        "bind": {
+          "description": "Skills the stage instructions direct the agent to use.",
+          "type": "array",
+          "default": [],
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "model": {
+          "description": "Model hint for the stage.",
+          "enum": ["reasoning", "fast", "script", null],
+          "default": null
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "required": ["decider"],
+      "additionalProperties": false,
+      "properties": {
+        "decider": { "enum": ["rule", "human"] },
+        "tasks": {
+          "description": "\"all\" requires every task in the stage to be done before the gate can pass.",
+          "enum": ["all", "none"],
+          "default": "none"
+        },
+        "requires": { "type": "array", "default": [], "items": { "$ref": "#/definitions/requirement" } }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "required": ["kind"],
+      "discriminator": { "propertyName": "kind" },
+      "oneOf": [
+        {
+          "required": ["kind", "role", "result", "provenance"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "command" },
+            "role": { "$ref": "#/definitions/name" },
+            "result": { "const": "exit_zero" },
+            "provenance": { "$ref": "#/definitions/provenance" },
+            "fresh": { "$ref": "#/definitions/fresh" }
+          }
+        },
+        {
+          "required": ["kind", "status", "provenance"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "review" },
+            "status": { "const": "approved" },
+            "provenance": { "$ref": "#/definitions/provenance" },
+            "fresh": { "$ref": "#/definitions/fresh" }
+          }
+        },
+        {
+          "required": ["kind", "provenance"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "enum": ["artifact", "citation", "skill"] },
+            "provenance": { "$ref": "#/definitions/provenance" },
+            "fresh": { "$ref": "#/definitions/fresh" },
+            "match": { "type": ["string", "null"], "default": null }
+          }
+        }
+      ]
+    },
+    "action": {
+      "type": "object",
+      "required": ["patterns", "policy"],
+      "additionalProperties": false,
+      "properties": {
+        "patterns": {
+          "description": "Regular expressions matched against each command the shell would run.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "policy": {
+          "description": "One policy per tier the pack defines.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spike": { "$ref": "#/definitions/policy" },
+            "bounded": { "$ref": "#/definitions/policy" },
+            "architectural": { "$ref": "#/definitions/policy" }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["allow"],
+      "discriminator": { "propertyName": "allow" },
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": { "allow": { "const": "always" } }
+        },
+        {
+          "additionalProperties": false,
+          "properties": { "allow": { "const": "never" } }
+        },
+        {
+          "required": ["allow", "stages"],
+          "additionalProperties": false,
+          "properties": {
+            "allow": { "const": "in_stages" },
+            "stages": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/definitions/name" } }
+          }
+        },
+        {
+          "required": ["allow", "gate"],
+          "additionalProperties": false,
+          "properties": {
+            "allow": { "const": "after_gate" },
+            "gate": { "$ref": "#/definitions/name" }
+          }
+        }
+      ]
+    }
+  }
+}

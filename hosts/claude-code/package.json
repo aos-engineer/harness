@@ -1,0 +1,11 @@
+{
+  "name": "@aos-harness/host-claude-code",
+  "version": "1.0.0-next.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@aos-harness/kernel": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 bun.lock
+# The root lockfile is tracked so every lane worktree and CI resolve the same versions.
+!/bun.lock
 
 # AOS session data
 .aos/
@@ -13,6 +15,8 @@ bun.lock
 
 # Build output
 dist/
+# The plugin's bundles are committed: a marketplace installs the plugin straight from git.
+!/hosts/claude-code/dist/
 
 # Logs
 *.log

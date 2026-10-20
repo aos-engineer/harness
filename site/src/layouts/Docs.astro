@@ -1,4 +1,6 @@
 ---
+import PreviewNotice from '../components/PreviewNotice.astro';
+
 interface SidebarLink {
   id: string;
   label: string;
@@ -160,6 +162,8 @@ const topLinks = [
             ))}
           </nav>
         )}
+
+        <div class="docs-preview-notice"><PreviewNotice /></div>
 
         <article class="docs-article">
           <slot />

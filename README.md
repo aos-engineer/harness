@@ -1,17 +1,78 @@
 # AOS Harness
 
-**Agentic Orchestration System** — Assemble specialized AI agents into deliberation and execution teams.
+> **`main` is AOS 1.0 development.** 1.0 prereleases publish on the npm `next` tag. The released 0.x line (npm `latest`) lives on the `release/0.11` branch and tag `v0.11.0`.
 
 [![CI](https://github.com/aos-engineer/harness/actions/workflows/ci.yml/badge.svg)](https://github.com/aos-engineer/harness/actions/workflows/ci.yml)
 
+## AOS 1.0 on `main`
+
+AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Push and pull request creation wait for the last gate, and deploys are never allowed inside a run. Every run is an append-only, hash-chained log under `.aos/runs/`, so an edit that breaks the chain is detectable and its gate verdicts can be re-derived from the log. The chain is not signed: a process that rewrites the whole log consistently is not detected.
+
+Claude Code is the first host, and 1.0 is in prerelease. AOS is a guardrail for a cooperating agent, not a security boundary; [the security model](docs/1.0/security.md) says what it does not defend.
+
+### Install
+
+You need Claude Code 2.1.295 or later, [Bun](https://bun.sh) 1.3.11 or later on `PATH`, and git. Install the plugin in Claude Code:
+
+```
+/plugin install aos --marketplace aos-engineer/harness
+```
+
+Then install the CLI, which is how you approve gates and check runs:
+
+```bash
+npm install -g aos-harness@next    # or: bun add -g aos-harness@next
+```
+
+The reference pack's stages name skills from the [superpowers](https://github.com/obra/superpowers) plugin, so installing it is recommended; without it the agent follows each stage's written instructions.
+
+Start a run with `/aos:run <your request>`. [Getting started](docs/1.0/getting-started.md) walks through a first run, the two-step plugin install, pinning a release, and uninstalling.
+
+### Documentation
+
+- [Getting started](docs/1.0/getting-started.md), [concepts](docs/1.0/concepts.md), and [troubleshooting](docs/1.0/troubleshooting.md)
+- Reference: [CLI](docs/1.0/cli.md), [MCP tools](docs/1.0/mcp-tools.md), [packs](docs/1.0/packs.md), and the [security model](docs/1.0/security.md)
+- For contributors: [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/1.0/architecture.md), and [releasing](docs/1.0/releasing.md)
+- [The docs index](docs/README.md), which also explains the 0.x material under `docs/`
+
+### Repository layout
+
+```
+kernel/                  @aos-harness/kernel: run log, projection, gates, packs, shell semantics, hook logic
+  src/mcp/               the MCP server, exported as @aos-harness/kernel/mcp
+hosts/claude-code/       the Claude Code plugin: manifest, hooks, MCP registration, the /aos:run skill
+packs/feature-delivery/  the reference methodology pack (data only)
+cli/                     the aos CLI: approve, status, doctor, run cancel, mcp
+tests/e2e/               bounded and spike runs driven through the MCP tools and the real hook command
+core/                    0.x agent, profile, and domain content, still read by the docs site
+site/                    the docs site (Astro)
+```
+
+### Development
+
+```bash
+bun install
+bun run test                    # every test suite
+bun run lint                    # YAML safety check and typecheck
+bun run scripts/bench-hook.ts   # hook latency benchmark
+```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has the full setup, the rules tests and kernel code follow, and the pull request flow.
+
 ---
+
+## AOS 0.x
+
+> Everything below documents the 0.x line published on npm as `aos-harness@latest`. Its source, including `runtime/`, `adapters/`, and `plugins/aos-harness/`, is on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch.
+
+**Agentic Orchestration System.** Assemble specialized AI agents into deliberation and execution teams.
 
 ## What It Is
 
 AOS Harness is a language-agnostic orchestration system for multi-agent AI workflows. It supports two orchestration patterns:
 
-- **Deliberation** — Agents debate a strategic question, the Arbiter synthesizes ranked recommendations with documented dissent. Output: structured memo.
-- **Execution** — A CTO/CIO/CEO orchestrator delegates production work to agents who produce architecture, task breakdowns, security reviews, and implementation plans. Output: execution package.
+- **Deliberation**: Agents debate a strategic question, the Arbiter synthesizes ranked recommendations with documented dissent. Output: structured memo.
+- **Execution**: A CTO/CIO/CEO orchestrator delegates production work to agents who produce architecture, task breakdowns, security reviews, and implementation plans. Output: execution package.
 
 The harness ships with:
 
@@ -25,7 +86,7 @@ The harness ships with:
 
 ## Quick Start
 
-> **0.6.0 migration note:** adapters are no longer bundled with the CLI. Install the adapter(s) for the AI CLI(s) you want to drive. See [CHANGELOG](./CHANGELOG.md#060).
+> **0.6.0 migration note:** adapters are no longer bundled with the CLI. Install the adapter(s) for the AI CLI(s) you want to drive. See [CHANGELOG](./CHANGELOG.md#060---2026-04-14).
 
 ### Prerequisites
 
@@ -76,8 +137,8 @@ bun add @aos-harness/codex-adapter
 
 Adapters remain the runtime boundary. This repo also ships thin host-native install surfaces on top:
 
-- `Codex`: [plugins/aos-harness](./plugins/aos-harness/) local plugin bundle
-- `Claude Code`: [plugins/aos-harness/claude-code](./plugins/aos-harness/claude-code/) project command pack
+- `Codex`: [plugins/aos-harness](https://github.com/aos-engineer/harness/tree/release/0.11/plugins/aos-harness) local plugin bundle, on the `release/0.11` branch
+- `Claude Code`: [plugins/aos-harness/claude-code](https://github.com/aos-engineer/harness/tree/release/0.11/plugins/aos-harness/claude-code) project command pack, on the `release/0.11` branch
 - `Pi`: `aos init --adapter pi` writes `.pi/extensions/aos-harness.ts` so `/aos-run` is available when you open `pi` in that project
 
 For Pi across all AOS projects, install the global shim once:
@@ -218,28 +279,7 @@ Brief → Requirements (Advocate + Strategist) → Architecture (Architect)
 
 ## Architecture
 
-```
-aos-harness/
-  core/               # Language-agnostic config (YAML + Markdown)
-    agents/           # 15 agent personas (orchestrators, perspectives, operational)
-    profiles/         # 9 orchestration profiles
-    domains/          # 5 domain knowledge packs
-    skills/           # 6 skill definitions (aos/skill/v1)
-    workflows/        # 10 workflow definitions
-    schema/           # JSON Schema for validation
-    briefs/           # Sample briefs
-  runtime/            # Minimal TypeScript engine (~2000 lines)
-    src/              # Engine, constraint engine, delegation router, artifact manager,
-                      # workflow runner, template resolver, config loader, output renderer
-    tests/            # 393 tests across 25 files
-  adapters/           # Platform-specific implementations
-    pi/               # Pi CLI adapter
-    claude-code/      # Claude Code adapter
-    codex/            # Codex CLI adapter
-    gemini/           # Gemini CLI adapter
-  cli/                # CLI tooling (init, run, create, validate, list, replay)
-  docs/               # Specs, plans, getting-started guides
-```
+The 0.x engine (`runtime/`), its adapters (`adapters/pi`, `claude-code`, `codex`, `gemini`), and the 0.x CLI are on the [`release/0.11`](https://github.com/aos-engineer/harness/tree/release/0.11) branch. Its agent, profile, domain, and skill content is still in `core/` on `main`. For the 1.0 layout, see [Repository layout](#repository-layout).
 
 ### 4-Layer Adapter Contract
 
@@ -269,14 +309,14 @@ AOS Harness includes advanced features for production orchestration:
 
 ## Platform (Enterprise Tier)
 
-The harness is fully functional standalone — every session writes a local JSONL transcript you can replay with `aos replay`. For teams that want live, multi-session observability, AOS also streams session events to an optional **hosted Platform** (a separate commercial offering). The open-source harness in this repository is complete on its own and never requires it.
+The harness is fully functional standalone: every session writes a local JSONL transcript you can replay with `aos replay`. For teams that want live, multi-session observability, AOS also streams session events to an optional **hosted Platform** (a separate commercial offering). The open-source harness in this repository is complete on its own and never requires it.
 
 When a platform endpoint is configured, each adapter batches transcript events to it in real time, providing:
 
-- **Live observability dashboard** — watch deliberations and executions stream in as they happen, across every session.
-- **Session timeline & history** — a searchable record of agent stances, dissent, costs, and artifacts.
-- **Team management** — shared projects, roles, and access control.
-- **Analytics** — spend, round counts, and outcome tracking across runs.
+- **Live observability dashboard**: watch deliberations and executions stream in as they happen, across every session.
+- **Session timeline & history**: a searchable record of agent stances, dissent, costs, and artifacts.
+- **Team management**: shared projects, roles, and access control.
+- **Analytics**: spend, round counts, and outcome tracking across runs.
 
 Connect the open-source harness to a platform with a URL and an ingest token:
 
@@ -287,7 +327,7 @@ aos run strategic-council \
   --platform-url https://platform.example.com
 ```
 
-Adapters advertise `transcript_streaming: "local+platform"`: events always land in the local transcript, and additionally stream to the platform when `--platform-url` (or `AOS_PLATFORM_URL`) is set. No platform, no problem — the harness runs identically without one.
+Adapters advertise `transcript_streaming: "local+platform"`: events always land in the local transcript, and additionally stream to the platform when `--platform-url` (or `AOS_PLATFORM_URL`) is set. No platform, no problem: the harness runs identically without one.
 
 ---
 
@@ -306,30 +346,6 @@ Adapters advertise `transcript_streaming: "local+platform"`: events always land 
 - **Event Summarization:** `docs/event-summarization/README.md`
 - **Session Checkpointing:** `docs/session-resumption/README.md`
 - **Release Readiness:** `docs/testing/release-readiness-checklist.md`
-
----
-
-## Development
-
-```bash
-# Run tests
-bun run test
-
-# Type check runtime
-bun run typecheck
-
-# Type check CLI
-bun x tsc --noEmit --project cli/tsconfig.json
-
-# Validate all configs
-bun run validate
-
-# Security lint
-bun run lint:yaml-safety
-
-# Full lint (safety + types)
-bun run lint
-```
 
 ---
 

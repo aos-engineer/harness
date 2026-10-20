@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aos": {
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/aos.sh", "mcp"],
+      "env": {
+        "AOS_PACK": "${CLAUDE_PLUGIN_ROOT}/pack",
+        "AOS_HOST": "claude-code"
+      }
+    }
+  }
+}
