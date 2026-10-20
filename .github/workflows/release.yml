@@ -1,12 +1,18 @@
 name: release
+
+# Pushing a v<semver> tag on main publishes the `aos-harness` CLI to npm and creates the GitHub release.
+# A prerelease version (anything with a hyphen, e.g. 1.0.0-next.0) goes to the npm `next` dist-tag and is
+# marked as a prerelease on GitHub, so `latest` never moves by accident. The Claude Code plugin ships from
+# the repository itself through .claude-plugin/marketplace.json, at the version in its plugin.json.
+
 on:
   push:
     tags: ["v*"]
 
 permissions:
   contents: write
-  # id-token: write omitted by default. Add it (and pass --provenance in the
-  # publish step) to emit SLSA build provenance when publishing from a public repo.
+  # npm provenance: the registry links each published version to this workflow run.
+  id-token: write
 
 jobs:
   release:
@@ -16,131 +22,69 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          # fetch-tags preserves annotated-tag objects; without it
-          # `git cat-file -t <tag>` returns `commit` even for annotated tags
-          # (actions/checkout peels tags to their target commits by default).
           fetch-tags: true
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3"
+          bun-version: "1.4.0"
 
-      - uses: actions/setup-node@v6
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Verify tag matches package versions and repo state
-        run: bun run scripts/verify-release-tag.ts
+      - name: Verify the tag, the branch, and every version
+        run: bun run scripts/release/verify-tag.ts
 
       - name: Install
-        run: bun install
+        run: bun install --frozen-lockfile
 
-      - name: Lint (yaml-safety + typecheck)
+      - name: Lint and typecheck
         run: bun run lint
 
-      - name: Unit tests
-        run: bun test
+      - name: Test
+        run: bun run test
 
-      - name: Integration tests
-        run: bun run test:integration
+      - name: Plugin bundles match the sources
+        run: bun run build:plugin:check
 
-      - name: Compute dist-tag
+      - name: Pack the CLI
+        run: bun run scripts/release/pack-cli.ts "$RUNNER_TEMP/npm"
+
+      - name: Smoke the packed CLI
+        run: bun "$RUNNER_TEMP/npm/aos-harness/dist/aos.js" --version
+
+      - name: Choose the npm dist-tag
         id: disttag
         run: |
-          if [[ "${{ github.ref_name }}" == *"-rc."* ]]; then
-            echo "dist_tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
-          fi
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then echo "tag=next" >> "$GITHUB_OUTPUT"; else echo "tag=latest" >> "$GITHUB_OUTPUT"; fi
 
-      - name: Detect npm token
-        id: npmtoken
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -n "$NPM_TOKEN" ]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::NPM_TOKEN is not set — skipping npm publish. The GitHub release is still created. Add the NPM_TOKEN secret to enable automated npm publishing."
-          fi
-
-      - name: Preflight — verify npm publish permissions
-        if: steps.npmtoken.outputs.publish == 'true'
+      - name: Check the npm token
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bun run scripts/preflight-npm.ts
+        run: npm whoami
 
-      - name: Publish all packages to npm
-        if: steps.npmtoken.outputs.publish == 'true'
+      - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_ACTIONS: "true"
-        run: bun run scripts/publish.ts --ci --dist-tag=${{ steps.disttag.outputs.dist_tag }}
+        run: npm publish "$RUNNER_TEMP/npm/aos-harness" --access public --tag "${{ steps.disttag.outputs.tag }}" --provenance
 
-      - name: Wait for npm registry propagation
-        if: steps.npmtoken.outputs.publish == 'true'
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: bun run scripts/wait-for-npm-release.ts
+      - name: Wait for the registry, then install and run it
+        run: bun run scripts/release/wait-for-npm.ts aos-harness "${GITHUB_REF_NAME#v}" "${{ steps.disttag.outputs.tag }}"
 
-      - name: Verify registry signatures (install-then-audit)
-        if: steps.npmtoken.outputs.publish == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          VERSION: ${{ github.ref_name }}
-        run: |
-          mkdir /tmp/verify && cd /tmp/verify
-          npm init -y > /dev/null
-          VER="${VERSION#v}"
-
-          # Use a fresh cache each attempt so npm does not reuse stale 404
-          # metadata during the install-and-audit verification step.
-          # IMPORTANT: install WITHOUT --no-save so npm audit signatures sees
-          # the deps in package.json (it only audits declared dependencies).
-          MAX_ATTEMPTS=6
-          for attempt in $(seq 1 $MAX_ATTEMPTS); do
-            CACHE_DIR="/tmp/npm-verify-cache-$attempt"
-            rm -rf "$CACHE_DIR"
-            if npm install --prefer-online --cache "$CACHE_DIR" \
-                aos-harness@"$VER" \
-                @aos-harness/runtime@"$VER" \
-                @aos-harness/adapter-shared@"$VER" \
-                @aos-harness/claude-code-adapter@"$VER" \
-                @aos-harness/codex-adapter@"$VER" \
-                @aos-harness/gemini-adapter@"$VER" \
-                @aos-harness/pi-adapter@"$VER"; then
-              echo "install succeeded on attempt $attempt"
-              break
-            fi
-            if [ "$attempt" = "$MAX_ATTEMPTS" ]; then
-              echo "install still failing after $MAX_ATTEMPTS attempts even after registry propagation wait"
-              exit 1
-            fi
-            echo "install attempt $attempt of $MAX_ATTEMPTS failed; sleeping 20s before retry"
-            sleep 20
-          done
-
-          # Without --provenance, this verifies only the registry's built-in
-          # signature (npm signs every published tarball). No SLSA attestation
-          # assertion — that requires public source.
-          npm audit signatures
-
-      - name: Create or update GitHub release
+      - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.ref_name }}
         run: |
-          PRE_FLAG=""
-          if [[ "$TAG_NAME" == *"-rc."* ]]; then
-            PRE_FLAG="--prerelease"
-          fi
-
-          # If the release already exists (e.g. created by a maintainer with
-          # curated notes), leave its body intact — only ensure title + latest.
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release edit "$TAG_NAME" --title "$TAG_NAME" --latest
+          VER="${GITHUB_REF_NAME#v}"
+          # The release notes are the CHANGELOG section for this version.
+          awk -v v="$VER" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / && f {exit} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $VER"; exit 1; }
+          PRE=""; [[ "$VER" == *-* ]] && PRE="--prerelease"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" $PRE
           else
-            gh release create "$TAG_NAME" --title "$TAG_NAME" --verify-tag --latest --generate-notes $PRE_FLAG
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --verify-tag --notes-file "$RUNNER_TEMP/notes.md" $PRE
           fi
