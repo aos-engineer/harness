@@ -105,9 +105,9 @@ Gates apply only in the session that started the run (and its subagents). A sess
 AOS: run 01JB2Q4X7N5K8M3R6T9V0W1Y2Z (bounded, stage build) is active in /path/to/greeter, but this session is not bound to it, so AOS gates do not apply to this session.
 ```
 
-This happens after `/clear`, after forking a session, and in a second terminal: each has a new session id. The reference skill tells the agent not to continue the old run. Your options:
+This happens after `/clear`, after forking a session, and in a second terminal or a new window: each has a new session id, and rejoining a run from a new session is not supported in this release. The reference skill tells the agent not to continue the old run. Your options:
 
-- Go back to the session that started the run with `claude --resume`, where the run is still gated.
+- Go back to the session that started the run with `claude --resume` or `claude --continue`, which keep its session id, so the run is still gated there.
 - Cancel the old run (`aos run cancel <run> --reason "..."`) and start a new run in this session with `/aos:run`.
 
 If binding itself failed, the agent sees this right after `aos_run_start`:

@@ -51,7 +51,7 @@ Add a section to `CHANGELOG.md` headed with the bare version:
 
 The workflow builds the GitHub release notes from this section. It extracts every line after a heading that matches `^## <version>( |$)` up to the next `## ` heading, so `## 1.0.0-next.1` and `## 1.0.0-next.1 (2026-10-20)` both work, and `## v1.0.0-next.1` does not.
 
-This check runs after `npm publish`. A missing or misnamed section fails the job with the package already on npm, and the version cannot be published again. Check the heading before you tag.
+The release workflow extracts this section right after it verifies the tag, before anything is published, and fails if the section is missing or empty. `bun run validate:configs`, a required check on every pull request, fails the same way for the version the manifests carry, so a missing section is caught in review.
 
 ## 4. Run the checks locally
 
@@ -65,11 +65,14 @@ claude plugin validate .
 claude plugin validate ./hosts/claude-code
 ```
 
-`build:plugin:check` exits 1 when the committed bundles or the plugin's pack copy differ from a fresh build. The end-to-end run with `AOS_E2E_HOOK=bundle` sends every hook through the launcher and the committed bundle, which is what a marketplace install runs. `validate:configs` checks that the versioned manifests agree, that every pack (including the plugin's copy) loads, and that the marketplace entry points at the plugin. The two `claude plugin validate` calls check the marketplace manifest and the plugin manifest; warnings do not fail them, but read each one.
+`build:plugin:check` exits 1 when the committed bundles or the plugin's pack copy differ from a fresh build. The end-to-end run with `AOS_E2E_HOOK=bundle` sends every hook through the launcher and the committed bundle, which is what a marketplace install runs. `validate:configs` checks that the versioned manifests agree, that every pack (including the plugin's copy) loads, that the marketplace entry points at the plugin, and that `CHANGELOG.md` has a non-empty section for the version. The two `claude plugin validate` calls check the marketplace manifest and the plugin manifest; warnings do not fail them, but read each one.
 
 ## 5. Merge to main through a pull request
 
-`main` is protected: changes land only through a pull request, and direct pushes are blocked. Open a PR with the version bump, the rebuilt plugin, and the CHANGELOG section, wait for CI (lint, tests, the plugin bundle check, the end-to-end run through the bundle, and the release config check), and merge it.
+`main` is protected: changes land only through a pull request, and direct pushes are blocked. Open a PR with the version bump, the rebuilt plugin, and the CHANGELOG section, wait for the two required checks, and merge it:
+
+- **`test`**: lint and typecheck, the test suite, the plugin bundle check, and the end-to-end run through the committed bundle.
+- **`validate-configs`**: `bun run validate:configs`.
 
 ## 6. Tag the merged commit
 
@@ -89,19 +92,20 @@ The tag must be `v` followed by the version, exactly as in the manifests.
 Pushing a `v*` tag runs `.github/workflows/release.yml` on Ubuntu in the `npm-publish` environment, with Bun 1.4.0 and Node 24. Its permissions are `contents: write` (to create the release) and `id-token: write` (for npm provenance). In order:
 
 1. **Verify the tag, the branch, and every version.** `bun run scripts/release/verify-tag.ts` reads the tag from `GITHUB_REF_NAME` and fails unless it is `v<semver>`, points at `HEAD`, `HEAD` is an ancestor of `origin/main`, the worktree is clean, and all six manifests carry the version.
-2. **Install** with `bun install --frozen-lockfile`.
-3. **Lint and typecheck** with `bun run lint`.
-4. **Test** with `bun run test`.
-5. **Check the plugin bundles** with `bun run build:plugin:check`.
-6. **Run the end-to-end suite through the shipped plugin** with `AOS_E2E_HOOK=bundle bun test ./tests/e2e`.
-7. **Validate the release configs** with `bun run validate:configs`: versions, packs, and the marketplace entry.
-8. **Pack the CLI.** `scripts/release/pack-cli.ts` bundles the CLI with the kernel and its dependencies into `dist/aos.js`, copies the reference pack to `pack/`, adds the CLI README and the license, and writes a manifest with no runtime dependencies.
-9. **Smoke the packed CLI** by running `bun dist/aos.js --version` from the packed directory.
-10. **Choose the dist-tag:** `next` if the tag contains a hyphen, otherwise `latest`.
-11. **Check the npm token** with `npm whoami`, so a bad or expired `NPM_TOKEN` fails here rather than at publish.
-12. **Publish** with `npm publish --access public --tag <dist-tag> --provenance`.
-13. **Wait for the registry.** `scripts/release/wait-for-npm.ts` asks npm for `aos-harness@<dist-tag>` up to 30 times, 10 seconds apart, until it resolves to the new version. It then installs that exact version into a scratch directory and runs the installed `dist/aos.js --version` under Bun, so the release is proven installable from the registry, not only uploaded.
-14. **Create the GitHub release.** It extracts the CHANGELOG section (runbook step 3) and fails if it is empty. If a release for the tag already exists it edits its notes; otherwise it creates one with `--verify-tag`. Prerelease versions are marked `--prerelease`.
+2. **Extract the release notes** from the version's `CHANGELOG.md` section (runbook step 3), and fail if there are none. This runs before anything is published, because a published version number can never be reused.
+3. **Install** with `bun install --frozen-lockfile`.
+4. **Lint and typecheck** with `bun run lint`.
+5. **Test** with `bun run test`.
+6. **Check the plugin bundles** with `bun run build:plugin:check`.
+7. **Run the end-to-end suite through the shipped plugin** with `AOS_E2E_HOOK=bundle bun test ./tests/e2e`: every hook goes through `bin/aos.sh` and the committed `dist/` bundle.
+8. **Validate the release configs** with `bun run validate:configs`: versions, packs, the marketplace entry, and the CHANGELOG section.
+9. **Pack the CLI.** `scripts/release/pack-cli.ts` bundles the CLI with the kernel and its dependencies into `dist/aos.js`, copies the reference pack to `pack/`, adds the CLI README and the license, and writes a manifest with no runtime dependencies.
+10. **Smoke the packed CLI** by running `bun dist/aos.js --version` from the packed directory.
+11. **Choose the dist-tag:** `next` if the tag contains a hyphen, otherwise `latest`.
+12. **Check the npm token** with `npm whoami`, so a bad or expired `NPM_TOKEN` fails here rather than at publish.
+13. **Publish** with `npm publish --access public --tag <dist-tag> --provenance`.
+14. **Wait for the registry.** `scripts/release/wait-for-npm.ts` asks npm for `aos-harness@<dist-tag>` up to 30 times, 10 seconds apart, until it resolves to the new version. It then installs that exact version into a scratch directory and runs the installed `dist/aos.js --version` under Bun, so the release is proven installable from the registry, not only uploaded.
+15. **Create the GitHub release** with the notes extracted in step 2. If a release for the tag already exists it edits its notes; otherwise it creates one with `--verify-tag`. Prerelease versions are marked `--prerelease`.
 
 The plugin needs no publish step. Once the tag is pushed, it is installable from the tag, and `main` already carries the same version.
 
@@ -134,7 +138,7 @@ claude plugin install aos@aos-harness
 claude plugin list
 ```
 
-If the `aos-harness` marketplace is already added, refresh it instead with `claude plugin marketplace update aos-harness`. `claude plugin list` should show the version from `plugin.json`. Then start Claude Code in a scratch git repository and run a short bounded run (`/aos:run add a --shout flag to greet`) through to its first approval, approving it with the CLI you just installed.
+The `#v1.0.0-next.1` suffix pins the marketplace to that git ref: a ref that exists is cloned at that ref, and one that does not fails at clone. If the `aos-harness` marketplace is already added, refresh it instead with `claude plugin marketplace update aos-harness`. `claude plugin list` should show the version from `plugin.json`. Then start Claude Code in a scratch git repository and run a short bounded run (`/aos:run add a --shout flag to greet`) through to its first approval, approving it with the CLI you just installed.
 
 ## 9. Recover from a partial failure
 
@@ -147,7 +151,7 @@ Look at which step failed before re-running anything.
 gh release create v1.0.0-next.1 --title v1.0.0-next.1 --prerelease --verify-tag --notes-file notes.md
 ```
 
-Drop `--prerelease` for a plain semver release. If the CHANGELOG section was the problem, fix it on `main` through a PR as well, so the history matches the release.
+Drop `--prerelease` for a plain semver release. To rebuild the notes the workflow would have used, run the awk command from the workflow's "Extract the release notes" step against `CHANGELOG.md` at the tag.
 
 ## 10. Roll back a bad prerelease
 

@@ -156,7 +156,7 @@ Each line of `log.jsonl` is one envelope, serialized with a fixed key order beca
 | `data` | The type's payload. |
 | `prev` | `sha256:<hex>` of the previous line; the first event's `prev` is `GENESIS_PREV`, `sha256:` followed by 64 zeros. |
 
-`state.json` pins the log: its `seq` and `head` (the hash of the line at that seq) must match the log. That pin is what catches an edited or removed last event, which no later `prev` covers. `verifyChain` replays the whole chain and checks the pin; it detects edits, deletions, and truncation, but a log and snapshot rewritten end to end are not detected.
+`state.json` pins the log: its `seq` and `head` (the hash of the line at that seq) must match the log. That pin is what catches an edited or removed last event, which no later `prev` covers. `verifyChain` replays the whole chain and checks the pin; it detects edits, deletions, and truncation that break the chain. The chain is not signed, so a log and snapshot rewritten consistently end to end are not detected. Hooks and appends skip this replay whenever the snapshot pins the log's last event.
 
 ### Writing
 
@@ -235,7 +235,7 @@ A marketplace install copies only the plugin directory into Claude Code's cache,
 - It bundles `bin/aos-hook.ts` and `bin/aos-mcp.ts`, with the kernel, the MCP SDK, ajv, and js-yaml inlined, into `hosts/claude-code/dist/aos-hook.js` and `dist/aos-mcp.js` (Bun target, ESM, whitespace and syntax minification only, so identifiers stay readable in `hook-errors.log` stack traces).
 - It copies `packs/feature-delivery` into `hosts/claude-code/pack`, leaving out the pack's workspace `package.json`.
 - Both outputs are committed, because the marketplace installs straight from git. `bun run build:plugin:check` rebuilds into a temporary directory and fails if any committed file differs or is extra. CI and the release workflow both run it, then run the end-to-end suite with `AOS_E2E_HOOK=bundle`, so every hook goes through the launcher and the committed bundle the way a marketplace install does.
-- `bun run validate:configs` ([`scripts/validate-configs.ts`](../../scripts/validate-configs.ts)) checks what a release ships on every pull request: one version across the manifests in [`scripts/release/versioned.ts`](../../scripts/release/versioned.ts), every pack (the sources and the plugin's copy) loading as a valid data-only pack, and every marketplace entry pointing inside the repository at a plugin of the same name.
+- `bun run validate:configs` ([`scripts/validate-configs.ts`](../../scripts/validate-configs.ts)) checks what a release ships on every pull request: one version across the manifests in [`scripts/release/versioned.ts`](../../scripts/release/versioned.ts), every pack (the sources and the plugin's copy) loading as a valid data-only pack, every marketplace entry pointing inside the repository at a plugin of the same name, and a non-empty `CHANGELOG.md` section for the version, read the way the release workflow reads it. It is a required check on `main`, alongside `test`.
 
 **ajv and bundling.** The kernel loads ajv lazily through `createRequire`, because importing it costs tens of milliseconds and a hook process imports the kernel on every tool call without validating anything. A bundler cannot follow that runtime require, so bundled entry points that validate (the MCP server and the CLI) import `@aos-harness/kernel/ajv-static`, which imports ajv statically and hands it to the loader. The hook entry point must not import it: it never validates, and loading ajv would slow every tool call.
 

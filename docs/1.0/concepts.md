@@ -191,8 +191,8 @@ A host session is **bound** to a run when it starts the run: after `aos_run_star
 Only bound sessions are gated, and only the session that started a run is bound to it:
 
 - **Subagents are gated.** Their tool calls carry the parent's session, which was confirmed in a live session, and their evidence records which agent produced it.
-- **A second terminal, or a new session after `/clear` or a fork, is not gated.** It has a different session id. Its SessionStart hook names any active run in the project and says AOS gates do not apply to this session. The reference skill then tells the user rather than continuing the old run.
-- **A resumed or compacted session stays bound.** The SessionStart hook re-injects a short summary of the run: tier, stage, gate, open gaps, and iterations.
+- **A second terminal, a new window, or a new session after `/clear` or a fork, is not gated.** It has a different session id, and it cannot rejoin the run in this release. Its SessionStart hook names any active run in the project and says AOS gates do not apply to this session. The reference skill then tells the user rather than continuing the old run.
+- **A resumed or compacted session stays bound.** `/compact`, `claude --resume`, and `claude --continue` keep the session id, so the binding still applies, and the SessionStart hook re-injects a short summary of the run: tier, stage, gate, open gaps, and iterations. What this release does not support is rejoining a run from a new session.
 - **Starting another run** in a bound session rebinds the session to the new run.
 - **Cancelling** a run unbinds every session bound to it. A completed run keeps its sessions bound, so push and PR create stay guarded.
 
@@ -211,11 +211,17 @@ Each run lives in `.aos/runs/<id>/`:
 
 Alongside the runs, `.aos/sessions/` holds the session bindings and `.aos/hook-errors.log` collects hook and store failures.
 
-Every event carries a sequence number, a timestamp, an actor (`agent`, `hook`, `human`, or `kernel`, with an id such as `mcp:aos_stage_advance` or `claude-code:pre-tool`), a type, its data, and `prev`: the SHA-256 of the previous line. The chain makes an edit, deletion, or truncation detectable. It cannot detect a log rewritten end to end together with its snapshot; see [security](security.md).
+Every event carries a sequence number, a timestamp, an actor (`agent`, `hook`, `human`, or `kernel`, with an id such as `mcp:aos_stage_advance` or `claude-code:pre-tool`), a type, its data, and `prev`: the SHA-256 of the previous line. The chain detects an edit, deletion, or truncation that breaks it. It is not signed, so a process that rewrites the whole log consistently, recomputing every hash and the snapshot, is not detected; see [security](security.md).
 
 The event types are `run.started`, `stage.entered`, `run.completed`, `run.cancelled`, `task.added`, `task.completed`, `evidence.recorded`, `gate.evaluated`, `approval.requested`, `approval.granted`, `approval.denied`, `budget.charged`, `budget.warning`, `budget.exceeded`, `action.blocked`, `action.allowed`, `worktree.changed`, `session.bound`, and `log.repaired`.
 
-Run state is a pure fold over these events, so a gate verdict can always be re-derived from the log. Full chain verification runs in `aos approve`, `aos run cancel`, `aos status <run>`, and `aos doctor`. Hooks and appends take a fast path when `state.json` matches the end of the log, so an edit to an earlier line is caught by those commands, not by the next tool call.
+Run state is a pure fold over these events, so a gate verdict can always be re-derived from the log.
+
+Not every reader verifies the chain:
+
+- **Hooks and appends trust `state.json`** when it matches the log's last event (same sequence number and hash). They replay and verify the log only when it does not, so an edit to an earlier line is not caught by the next tool call.
+- **`aos approve`, `aos run cancel`, `aos status <run>`, and `aos doctor` verify the full chain** every time, and refuse or report a log that fails.
+- **Plain `aos status`** lists runs from their snapshots and does not verify them.
 
 Every write AOS makes under `.aos/` refuses to go through a symlink: if `.aos` or any existing path component below it is a link, the write fails with `AOS refuses to write through the symlink <path>; remove it and rerun`, so a planted link cannot redirect the run's records.
 

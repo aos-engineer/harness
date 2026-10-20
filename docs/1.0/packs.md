@@ -315,14 +315,19 @@ aos doctor --pack ./small-team
 
 A pack that loads reports `OK   pack small-team@0.1.0 loads from /path/to/small-team`. A pack that does not lists every issue, as shown in [What the loader checks](#what-the-loader-checks). Doctor also checks each skill named in `bind`.
 
-### Load it
-
-`aos mcp --pack ./small-team` (or `AOS_PACK=./small-team aos mcp`) serves the AOS tools over stdio with your pack, for a host that registers the CLI as its MCP server. A relative `--pack` resolves against the directory the command runs in.
-
 ### Using a custom pack with the Claude Code plugin
 
-In this release the plugin always starts runs with the reference pack it ships: its MCP registration sets `AOS_PACK` to the plugin's own `pack/` directory. Registering `aos mcp --pack <dir>` as a second MCP server does not help on its own. The plugin's hooks bind a session to a run only after the plugin's own `aos_run_start` tool (`mcp__plugin_aos_aos__aos_run_start` in its hook matcher), so a run started through another server leaves the session unbound. It follows from the code that an unbound session is not gated, and that a gate requiring an observed test run can never pass there, because only the hooks record observed evidence.
+A run records its resolved pack when `aos_run_start` creates it, and the hooks read the pack from the run, never from disk. So the only place a pack is chosen is the MCP server that starts the run, and the plugin's server takes its pack from `AOS_PACK`, which the plugin's `.mcp.json` pins to the bundled copy in `pack/`. An installed plugin therefore always runs the reference pack.
 
-For local experiments, a source checkout run with `claude --plugin-dir hosts/claude-code` reads its pack from `hosts/claude-code/pack`. Editing that copy changes the pack for new runs; `bun run build:plugin` overwrites it from `packs/feature-delivery`, and `bun run build:plugin:check` reports the difference.
+In this release, a custom pack needs a local copy of the plugin:
 
-Not in this release: pack overlays (extending a base pack with personal or team bindings), `aos pack add`, and a pack lockfile.
+1. Copy the `hosts/claude-code` directory from a release (or a checkout) to a directory of your own. It is self-contained: `dist/` holds the bundled entry points and `pack/` the reference pack.
+2. In the copy's `.mcp.json`, set `AOS_PACK` to your pack's directory, for example `/path/to/small-team`.
+3. Validate the pack with `aos doctor --pack /path/to/small-team`.
+4. Start Claude Code with the copy: `claude --plugin-dir /path/to/your-plugin-copy`. Uninstall or disable the marketplace copy of `aos` first, so only one `aos` plugin loads.
+
+Runs started in that session record your pack, and every hook enforces it.
+
+Registering `aos mcp --pack <dir>` as a separate MCP server does not work with the plugin. The plugin's hooks bind a session only after the plugin's own `aos_run_start` tool (`mcp__plugin_aos_aos__aos_run_start` in its hook matcher), so a run started through another server leaves the session unbound and ungated. `aos mcp --pack` is for a host that registers the CLI as its MCP server and does its own binding.
+
+Not in this release: selecting a pack for the installed plugin without copying it, pack overlays (extending a base pack with personal or team bindings), `aos pack add`, and a pack lockfile.

@@ -88,7 +88,7 @@ After changing anything the plugin bundles (the kernel, `hosts/claude-code/bin` 
 bun run build:plugin
 ```
 
-CI runs `bun run build:plugin:check`, which fails when the committed files differ from a fresh build, then the end-to-end suite through the bundle. It also runs `bun run validate:configs` on every pull request: the versioned manifests must agree, every pack (including the plugin's copy) must load, and the marketplace entry must point at the plugin.
+CI runs `bun run build:plugin:check`, which fails when the committed files differ from a fresh build, then the end-to-end suite through the bundle. It also runs `bun run validate:configs` on every pull request: the versioned manifests must agree, every pack (including the plugin's copy) must load, the marketplace entry must point at the plugin, and `CHANGELOG.md` must have a non-empty section for the version.
 
 To run the plugin against a real session:
 
@@ -127,11 +127,11 @@ Dependencies change only in a deliberate commit that also updates the tracked `b
 
 ## Pull requests
 
-`main` is protected: every change lands through a pull request, and CI (lint, tests, the plugin bundle check, the end-to-end run through the bundle, and the release config check) must pass.
+`main` is protected: every change lands through a pull request, and two required checks must pass: `test` (lint and typecheck, the test suite, the plugin bundle check, and the end-to-end run through the bundle) and `validate-configs` (`bun run validate:configs`).
 
 1. Branch from `main`.
 2. Make the change, with tests for the behavior it adds or fixes.
-3. Run `bun run lint` and `bun run test`. If you touched anything the plugin bundles, also run `bun run build:plugin:check` and `AOS_E2E_HOOK=bundle bun test ./tests/e2e`. If you touched a manifest version, a pack, or the marketplace file, run `bun run validate:configs`.
+3. Run `bun run lint` and `bun run test`. If you touched anything the plugin bundles, also run `bun run build:plugin:check` and `AOS_E2E_HOOK=bundle bun test ./tests/e2e`. If you touched a manifest version, a pack, the marketplace file, or `CHANGELOG.md`, run `bun run validate:configs`.
 4. Open a PR against `main` that states the problem, the approach, the tradeoffs you weighed, and how you verified it.
 
 ## Public files stand on their own

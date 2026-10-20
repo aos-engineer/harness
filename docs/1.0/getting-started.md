@@ -212,8 +212,8 @@ A brief that mentions a database schema or schema change, a migration, authentic
 - **Check where things stand** with `aos status` (every run) or `aos status <run>` (one run's stage, gate, and open gaps). Claude uses the `aos_status` tool for the same view.
 - **Read block messages.** Every refusal lists what is missing. Claude is told to close those gaps rather than work around them, and so should you.
 - **Run tests on their own.** `bun test`, not `bun test | tail`. `cd app && bun test` is fine: `&&` keeps the test's failure.
-- **Compaction and resume are safe.** After `/compact` or `claude --resume`, the SessionStart hook re-injects the run's stage, gate, and open gaps.
-- **`/clear` and forks start a new, ungated session.** The new session is not bound to the run. Claude says so, does not continue the old run, and asks whether you want to cancel it and start a new run here.
+- **Compaction and resume are safe.** `/compact`, `claude --resume`, and `claude --continue` keep the session id, so the session stays bound and gated, and the SessionStart hook re-injects the run's stage, gate, and open gaps.
+- **A new session cannot rejoin a run.** `/clear`, a fork, or a new window starts a session with a new id, which is not bound to the run and not gated; rejoining a run from a new session is not supported in this release. The unbound-session notice says so, and Claude does not continue the old run: it asks whether you want to cancel it and start a new run here, or go back to the original session with `claude --resume`.
 - **Subagents are gated.** Their tool calls carry the parent session, so the same scopes and policies apply to them.
 - **A completed run still guards push.** The session stays bound after the run completes, and push and PR create keep checking the verify gate at the current tree. For more work, start a new run.
 
@@ -227,7 +227,7 @@ aos run cancel 01JB2Q4X7N5K8M3R6T9V0W1Y2Z --reason "superseded by a smaller chan
 
 Cancelling records the reason in the run log and unbinds every session bound to the run, so they go back to normal Claude Code behavior. It works even when the run's log is damaged.
 
-There is no pause command in this release. A run waits on disk indefinitely: nothing times out, and the iteration budget is only spent when Claude tries to stop with work left. To pause, stop prompting. To pick the run up later in the same gated session, use `claude --resume`.
+There is no pause command in this release. A run waits on disk indefinitely: nothing times out, and the iteration budget is only spent when Claude tries to stop with work left. To pause, stop prompting. To pick the run up later, go back to the same session with `claude --resume` or `claude --continue`: it keeps the session id, so the run is still bound and gated. A new session cannot rejoin the run in this release.
 
 ## Update
 

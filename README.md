@@ -6,7 +6,7 @@
 
 ## AOS 1.0 on `main`
 
-AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Push and pull request creation wait for the last gate, and deploys are never allowed inside a run. Every run is an append-only, hash-chained log under `.aos/runs/`, so edits to it are detectable and its gate verdicts can be re-derived from the log.
+AOS 1.0 runs inside the coding agent you already use. A run splits one piece of work into stages (for a bounded change: design, build, verify), and each stage ends at a gate that passes only on evidence: test runs AOS observed itself, reviews the agent records, and approvals only a person can give from their own terminal. Push and pull request creation wait for the last gate, and deploys are never allowed inside a run. Every run is an append-only, hash-chained log under `.aos/runs/`, so an edit that breaks the chain is detectable and its gate verdicts can be re-derived from the log. The chain is not signed: a process that rewrites the whole log consistently is not detected.
 
 Claude Code is the first host, and 1.0 is in prerelease. AOS is a guardrail for a cooperating agent, not a security boundary; [the security model](docs/1.0/security.md) says what it does not defend.
 
