@@ -3,7 +3,7 @@
 // simple commands that actually execute (see leaves.ts), so a quoted mention never counts as a call. Matching
 // uses each command in normal form: quotes removed, the command word reduced to its basename, single spaces.
 import { ACTION_PRIORITY, type ActionDef, type ActionName } from "../types.ts";
-import { walk } from "./leaves.ts";
+import { type Leaf, walk } from "./leaves.ts";
 
 /** The first role (in pack order) one of whose prefixes starts a leaf command, and whether its exit status is masked. */
 export function matchRole(cmd: string, roles: Record<string, string[]>): { role: string; masked: boolean } | null {
@@ -34,15 +34,43 @@ function pattern(source: string): RegExp {
 /** The highest-priority action any leaf command matches, or null. */
 export function matchAction(cmd: string, actions: Record<ActionName, ActionDef>): ActionName | null {
   const leaves = walk(cmd).leaves;
+  const unknown = leaves.filter((leaf) => leaf.expanded).map(expandedActions);
   for (const name of ACTION_PRIORITY) {
     const def = actions[name];
     if (def === undefined) continue;
+    if (unknown.some((could) => could.has(name))) return name;
     for (const source of def.patterns) {
       const re = pattern(source);
       if (leaves.some((leaf) => re.test(leaf.command))) return name;
     }
   }
   return null;
+}
+
+// Words that, in an unclassifiable command, name a deploying subcommand of the tools the reference pack
+// guards. Install and upgrade are left out: `"$VENV/bin/pip" install` is far more common than a helm call
+// through a variable.
+const DEPLOY_WORDS = new Set(["deploy", "redeploy", "upsert-compose", "compose.deploy", "compose.redeploy", "compose.stop", "rollout", "apply"]);
+
+/**
+ * The actions a leaf whose command word comes from an expansion could be. Nobody can say which program
+ * runs, so the words around it decide: a guard that let `G=git; $G push` through would be trivial to
+ * bypass. The command word's own text counts too, since `$(echo git push)` may print the whole command.
+ */
+function expandedActions(leaf: Leaf): Set<ActionName> {
+  const words = [...leaf.words[0].split(/[^\w.-]+/), ...leaf.words.slice(1).flatMap((w) => w.split(/\s+/))];
+  const after = (first: string, then: (w: string) => boolean) => {
+    const at = words.indexOf(first);
+    return at >= 0 && words.slice(at + 1).some(then);
+  };
+  const could = new Set<ActionName>();
+  // `S=push; git $S`: git itself runs, but its subcommand could be any of them.
+  if (leaf.command.split(" ")[0] === "git") could.add("push").add("commit");
+  if (words.some((w) => DEPLOY_WORDS.has(w)) || after("workflow", (w) => w === "run")) could.add("deploy");
+  if (after("pr", (w) => w === "create" || w === "new") || after("api", (w) => /\bpulls\b|createPullRequest/.test(w))) could.add("pr_create");
+  if (words.includes("push")) could.add("push");
+  if (words.includes("commit")) could.add("commit");
+  return could;
 }
 
 // Every way to reach the CLI: the installed binary (already reduced to its basename), the published package

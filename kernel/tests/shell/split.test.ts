@@ -86,8 +86,12 @@ test.each([
   // Substitution bodies run, so their commands are leaves too, each listed once
   ["echo $(git push)", ["echo $(git push)", "git push"]],
   [`bash -c "echo $(date)"`, ["echo $(date)", "date"]],
-  // A heredoc body stays data
-  ["cat <<EOF\n$(git push)\nEOF", ["cat <<EOF"]],
+  // A heredoc body stays data, but bash runs the substitutions in a body whose delimiter is unquoted
+  ["cat <<'EOF'\n$(git push)\nEOF", ["cat <<'EOF'"]],
+  ["cat <<\\EOF\n$(git push)\nEOF", ["cat <<\\EOF"]],
+  ["cat <<EOF\n$(git push)\nEOF", ["cat <<EOF", "git push"]],
+  ["cat <<-EOF\n\tsee `git push`\n\tEOF", ["cat <<-EOF", "git push"]],
+  ['cat <<EOF\nsay "\\$(git push)"\nEOF', ["cat <<EOF"]],
   // Unwrapping stops after three levels
   ["eval eval eval git push", ["git push"]],
   ["eval eval eval eval git push", ["eval git push"]],

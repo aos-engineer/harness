@@ -185,6 +185,30 @@ describe("gated actions", () => {
     expect(pre(bashTool("bash -c 'git push'")).kind).toBe("deny");
   });
 
+  test("a push in a script fed to bash on a heredoc is guarded", () => {
+    const heredoc = "bash <<'EOF'\ngit push -q origin main\nEOF";
+    expect(denied(pre(bashTool(heredoc)))).toContain("push blocked");
+    expect(lastEvent(loc)).toMatchObject({ type: "action.blocked", data: { action: "push", tool: "Bash" } });
+    expect(pre(bashTool("bash <<<'git push origin main'")).kind).toBe("deny");
+    expect(pre(bashTool("echo 'git push origin main' | sh")).kind).toBe("deny");
+    at(loc, "verify");
+    pass(loc);
+    expect(pre(bashTool(heredoc))).toEqual(ALLOW);
+  });
+
+  test("a push through a git alias or an expanded command word is guarded", () => {
+    expect(denied(pre(bashTool("git -c alias.p=push p origin main")))).toContain("push blocked");
+    expect(lastEvent(loc)).toMatchObject({ type: "action.blocked", data: { action: "push" } });
+    expect(pre(bashTool("G=git; $G push origin main")).kind).toBe("deny");
+    expect(pre(bashTool("dash -c 'git push'")).kind).toBe("deny");
+  });
+
+  test("a heredoc commit message that mentions git push stays a commit", () => {
+    at(loc, "build");
+    expect(pre(bashTool("git commit -F - <<'EOF'\nfix: explain the git push guard\nEOF"))).toEqual(ALLOW);
+    expect(lastEvent(loc)).toMatchObject({ type: "action.allowed", data: { action: "commit" } });
+  });
+
   test("PR create follows the verify gate too", () => {
     at(loc, "verify");
     expect(denied(pre(bashTool("gh pr create --fill")))).toContain("pr_create blocked: verify gate pending");
