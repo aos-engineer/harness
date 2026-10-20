@@ -141,7 +141,7 @@ Type the stage name ("design") to approve: design
 Approved design for run 01JB2Q4X7N5K8M3R6T9V0W1Y2Z. The agent can advance the stage.
 ```
 
-Then tell Claude to continue. To send the design back instead, add `--deny --reason "..."`; Claude sees your reason and revises. `aos approve` works only in a real terminal: Claude's Bash tool cannot run it, and in a gated session the guard refuses it outright.
+Then tell Claude to continue. To send the design back instead, add `--deny --reason "..."`; Claude sees your reason and revises. Run `aos approve` in a terminal outside Claude Code. It refuses in any shell where Claude Code's session variables are set, and without an interactive terminal, and in a gated session the Bash guard refuses it outright.
 
 ### 4. Build
 

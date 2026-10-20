@@ -203,7 +203,7 @@ Each prefix must end in `/`, use forward slashes, and cannot be absolute, start 
 
 A few rules hold whatever the scope says:
 
-- `.aos/` is always refused, compared without case, because AOS's own records live there.
+- `.aos/` is always refused, because AOS's own records live there. Paths are compared folded (Unicode case folding and NFKC), so `.AOS/` is refused too.
 - Paths outside the repository root are not checked: they are not AOS's concern.
 - Bash is not checked against write scopes. A shell command can still write anywhere; the tree fingerprint sees what it changed, so fresh evidence recorded before the change goes stale.
 - Once a run completes, its write scopes no longer apply. The `.aos/` refusal still does.

@@ -27,8 +27,23 @@ Exit codes shared by every command:
 | Code | Meaning |
 |---|---|
 | 0 | Success. |
-| 1 | The command ran and failed: a run was not found or failed verification, nothing was pending, the confirmation was not typed, or a check failed. Uncaught errors also print `aos: <message>` and exit 1. |
-| 2 | Usage error: an unknown command or flag, a missing argument or value, or a human-only command run without a terminal or from an agent's shell. |
+| 1 | The command ran and failed: a run was not found or failed verification, nothing was pending, the confirmation was not typed, or a check failed. Uncaught errors also print `aos: <message>` and exit 1, for example `aos: AOS refuses to write through the symlink <path>; remove it and rerun` when something under `.aos/` is a symlink. |
+| 2 | Usage error: an unknown command or flag, a missing argument or value, or a human-only command run from an agent's shell or without a terminal. |
+
+## Human-only commands
+
+`aos approve` and `aos run cancel` decide what only a person may decide, so before prompting, and before reading any run, they make two checks:
+
+1. **Not an agent's shell.** If `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set to a non-empty value, the command exits 2 with:
+
+   ```
+   aos approve must be run by a person in their own terminal. This shell belongs to an agent session (CLAUDECODE is set). Run it from a terminal outside Claude Code.
+   ```
+
+   Claude Code sets these variables in every command its agent runs, so this check holds even when a wrapper such as `script` gives the agent a terminal. Run the command from a terminal outside Claude Code.
+2. **An interactive terminal.** Without one, the command exits 2 with `aos approve needs an interactive terminal (TTY). Run it yourself, not through an agent.`
+
+The messages name the command (`aos run cancel` for a cancel) and the variable that was found. Neither check is a security boundary: a process can clear the variables and allocate a terminal. They stop an agent from passing its own gate by accident or shortcut, and the run log records who decided each gate and why. In a gated session, the Bash guard also refuses these commands before they run; see [security](security.md).
 
 ## aos approve
 
@@ -48,7 +63,7 @@ Shows the pending approval request for the run's current stage, then asks you to
 
 What it does, in order:
 
-1. Refuses without an interactive terminal (`aos approve needs an interactive terminal (TTY). Run it yourself, not through an agent.`), and when `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set in its environment, which means an agent's shell started it.
+1. Refuses when an agent's shell started it, then when there is no interactive terminal. See [human-only commands](#human-only-commands).
 2. Verifies the run's entire hash chain. A tampered log is refused: `Run log is tampered or corrupt at seq <n>; not approving. Run aos doctor.`
 3. Finds the pending request: the latest one filed since the stage was entered, still undecided.
 4. Prints the run, brief, stage, request id, and the agent's summary (the summary is capped at 2,000 characters, the brief at 200), then a closing line written by the command itself, so the summary cannot imitate it.
@@ -61,7 +76,7 @@ The decision's actor is your OS account name (from the OS user database, falling
 |---|---|
 | 0 | `Approved <stage> for run <run>. The agent can advance the stage.` or `Denied <stage> for run <run>. The agent sees your reason and revises.` |
 | 1 | The run does not exist under the root, its log fails verification, nothing is pending for that stage, the typed name did not match, or the request was superseded. |
-| 2 | Usage error, `--deny` without `--reason`, no terminal, or started from an agent's shell. |
+| 2 | Usage error, `--deny` without `--reason`, started from an agent's shell, or no terminal. |
 
 Messages when nothing is pending:
 
@@ -154,7 +169,7 @@ Ends an active run and unbinds every session bound to it, so those sessions retu
 
 What it does, in order:
 
-1. Refuses without an interactive terminal or when started from an agent's shell, like `aos approve`.
+1. Refuses when an agent's shell started it, then when there is no interactive terminal, like `aos approve`. See [human-only commands](#human-only-commands).
 2. Verifies the run's whole chain, so a cancel is never recorded into a tampered log as if it were a legitimate end.
 3. Prints the run, brief, and current stage, and asks `Type "cancel" to end run <run>:`. Anything else prints `Not cancelled.` and exits 1.
 4. Appends `run.cancelled` and removes the run's session bindings: `Cancelled run <run>. Unbound <n> sessions; they no longer enforce this run.`
@@ -171,7 +186,7 @@ If the run's log cannot be read or fails verification, cancel still releases the
 |---|---|
 | 0 | Cancelled, or a broken run's sessions were released. |
 | 1 | The run is already completed or cancelled, it cannot be read and nothing is bound to it, the confirmation was not typed, or another terminal ended it first. |
-| 2 | Usage error, a subcommand other than `cancel`, a missing `--reason`, no terminal, or started from an agent's shell. |
+| 2 | Usage error, a subcommand other than `cancel`, a missing `--reason`, started from an agent's shell, or no terminal. |
 
 ## aos mcp
 
@@ -194,5 +209,5 @@ The pack is `--pack` (or `--pack=<dir>`), else `AOS_PACK`, else the reference pa
 |---|---|---|
 | `AOS_PACK` | `aos doctor`, `aos mcp`, the plugin's MCP server | The pack directory, when `--pack` is not given. The plugin sets it to its bundled pack. |
 | `AOS_HOST` | `aos mcp`, the plugin's MCP server | The host name recorded on runs. Defaults to `claude-code`. |
-| `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` | `aos approve`, `aos run cancel` | Any of them set means an agent's shell; the command refuses. |
+| `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` | `aos approve`, `aos run cancel` | Any of them set to a non-empty value means an agent's shell; the command refuses with exit 2. |
 | `CLAUDE_PROJECT_DIR` | the plugin's hooks and MCP server | Set by Claude Code to the directory the session started in. Runs and bindings are found from there when the agent's shell has moved elsewhere. |

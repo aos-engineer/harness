@@ -53,7 +53,7 @@ Test rules:
 - Use `bun:test`.
 - Create temp directories and git repositories with the helpers in `kernel/tests/helpers.ts`. They resolve real paths and keep your own git configuration out of the result.
 - Do not open network listeners or bind ports. The sandbox blocks local port binding, and nothing in AOS needs one.
-- The end-to-end suite in `tests/e2e/` runs a bounded and a spike run against a scratch repository, with MCP calls going to the real server and every hook running the plugin's real entry point as a child process.
+- The end-to-end suite in `tests/e2e/` runs a bounded and a spike run against a scratch repository, with MCP calls going to the real server and every hook running the plugin's real entry point as a child process. By default the hooks run from source; `AOS_E2E_HOOK=bundle bun test ./tests/e2e` sends them through the launcher and the committed bundle instead, which is what a marketplace install runs. CI runs both.
 - `kernel/tests/golden/` replays sanitized logs of those runs and checks that every recorded gate verdict comes out the same. A change that alters a verdict fails there, so make it deliberately and regenerate the logs with `AOS_GOLDEN_WRITE=1 bun test ./tests/e2e`.
 
 ## Lint and typecheck
@@ -88,7 +88,7 @@ After changing anything the plugin bundles (the kernel, `hosts/claude-code/bin` 
 bun run build:plugin
 ```
 
-CI runs `bun run build:plugin:check`, which fails when the committed files differ from a fresh build.
+CI runs `bun run build:plugin:check`, which fails when the committed files differ from a fresh build, then the end-to-end suite through the bundle. It also runs `bun run validate:configs` on every pull request: the versioned manifests must agree, every pack (including the plugin's copy) must load, and the marketplace entry must point at the plugin.
 
 To run the plugin against a real session:
 
@@ -127,11 +127,11 @@ Dependencies change only in a deliberate commit that also updates the tracked `b
 
 ## Pull requests
 
-`main` is protected: every change lands through a pull request, and CI (lint, tests, and the plugin bundle check) must pass.
+`main` is protected: every change lands through a pull request, and CI (lint, tests, the plugin bundle check, the end-to-end run through the bundle, and the release config check) must pass.
 
 1. Branch from `main`.
 2. Make the change, with tests for the behavior it adds or fixes.
-3. Run `bun run lint` and `bun run test`, and `bun run build:plugin:check` if you touched anything the plugin bundles.
+3. Run `bun run lint` and `bun run test`. If you touched anything the plugin bundles, also run `bun run build:plugin:check` and `AOS_E2E_HOOK=bundle bun test ./tests/e2e`. If you touched a manifest version, a pack, or the marketplace file, run `bun run validate:configs`.
 4. Open a PR against `main` that states the problem, the approach, the tradeoffs you weighed, and how you verified it.
 
 ## Public files stand on their own

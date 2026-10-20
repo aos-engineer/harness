@@ -80,7 +80,7 @@ Evidence is what a gate counts. Every piece is recorded with the stage it was ta
 
 | Kind | What it is | Recorded by |
 |---|---|---|
-| `command` | A shell command that plays a pack role, such as `test`: the command (redacted), its exit code, a digest of its output, and the last 4096 bytes of output after redaction. | The hooks only, from the tool calls they observe. |
+| `command` | A shell command that plays a pack role, such as `test`: the command (redacted), its exit code, a digest of its output, and the last 4096 bytes of output after redaction. Redaction is best-effort by format; see [security](security.md#what-aos-does-not-defend). | The hooks only, from the tool calls they observe. |
 | `skill` | A skill the agent invoked. | The hooks, when the Skill tool runs; or the agent, through `aos_evidence_record`. |
 | `review` | A code review's verdict (`approved`, `rejected`, or `needs-revision`), feedback, and reviewer. | The agent, through `aos_evidence_record`. |
 | `artifact` | A file the agent produced: its path and SHA-256. Files under 1 MiB that git does not ignore are also copied into the run's `artifacts/` directory. | The agent. |
@@ -138,7 +138,7 @@ The rules behind it:
 - Approvals carry no freshness requirement: an approved design stays approved if `docs/specs/` changes afterwards.
 - Before showing anything, `aos approve` verifies the run's whole hash chain. It refuses a run whose log was edited.
 
-`aos approve` and `aos run cancel` refuse to run without an interactive terminal, and when the environment shows they were started from an agent's shell (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set). In a gated session the Bash guard also refuses them before they run. These checks stop lazy or accidental bypass, not a determined one; see [security](security.md).
+`aos approve` and `aos run cancel` refuse, before prompting, when the environment shows an agent's shell started them (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set to a non-empty value), and they refuse without an interactive terminal. In a gated session the Bash guard also refuses them before they run. These checks stop lazy or accidental bypass, not a determined one: a process can clear the variables and allocate a terminal. See [security](security.md).
 
 ## Actions
 
@@ -164,7 +164,7 @@ When one command line holds several actions, the most consequential decides: dep
 
 Because `after_gate` is evaluated live, an edit after verify passed blocks push again until fresh tests and a fresh review exist. This holds after the run completes, too.
 
-The Bash guard also refuses, in every stage: the human-only `aos` commands (`approve`, `run cancel`, and subcommands reserved for later releases), however they are invoked, and any command that names `.aos/`, including `cd` targets, redirects, and assignments.
+The Bash guard also refuses, in every stage: the human-only `aos` commands (`approve`, `run cancel`, and subcommands reserved for later releases), however they are invoked, including through terminal wrappers such as `script` and inline interpreter code such as `python -c`; and any command that names `.aos/`, including `cd` targets, redirects, assignments, and globs or brace lists that would expand to it. Names are compared folded (Unicode case folding and NFKC), so `.AOS` counts too.
 
 ## The Stop loop
 
@@ -216,5 +216,7 @@ Every event carries a sequence number, a timestamp, an actor (`agent`, `hook`, `
 The event types are `run.started`, `stage.entered`, `run.completed`, `run.cancelled`, `task.added`, `task.completed`, `evidence.recorded`, `gate.evaluated`, `approval.requested`, `approval.granted`, `approval.denied`, `budget.charged`, `budget.warning`, `budget.exceeded`, `action.blocked`, `action.allowed`, `worktree.changed`, `session.bound`, and `log.repaired`.
 
 Run state is a pure fold over these events, so a gate verdict can always be re-derived from the log. Full chain verification runs in `aos approve`, `aos run cancel`, `aos status <run>`, and `aos doctor`. Hooks and appends take a fast path when `state.json` matches the end of the log, so an edit to an earlier line is caught by those commands, not by the next tool call.
+
+Every write AOS makes under `.aos/` refuses to go through a symlink: if `.aos` or any existing path component below it is a link, the write fails with `AOS refuses to write through the symlink <path>; remove it and rerun`, so a planted link cannot redirect the run's records.
 
 A crash mid-append can leave a torn last line. The next append saves the torn bytes as an artifact, drops them, and records `log.repaired`; `aos doctor` reports torn bytes as a warning, not tampering.

@@ -19,7 +19,7 @@ The workflow decides this from the tag alone: any tag containing `-` goes to `ne
 
 ## 2. Bump every versioned manifest
 
-`scripts/release/verify-tag.ts` fails the release unless each of these files carries exactly the tag's version:
+`scripts/release/verify-tag.ts` fails the release unless each of these files carries exactly the tag's version. The list lives in `scripts/release/versioned.ts`, which `bun run validate:configs` also reads on every pull request, so drift between them fails review before it can fail a release:
 
 - `package.json`
 - `cli/package.json`
@@ -59,15 +59,17 @@ This check runs after `npm publish`. A missing or misnamed section fails the job
 bun run lint
 bun run test
 bun run build:plugin:check
+AOS_E2E_HOOK=bundle bun test ./tests/e2e
+bun run validate:configs
 claude plugin validate .
 claude plugin validate ./hosts/claude-code
 ```
 
-`build:plugin:check` exits 1 when the committed bundles or the plugin's pack copy differ from a fresh build. The two `claude plugin validate` calls check the marketplace manifest and the plugin manifest; warnings do not fail them, but read each one.
+`build:plugin:check` exits 1 when the committed bundles or the plugin's pack copy differ from a fresh build. The end-to-end run with `AOS_E2E_HOOK=bundle` sends every hook through the launcher and the committed bundle, which is what a marketplace install runs. `validate:configs` checks that the versioned manifests agree, that every pack (including the plugin's copy) loads, and that the marketplace entry points at the plugin. The two `claude plugin validate` calls check the marketplace manifest and the plugin manifest; warnings do not fail them, but read each one.
 
 ## 5. Merge to main through a pull request
 
-`main` is protected: changes land only through a pull request, and direct pushes are blocked. Open a PR with the version bump, the rebuilt plugin, and the CHANGELOG section, wait for CI (lint, tests, and the plugin bundle check), and merge it.
+`main` is protected: changes land only through a pull request, and direct pushes are blocked. Open a PR with the version bump, the rebuilt plugin, and the CHANGELOG section, wait for CI (lint, tests, the plugin bundle check, the end-to-end run through the bundle, and the release config check), and merge it.
 
 ## 6. Tag the merged commit
 
@@ -91,13 +93,15 @@ Pushing a `v*` tag runs `.github/workflows/release.yml` on Ubuntu in the `npm-pu
 3. **Lint and typecheck** with `bun run lint`.
 4. **Test** with `bun run test`.
 5. **Check the plugin bundles** with `bun run build:plugin:check`.
-6. **Pack the CLI.** `scripts/release/pack-cli.ts` bundles the CLI with the kernel and its dependencies into `dist/aos.js`, copies the reference pack to `pack/`, adds the CLI README and the license, and writes a manifest with no runtime dependencies.
-7. **Smoke the packed CLI** by running `bun dist/aos.js --version` from the packed directory.
-8. **Choose the dist-tag:** `next` if the tag contains a hyphen, otherwise `latest`.
-9. **Check the npm token** with `npm whoami`, so a bad or expired `NPM_TOKEN` fails here rather than at publish.
-10. **Publish** with `npm publish --access public --tag <dist-tag> --provenance`.
-11. **Wait for the registry.** `scripts/release/wait-for-npm.ts` asks npm for `aos-harness@<dist-tag>` up to 30 times, 10 seconds apart, until it resolves to the new version. It then installs that exact version into a scratch directory and runs the installed `dist/aos.js --version` under Bun, so the release is proven installable from the registry, not only uploaded.
-12. **Create the GitHub release.** It extracts the CHANGELOG section (step 3) and fails if it is empty. If a release for the tag already exists it edits its notes; otherwise it creates one with `--verify-tag`. Prerelease versions are marked `--prerelease`.
+6. **Run the end-to-end suite through the shipped plugin** with `AOS_E2E_HOOK=bundle bun test ./tests/e2e`.
+7. **Validate the release configs** with `bun run validate:configs`: versions, packs, and the marketplace entry.
+8. **Pack the CLI.** `scripts/release/pack-cli.ts` bundles the CLI with the kernel and its dependencies into `dist/aos.js`, copies the reference pack to `pack/`, adds the CLI README and the license, and writes a manifest with no runtime dependencies.
+9. **Smoke the packed CLI** by running `bun dist/aos.js --version` from the packed directory.
+10. **Choose the dist-tag:** `next` if the tag contains a hyphen, otherwise `latest`.
+11. **Check the npm token** with `npm whoami`, so a bad or expired `NPM_TOKEN` fails here rather than at publish.
+12. **Publish** with `npm publish --access public --tag <dist-tag> --provenance`.
+13. **Wait for the registry.** `scripts/release/wait-for-npm.ts` asks npm for `aos-harness@<dist-tag>` up to 30 times, 10 seconds apart, until it resolves to the new version. It then installs that exact version into a scratch directory and runs the installed `dist/aos.js --version` under Bun, so the release is proven installable from the registry, not only uploaded.
+14. **Create the GitHub release.** It extracts the CHANGELOG section (runbook step 3) and fails if it is empty. If a release for the tag already exists it edits its notes; otherwise it creates one with `--verify-tag`. Prerelease versions are marked `--prerelease`.
 
 The plugin needs no publish step. Once the tag is pushed, it is installable from the tag, and `main` already carries the same version.
 

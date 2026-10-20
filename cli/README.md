@@ -31,7 +31,7 @@ The CLI needs [Bun](https://bun.sh) 1.3.11 or later on `PATH`, even when npm ins
 
 ## Human-only commands
 
-`aos approve` and `aos run cancel` decide things only a person may decide. They refuse to run without an interactive terminal, and when the environment shows an agent's shell started them (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set). In a Claude Code session bound to a run, the plugin's Bash guard also refuses them before they run. Sessions that are not bound to a run get no such guard.
+`aos approve` and `aos run cancel` decide things only a person may decide. Before prompting, they refuse with exit 2 when the environment shows an agent's shell started them (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, or `CLAUDE_CODE_SESSION_ID` is set to a non-empty value, which Claude Code does for every command its agent runs), and they refuse without an interactive terminal. Run them from a terminal outside Claude Code. In a Claude Code session bound to a run, the plugin's Bash guard also refuses them before they run, including through wrappers such as `script` and inline interpreter code. Sessions that are not bound to a run get no such guard.
 
 None of these checks is a security boundary. A determined process can allocate a terminal and clear its environment, and an agent with unrestricted shell access can write the run log directly. AOS hooks and these checks are guardrails for a cooperating agent; they stop lazy bypass, not a determined one. The run log records who decided each gate and why. The [security model](https://github.com/aos-engineer/harness/blob/main/docs/1.0/security.md) says what AOS does and does not defend.
 

@@ -48,14 +48,22 @@ Every refusal starts with `AOS:` and says what to do. The agent sees these; so d
 | `AOS: push blocked: verify gate pending.` followed by gaps | The verify gate does not pass at the current tree. Close each gap: reach the verify stage, run the tests on their own, record an approved review. The same form appears for `pr_create`. |
 | `AOS: stage "design" allows writes only under docs/specs/. Pass its gate with aos_stage_advance first.` | The file is outside the stage's write scope. Wait for the next stage, or write the design under `docs/specs/`. |
 | `AOS: stage "frame" allows no file writes. Get its approval first (aos_request_approval).` | Spike frame writes nothing; the probe stage opens writes after approval. |
-| `AOS: .aos/ is kernel-owned. Read run state with the aos_status tool.` | The command or path names `.aos/`. The agent reads run state through `aos_status`; you can use `aos status`. |
+| `AOS: .aos/ is kernel-owned. Read run state with the aos_status tool.` | The command or path names `.aos/`, in any letter case, or uses a glob or brace list that would expand to it (`.a*`, `.*`, `.{aos,git}`). The agent reads run state through `aos_status`; you can use `aos status`. |
 | ``AOS: `aos approve` is a human-only command. Ask the human to run it in their own terminal.`` | Run the command yourself, in a real terminal. The same applies to `aos run cancel`. |
 | `AOS: commit is allowed only in stages build, verify; the current stage is design.` | Commits open in build. |
 | `AOS: push is not allowed in a spike run. Spike code is throwaway by design; start a bounded run to build it for real.` | Spike code never leaves the machine. Start a bounded run for the real change. |
 | `AOS: deploy is not allowed in a bounded run.` | Deploy is never allowed inside a run. Deploy outside the session, through your normal release process. |
 | ``AOS error, run `aos doctor`: <cause>`` | AOS itself failed, so push, PR create, and deploy are denied until it is fixed. Run `aos doctor` and read the hook error log. |
 
-`aos approve` and `aos run cancel` refuse to run from an agent's shell, without a terminal or with Claude Code's environment variables set. Run them in your own terminal, outside Claude Code.
+`aos approve` and `aos run cancel` refuse to run from an agent's shell. If you see `aos approve must be run by a person in their own terminal. This shell belongs to an agent session (CLAUDECODE is set).`, the command ran in a shell that carries a Claude Code session's variables, such as Claude's Bash tool. If you see `aos approve needs an interactive terminal (TTY).`, it ran without a terminal. Run it from a terminal outside Claude Code.
+
+## A symlink under .aos/
+
+```
+aos: AOS refuses to write through the symlink .aos/runs/<run>; remove it and rerun
+```
+
+AOS will not write through a symlink at `.aos` or anywhere under it, because a link there could send the run's records somewhere else. Look at what the link points to and why it is there, remove it, and rerun the command. In a hook, the same refusal is a kernel error: push, PR create, and deploy are denied with `AOS error, run \`aos doctor\`: ...` until the link is gone, and the error is logged where possible. Through an MCP tool it comes back as an `internal:` error.
 
 ## A test run did not count
 
