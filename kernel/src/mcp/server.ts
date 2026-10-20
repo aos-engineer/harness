@@ -37,11 +37,14 @@ export function createAosMcpServer(o: { cwd: string; packDir: string; host: stri
   // report, not as a server that never starts.
   let ctx: OpContext | null = null;
   const context = () => (ctx ??= openContext(o));
+  // Each host session spawns its own server, so the run this server started is the session's run. Calls
+  // that omit runId default to it; an explicit runId always wins.
+  const session: { run: string | null } = { run: null };
 
   // The catalog types its schemas as plain objects; each one is a closed object schema, as the SDK expects.
   const tools: Tool[] = TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema as Tool["inputSchema"] }));
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
-  server.setRequestHandler(CallToolRequestSchema, async (req) => callTool(context, req.params.name, req.params.arguments ?? {}));
+  server.setRequestHandler(CallToolRequestSchema, async (req) => callTool(context, session, req.params.name, req.params.arguments ?? {}));
   return server;
 }
 
@@ -67,13 +70,21 @@ export async function serveStdio(o: { cwd: string; packDir: string; host: string
   }
 }
 
-function callTool(context: () => OpContext, name: string, args: Args): CallToolResult {
+function callTool(context: () => OpContext, session: { run: string | null }, name: string, raw: Args): CallToolResult {
   try {
     const handler = Object.hasOwn(HANDLERS, name) ? HANDLERS[name] : undefined;
     if (handler === undefined) return failure(`invalid: unknown tool "${name}". The AOS tools are: ${TOOLS.map((t) => t.name).join(", ")}.`);
     const validate = validator(name);
-    if (!validate(args)) return failure(`invalid: ${describeErrors(validate.errors ?? [])}`);
+    if (!validate(raw)) return failure(`invalid: ${describeErrors(validate.errors ?? [])}`);
+    let args = raw;
+    if (name !== "aos_run_start" && raw.runId === undefined) {
+      if (session.run === null) {
+        return failure("invalid: no run was started in this session, so pass the runId that aos_run_start returned (a session-start note also names it).");
+      }
+      args = { ...raw, runId: session.run };
+    }
     const result = handler(context(), args);
+    if (name === "aos_run_start") session.run = String((result as { runId: string }).runId);
     return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result as Record<string, unknown> };
   } catch (e) {
     if (e instanceof OpError) return failure(`${e.code}: ${e.message}`);

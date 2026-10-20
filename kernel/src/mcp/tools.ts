@@ -19,8 +19,8 @@ type Schema = Record<string, unknown>;
 const closed = (properties: Record<string, Schema>, required: string[]): Schema => ({ type: "object", properties, required, additionalProperties: false });
 const str = (description: string): Schema => ({ type: "string", description });
 
-const runId = str("The run id returned by aos_run_start.");
-const onlyRun = closed({ runId }, ["runId"]);
+const runId = str("The run id returned by aos_run_start. Optional: it defaults to the run this session started.");
+const onlyRun = closed({ runId }, []);
 
 const EVIDENCE_KINDS = ["artifact", "citation", "review", "skill"];
 const evidenceFields = {
@@ -60,7 +60,7 @@ export const TOOLS: ReadonlyArray<{ name: string; description: string; inputSche
   {
     name: "aos_task_add",
     description: "Add a task to the current stage. All tasks must be completed before the stage's gate passes.",
-    inputSchema: closed({ runId, title: str("What the task delivers, in one line.") }, ["runId", "title"]),
+    inputSchema: closed({ runId, title: str("What the task delivers, in one line.") }, ["title"]),
   },
   {
     name: "aos_task_complete",
@@ -69,7 +69,7 @@ export const TOOLS: ReadonlyArray<{ name: string; description: string; inputSche
       runId,
       task: str("The task id returned by aos_task_add, such as t1."),
       evidence: { type: "array", items: { type: "string" }, description: "Optional. Evidence ids from aos_evidence_record that back the task." },
-    }, ["runId", "task"]),
+    }, ["task"]),
   },
   {
     name: "aos_evidence_record",
@@ -80,7 +80,7 @@ export const TOOLS: ReadonlyArray<{ name: string; description: string; inputSche
       runId,
       kind: { type: "string", enum: EVIDENCE_KINDS, description: "artifact: a file you produced (path). citation: a file and line that supports a claim (path, line, note). review: a code review's result (status, feedback, reviewer). skill: a skill you used (skill)." },
       ...evidenceFields,
-    }, ["runId", "kind"]),
+    }, ["kind"]),
   },
   {
     name: "aos_request_approval",
@@ -88,7 +88,7 @@ export const TOOLS: ReadonlyArray<{ name: string; description: string; inputSche
     inputSchema: closed({
       runId,
       summary: str("What the human is approving: the design, or the spike's question and probe. 1 to 4000 characters."),
-    }, ["runId", "summary"]),
+    }, ["summary"]),
   },
 ];
 
@@ -98,7 +98,7 @@ type Field = keyof typeof evidenceFields;
 const kindOf = (kind: string, fields: Field[], optional: Field[] = []): Schema =>
   closed(
     { runId, kind: { const: kind }, ...Object.fromEntries([...fields, ...optional].map((f) => [f, evidenceFields[f]])) },
-    ["runId", "kind", ...fields],
+    ["kind", ...fields],
   );
 
 const EVIDENCE_ARGUMENTS: Schema = {

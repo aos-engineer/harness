@@ -179,3 +179,28 @@ test("the MCP server loads and validates under Node", () => {
   expect(r.stderr).toBe("");
   expect(JSON.parse(r.stdout)).toEqual(["invalid", "not_found"]);
 });
+
+// Each Claude Code session spawns its own server, so the run it started is the obvious default.
+describe("runId default", () => {
+  test("a call without runId uses the run this server started", async () => {
+    await startRun();
+    const r = await call("aos_status", {});
+    expect(r.isError).toBeFalsy();
+    expect(body(r).stage).toBe("design");
+  });
+
+  test("an explicit runId wins over the default", async () => {
+    const other = await connect();
+    const otherRun = String(body(await call("aos_run_start", { brief: "Fix a second typo" }, other)).runId);
+    await other.close();
+    const mine = await startRun();
+    expect(body(await call("aos_status", { runId: otherRun })).runId).toBe(otherRun);
+    expect(body(await call("aos_status", {})).runId).toBe(mine);
+  });
+
+  test("without a run started here, a missing runId says what to pass", async () => {
+    const r = await call("aos_request_approval", { summary: "design" });
+    expect(r.isError).toBe(true);
+    expect(text(r)).toContain("pass the runId that aos_run_start returned");
+  });
+});
