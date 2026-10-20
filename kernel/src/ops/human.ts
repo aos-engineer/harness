@@ -118,8 +118,7 @@ function requireHuman(actor: Actor, what: string): void {
 /** The request to decide, after checking the actor, the log's integrity, and that the request is pending. */
 function decidable(loc: RunLocation, p: DecisionParams, verb: "approve" | "deny"): ApprovalState {
   requireHuman(p.actor, `${verb} a gate`);
-  // The snapshot fast path does not replay the chain, so an edit to an earlier event would go unnoticed.
-  // A decision is rare and consequential enough to pay for the full read.
+  // loadState checks the chain too; checking first makes the refusal say that no decision was recorded.
   const chain = verifyChain(loc);
   if (!chain.ok) {
     throw new ChainError(`run ${loc.run}: log tampered or corrupt at seq ${chain.badSeq} (${chain.reason}); not recording a decision`, chain.badSeq);

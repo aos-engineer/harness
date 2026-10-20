@@ -15,6 +15,7 @@ import { spawnGit } from "../tree/git.ts";
 import type { EventDraft, Evidence, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier, TreeState } from "../types.ts";
 import { TIER_RANK } from "../types.ts";
 import { OpError, RunNotFoundError } from "../util/errors.ts";
+import { foldName } from "../util/fold.ts";
 import { sha256Tag } from "../util/hash.ts";
 import { ulid } from "../util/ulid.ts";
 import { agentActor } from "./context.ts";
@@ -353,7 +354,8 @@ function insideRoot(root: string, path: unknown): { abs: string; rel: string; re
   // Policy first, on the path as named, so a missing file under .aos/ is still refused rather than "missing".
   const policy = (r: string) => {
     if (isOutside(r)) throw new OpError("refused", `${path} is outside the repository at ${root}; evidence must come from inside it.`);
-    const top = topDir(r);
+    // Folded, because the default macOS filesystem opens `.AOS/` and `.Git/` as the same directories.
+    const top = foldName(topDir(r));
     if (top === ".aos") throw new OpError("refused", `${path} is under .aos/, which holds AOS's own records and cannot be evidence.`);
     if (top === ".git") throw new OpError("refused", `${path} is under .git/, which is git's own store and cannot be evidence.`);
   };

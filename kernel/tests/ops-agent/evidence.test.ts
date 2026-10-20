@@ -69,6 +69,9 @@ describe("artifact evidence", () => {
     expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: `.aos/runs/${runId}/log.jsonl` })).toThrow(code("refused"));
     expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".aos" })).toThrow(code("refused"));
     expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".aos/runs/x" })).toThrow(code("refused"));
+    // Spellings the default macOS filesystem opens as .aos: case and Unicode case folding (U+017F, long s)
+    expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".AOS/runs/x" })).toThrow(code("refused"));
+    expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: ".ao\u017f/runs/x" })).toThrow(code("refused"));
     expect(() => evidenceRecord(ctx, { runId, kind: "artifact", path: `.AOS/runs/${runId}/state.json` })).toThrow(code("refused"));
   });
 
