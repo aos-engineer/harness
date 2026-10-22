@@ -1,47 +1,32 @@
 ---
+import VersionBanner from '../components/VersionBanner.astro';
+import { REPO, siteGroups, topLinks as linksFor, V011_PREFIX, type Version } from '../lib/versions';
+
 interface Props {
   title: string;
   description?: string;
+  version?: Version;
 }
 
-const { title, description = 'AOS Harness — Agentic Orchestration System for multi-agent AI workflows' } = Astro.props;
+const { title, description, version = '0.11' } = Astro.props;
+const summary = description ?? (version === '1.0'
+  ? 'AOS gates for coding agents: staged runs, observed test evidence, and human approvals inside Claude Code.'
+  : 'AOS 0.11: config-driven agent councils and execution teams on top of Claude Code, Codex, Gemini, and Pi.');
 
 const currentPath = Astro.url.pathname.endsWith('/')
   ? Astro.url.pathname
   : `${Astro.url.pathname}/`;
 const canonicalUrl = new URL(currentPath, Astro.site ?? Astro.url).toString();
 
-const navGroups = [
-  {
-    title: 'Explore',
-    links: [
-      { href: '/', label: 'Overview' },
-      { href: '/agents/', label: 'Agents' },
-      { href: '/profiles/', label: 'Profiles' },
-      { href: '/skills/', label: 'Skills' },
-      { href: '/domains/', label: 'Domains' },
-    ],
-  },
-  {
-    title: 'Documentation',
-    links: [
-      { href: '/docs/getting-started/', label: 'Getting Started' },
-      { href: '/docs/dev-execution/', label: 'Dev Execution' },
-      { href: '/docs/domain-enforcement/', label: 'Domain Enforcement' },
-    ],
-  },
-];
-
-const topLinks = [
-  { href: '/docs/getting-started/', label: 'Docs' },
-  { href: '/agents/', label: 'Agents' },
-  { href: '/profiles/', label: 'Profiles' },
-  { href: 'https://github.com/aos-engineer/harness', label: 'GitHub', external: true },
-];
+const navGroups = siteGroups(version).map((g) => ({ title: g.title, links: g.links.map((l) => ({ href: l.href, label: l.title })) }));
+const topLinks = linksFor(version);
+const home = version === '1.0' ? '/' : `${V011_PREFIX}/`;
+const docsHome = version === '1.0' ? '/docs/getting-started/' : `${V011_PREFIX}/docs/getting-started/`;
+const tagline = version === '1.0' ? 'Staged gates for coding agents' : 'Agentic orchestration system, 0.11';
 
 function isActive(href: string) {
-  if (href === '/') {
-    return currentPath === '/';
+  if (href === home) {
+    return currentPath === home;
   }
   return currentPath.startsWith(href);
 }
@@ -52,12 +37,12 @@ function isActive(href: string) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content={description} />
+    <meta name="description" content={summary} />
     <meta name="theme-color" content="#f7f7f8" />
     <meta name="color-scheme" content="light dark" />
     <meta name="robots" content="index,follow" />
     <meta property="og:title" content={`${title} | AOS.engineer`} />
-    <meta property="og:description" content={description} />
+    <meta property="og:description" content={summary} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -74,7 +59,7 @@ function isActive(href: string) {
   </head>
   <body class="site-shell min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
     <aside class="docs-rail">
-      <a href="/" class="docs-brand" aria-label="AOS home">
+      <a href={home} class="docs-brand" aria-label="AOS home">
         <span class="docs-brand-mark">AOS</span><span>.engineer</span>
       </a>
 
@@ -99,7 +84,7 @@ function isActive(href: string) {
     <header class="docs-header">
       <div class="docs-header-search" aria-hidden="true">
         <span class="docs-search-icon">/</span>
-        <span>Agentic orchestration system</span>
+        <span>{tagline}</span>
       </div>
 
       <div class="docs-mobile-brand">
@@ -120,7 +105,7 @@ function isActive(href: string) {
             ))}
           </div>
         </details>
-        <a href="/" class="docs-mobile-logo">AOS<span>.engineer</span></a>
+        <a href={home} class="docs-mobile-logo">AOS<span>.engineer</span></a>
       </div>
 
       <nav class="docs-top-nav" aria-label="Primary">
@@ -142,17 +127,19 @@ function isActive(href: string) {
     </header>
 
     <main class="site-main">
+      <div class="site-version-banner"><VersionBanner version={version} /></div>
       <slot />
     </main>
 
     <footer class="site-footer">
       <div>
         <span class="font-semibold text-[var(--color-text)]">AOS Harness</span>
-        <span>Agentic Orchestration System</span>
+        <span>{tagline}</span>
       </div>
       <nav aria-label="Footer">
-        <a href="/docs/getting-started/">Docs</a>
-        <a href="https://github.com/aos-engineer/harness" target="_blank" rel="noopener">GitHub</a>
+        <a href={docsHome}>Docs</a>
+        <a href={version === '1.0' ? `${V011_PREFIX}/` : '/'}>{version === '1.0' ? 'AOS 0.11' : 'AOS 1.0'}</a>
+        <a href={REPO} target="_blank" rel="noopener">GitHub</a>
         <span>MIT License</span>
       </nav>
     </footer>

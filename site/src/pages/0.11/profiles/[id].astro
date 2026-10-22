@@ -1,6 +1,6 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { loadAllProfiles, loadAllAgents, loadWorkflow } from '../../lib/content';
+import Base from '../../../layouts/Base.astro';
+import { loadAllProfiles, loadAllAgents, loadWorkflow } from '../../../lib/content';
 
 export function getStaticPaths() {
   const profiles = loadAllProfiles();
@@ -23,7 +23,7 @@ const isExecution = profile.type === 'execution';
 
       <!-- Breadcrumb -->
       <div class="text-[13px] text-[var(--color-text-muted)] mb-8">
-        <a href="/profiles" class="text-[var(--color-signal)] hover:text-[var(--color-signal-hover)]">Profiles</a>
+        <a href="/0.11/profiles" class="text-[var(--color-signal)] hover:text-[var(--color-signal-hover)]">Profiles</a>
         <span class="mx-2">&rsaquo;</span>
         <span>{profile.name}</span>
       </div>
@@ -48,7 +48,7 @@ const isExecution = profile.type === 'execution';
         <div class="bg-[var(--color-bg)] rounded-lg px-4 py-3.5 mb-4 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <span class="dot" style="background: var(--color-orchestrator); width: 6px; height: 6px;"></span>
-            <a href={`/agents/${profile.assembly.orchestrator}`} class="text-[15px] font-semibold text-[var(--color-text)] hover:text-[var(--color-signal)] no-underline">
+            <a href={`/0.11/agents/${profile.assembly.orchestrator}`} class="text-[15px] font-semibold text-[var(--color-text)] hover:text-[var(--color-signal)] no-underline">
               {agentMap.get(profile.assembly.orchestrator)?.name ?? profile.assembly.orchestrator}
             </a>
           </div>
@@ -62,7 +62,7 @@ const isExecution = profile.type === 'execution';
             return (
               <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 flex items-center justify-between">
                 <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <a href={`/agents/${p.agent}`} class="text-sm font-semibold text-[var(--color-signal)] hover:text-[var(--color-signal-hover)] no-underline flex-shrink-0">
+                  <a href={`/0.11/agents/${p.agent}`} class="text-sm font-semibold text-[var(--color-signal)] hover:text-[var(--color-signal-hover)] no-underline flex-shrink-0">
                     {agent?.name ?? p.agent}
                   </a>
                   {p.role_override && (
@@ -157,9 +157,9 @@ const isExecution = profile.type === 'execution';
               const agentB = agentMap.get(b);
               return (
                 <div class="bg-[var(--color-bg)] rounded-lg px-4 py-3.5 flex items-center gap-3">
-                  <a href={`/agents/${a}`} class="text-sm font-semibold text-[var(--color-signal)] hover:text-[var(--color-signal-hover)] no-underline">{agentA?.name ?? a}</a>
+                  <a href={`/0.11/agents/${a}`} class="text-sm font-semibold text-[var(--color-signal)] hover:text-[var(--color-signal-hover)] no-underline">{agentA?.name ?? a}</a>
                   <span class="text-[var(--color-text-muted)]">&harr;</span>
-                  <a href={`/agents/${b}`} class="text-sm font-semibold text-[var(--color-signal)] hover:text-[var(--color-signal-hover)] no-underline">{agentB?.name ?? b}</a>
+                  <a href={`/0.11/agents/${b}`} class="text-sm font-semibold text-[var(--color-signal)] hover:text-[var(--color-signal-hover)] no-underline">{agentB?.name ?? b}</a>
                   <span class="text-[13px] text-[var(--color-text-secondary)] ml-auto">
                     {agentA?.cognition.core_bias} vs {agentB?.cognition.core_bias}
                   </span>

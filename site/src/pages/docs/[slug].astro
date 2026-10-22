@@ -1,0 +1,29 @@
+---
+// One page per file in the repository's docs/1.0. The title is the file's first heading and the on-page
+// contents are its second-level headings, so a doc needs no site-specific front matter.
+import { getCollection, render } from 'astro:content';
+import Docs from '../../layouts/Docs.astro';
+import { REPO } from '../../lib/versions';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('docs');
+  return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const title = headings.find((h) => h.depth === 1)?.text ?? entry.id;
+const sidebarLinks = headings.filter((h) => h.depth === 2).map((h) => ({ id: h.slug, label: h.text }));
+
+// The first paragraph, as plain text, for search engines and link previews.
+const firstParagraph = (entry.body ?? '').split(/\n\s*\n/).map((b) => b.trim()).find((b) => b !== '' && !b.startsWith('#')) ?? title;
+const description = firstParagraph.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[`*_]/g, '').replace(/\s+/g, ' ').slice(0, 300);
+const source = `${REPO}/blob/main/docs/1.0/${entry.id}.md`;
+---
+
+<Docs title={title} description={description} sidebarLinks={sidebarLinks} version="1.0">
+  <div class="docs-prose">
+    <Content />
+  </div>
+  <p class="docs-source"><a href={source} target="_blank" rel="noopener">View this page's source on GitHub</a></p>
+</Docs>

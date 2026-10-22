@@ -1,6 +1,6 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { loadAllAgents } from '../../lib/content';
+import Base from '../../../layouts/Base.astro';
+import { loadAllAgents } from '../../../lib/content';
 
 const agents = loadAllAgents();
 const categoryLabels: Record<string, string> = { orchestrator: 'Orchestrators', perspective: 'Perspectives', operational: 'Operational' };
@@ -36,7 +36,7 @@ const operational = agents.filter(a => a.category === 'operational');
       <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-4">Orchestrators</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         {orchestrators.map(agent => (
-          <a href={`/agents/${agent.id}`} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-0 card-hover no-underline">
+          <a href={`/0.11/agents/${agent.id}`} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-0 card-hover no-underline">
             <div class="flex flex-row">
               <div class="w-1 shrink-0 rounded-l-xl" style={`background: ${categoryColors.orchestrator}`}></div>
               <div class="p-5 flex-1">
@@ -59,7 +59,7 @@ const operational = agents.filter(a => a.category === 'operational');
       <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Perspectives</p>
       <div class="flex flex-col gap-2">
         {perspectives.map(agent => (
-          <a href={`/agents/${agent.id}`} class="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 card-hover no-underline">
+          <a href={`/0.11/agents/${agent.id}`} class="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 card-hover no-underline">
             <div class="flex items-center gap-3">
               <span class="dot" style={`background: ${categoryColors.perspective}`}></span>
               <span class="text-sm font-semibold text-[var(--color-text)]">{agent.name}</span>
@@ -81,7 +81,7 @@ const operational = agents.filter(a => a.category === 'operational');
       <p class="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">Operational</p>
       <div class="flex flex-col gap-2">
         {operational.map(agent => (
-          <a href={`/agents/${agent.id}`} class="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 card-hover no-underline">
+          <a href={`/0.11/agents/${agent.id}`} class="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 card-hover no-underline">
             <div class="flex items-center gap-3">
               <span class="dot" style={`background: ${categoryColors.operational}`}></span>
               <span class="text-sm font-semibold text-[var(--color-text)]">{agent.name}</span>

@@ -1,5 +1,6 @@
 ---
-import PreviewNotice from '../components/PreviewNotice.astro';
+import VersionBanner from '../components/VersionBanner.astro';
+import { DOCS_0_11, DOCS_1_0, topLinks as linksFor, V011_PREFIX, type Version } from '../lib/versions';
 
 interface SidebarLink {
   id: string;
@@ -10,53 +11,20 @@ interface Props {
   title: string;
   description?: string;
   sidebarLinks?: SidebarLink[];
+  version?: Version;
 }
 
-const { title, description, sidebarLinks = [] } = Astro.props;
+const { title, description, sidebarLinks = [], version = '0.11' } = Astro.props;
 const currentPath = Astro.url.pathname.endsWith('/')
   ? Astro.url.pathname
   : `${Astro.url.pathname}/`;
 const canonicalUrl = new URL(currentPath, Astro.site ?? Astro.url).toString();
 
-const docsGroups = [
-  {
-    title: 'Start here',
-    links: [
-      { title: 'Getting Started', href: '/docs/getting-started/' },
-      { title: 'Creating Agents', href: '/docs/creating-agents/' },
-      { title: 'Creating Profiles', href: '/docs/creating-profiles/' },
-      { title: 'Creating Domains', href: '/docs/creating-domains/' },
-      { title: 'Creating Workflows', href: '/docs/creating-workflows/' },
-      { title: 'Creating Skills', href: '/docs/creating-skills/' },
-    ],
-  },
-  {
-    title: 'Runtime',
-    links: [
-      { title: 'Domain Enforcement', href: '/docs/domain-enforcement/' },
-      { title: 'Hierarchical Delegation', href: '/docs/hierarchical-delegation/' },
-      { title: 'Memory System', href: '/docs/persistent-expertise/' },
-      { title: 'Event Summarization', href: '/docs/event-summarization/' },
-      { title: 'Session Resumption', href: '/docs/session-resumption/' },
-      { title: 'Dev Execution', href: '/docs/dev-execution/' },
-    ],
-  },
-  {
-    title: 'Interop & Mesh',
-    links: [
-      { title: 'Serving over A2A', href: '/docs/serving-over-a2a/' },
-      { title: 'MCP Toolsets', href: '/docs/mcp-toolsets/' },
-      { title: 'Agent Mesh Security', href: '/docs/agent-mesh-security/' },
-    ],
-  },
-];
-
-const topLinks = [
-  { href: '/', label: 'API' },
-  { href: '/agents/', label: 'Agents' },
-  { href: '/profiles/', label: 'Profiles' },
-  { href: 'https://github.com/aos-engineer/harness', label: 'GitHub', external: true },
-];
+const docsGroups = version === '1.0' ? DOCS_1_0 : DOCS_0_11;
+const topLinks = linksFor(version);
+const docsHome = version === '1.0' ? '/docs/getting-started/' : `${V011_PREFIX}/docs/getting-started/`;
+const brandHref = version === '1.0' ? '/' : `${V011_PREFIX}/`;
+const siteTitle = version === '1.0' ? 'AOS Docs' : 'AOS 0.11 Docs';
 ---
 
 <!doctype html>
@@ -73,7 +41,7 @@ const topLinks = [
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <title>{title} | AOS Docs</title>
+    <title>{title} | {siteTitle}</title>
     <!-- External file (is:inline here means "emit verbatim, don't bundle" — the
          tag still has a src, so CSP `script-src 'self'` allows it, unlike an
          inline script). Render-blocking so the theme is set before first paint. -->
@@ -81,7 +49,7 @@ const topLinks = [
   </head>
   <body class="docs-shell min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
     <aside class="docs-rail">
-      <a href="/" class="docs-brand" aria-label="AOS home">
+      <a href={brandHref} class="docs-brand" aria-label="AOS home">
         <span class="docs-brand-mark">AOS</span><span>.engineer</span>
       </a>
 
@@ -130,7 +98,7 @@ const topLinks = [
             ))}
           </div>
         </details>
-        <a href="/" class="docs-mobile-logo">AOS<span>.engineer</span></a>
+        <a href={brandHref} class="docs-mobile-logo">AOS<span>.engineer</span></a>
       </div>
 
       <nav class="docs-top-nav" aria-label="Primary">
@@ -149,8 +117,10 @@ const topLinks = [
 
     <div class="docs-page">
       <main class="docs-main">
+        <div class="docs-preview-notice"><VersionBanner version={version} /></div>
+
         <div class="docs-breadcrumb">
-          <a href="/docs/getting-started/">Docs</a>
+          <a href={docsHome}>{version === '1.0' ? 'Docs' : 'Docs 0.11'}</a>
           <span>/</span>
           <span>{title}</span>
         </div>
@@ -162,8 +132,6 @@ const topLinks = [
             ))}
           </nav>
         )}
-
-        <div class="docs-preview-notice"><PreviewNotice /></div>
 
         <article class="docs-article">
           <slot />
