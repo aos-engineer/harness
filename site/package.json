@@ -11,7 +11,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "upgrade:astro": "npx @astrojs/upgrade",
-    "astro": "astro"
+    "astro": "astro",
+    "check:built": "bun run scripts/check-built-site.ts"
   },
   "dependencies": {
     "@astrojs/mdx": "^5.0.2",
