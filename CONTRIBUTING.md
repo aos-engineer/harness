@@ -38,7 +38,7 @@ BUN_TMPDIR="$TMPDIR" BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache" bun install
 | `tests/release/` | Tests for the release config check (`scripts/validate-configs.ts`). |
 | `scripts/` | The plugin build, the YAML safety lint, the hook benchmark, and the release scripts. |
 | `core/` | 0.x agent, profile, and domain content, kept because the docs site reads it at build time. |
-| `site/` | The docs site (Astro). Its own package, not a workspace member. |
+| `site/` | The docs site (Astro), at harness.aos.engineer. Its own package, not a workspace member. It renders `docs/1.0/*.md` as the 1.0 docs and keeps the 0.11 docs whole under `/0.11/`. |
 
 ## Tests
 
@@ -117,7 +117,7 @@ The target is a p95 under 100 ms per hook. The script reports p50, p95, and max 
 
 ## Dependencies
 
-Dependencies change only in a deliberate commit that also updates the tracked `bun.lock`. Do not let a dependency change ride along with an unrelated fix. `site/` is its own package and not a workspace member, so its installs are not pinned by the root lockfile.
+Dependencies change only in a deliberate commit that also updates the tracked `bun.lock`. Do not let a dependency change ride along with an unrelated fix. `site/` is its own package and not a workspace member, with its own tracked `site/bun.lock`; change it the same deliberate way.
 
 ## Conventions
 
@@ -144,6 +144,14 @@ This repository is public. Code, comments, tests, docs, and commit messages must
 Do not open a public issue. Follow [SECURITY.md](SECURITY.md), which uses GitHub's private vulnerability reporting; [docs/1.0/security.md](docs/1.0/security.md) explains what AOS defends and what it does not.
 
 ## Documentation
+
+Write 1.0 docs in `docs/1.0/`. GitHub renders them next to the code, and the site renders the same files at `/docs/<file name>/`: a link to a sibling file (`cli.md`) becomes a site route, and a link into the repository (`../../kernel/src/types.ts`) becomes a GitHub link. A new file needs an entry in the site's navigation in `site/src/lib/versions.ts`. To check the site before a pull request:
+
+```bash
+cd site && bun install --frozen-lockfile && bun run build && bun run check:built
+```
+
+CI runs the same build, the link and redirect check, and the site's Docker image build, because the site deploys from `main` on its own.
 
 - [docs/README.md](docs/README.md): the index of everything under `docs/`.
 - [Getting started](docs/1.0/getting-started.md)
