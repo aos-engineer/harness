@@ -1,6 +1,6 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { loadAllProfiles } from '../../lib/content';
+import Base from '../../../layouts/Base.astro';
+import { loadAllProfiles } from '../../../lib/content';
 
 const profiles = loadAllProfiles();
 
@@ -34,7 +34,7 @@ const listProfiles = profiles.filter(p => !['strategic-council', 'cto-execution'
         const accentColor = isExecution ? 'var(--color-execution)' : 'var(--color-deliberation)';
 
         return (
-          <a href={`/profiles/${profile.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 flex gap-4 card-hover no-underline">
+          <a href={`/0.11/profiles/${profile.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 flex gap-4 card-hover no-underline">
             <div class="w-1 rounded-sm flex-shrink-0" style={`background: ${accentColor}`}></div>
             <div class="flex-1">
               <h2 class="text-[17px] font-semibold text-[var(--color-text)]">{profile.name}</h2>
@@ -71,7 +71,7 @@ const listProfiles = profiles.filter(p => !['strategic-council', 'cto-execution'
           const dotColor = isExecution ? 'var(--color-execution)' : 'var(--color-deliberation)';
 
           return (
-            <a href={`/profiles/${profile.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 flex items-center justify-between card-hover no-underline">
+            <a href={`/0.11/profiles/${profile.id}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 flex items-center justify-between card-hover no-underline">
               <div class="flex items-center gap-3">
                 <span class="dot" style={`background: ${dotColor}`}></span>
                 <span class="text-sm font-semibold text-[var(--color-text)]">{profile.name}</span>

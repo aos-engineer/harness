@@ -1,6 +1,6 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { loadAllAgents } from '../../lib/content';
+import Base from '../../../layouts/Base.astro';
+import { loadAllAgents } from '../../../lib/content';
 
 export function getStaticPaths() {
   const agents = loadAllAgents();
@@ -29,7 +29,7 @@ const notConvincedBy = agent.persona.evidence_standard?.not_convinced_by ?? [];
 
     <!-- Breadcrumb -->
     <div class="text-sm text-[var(--color-text-muted)] pt-6">
-      <a href="/agents" class="text-[var(--color-signal)] no-underline hover:text-[var(--color-signal-hover)]">Agents</a>
+      <a href="/0.11/agents" class="text-[var(--color-signal)] no-underline hover:text-[var(--color-signal-hover)]">Agents</a>
       <span class="mx-2 text-[var(--color-text-muted)]">&rsaquo;</span>
       <span>{agent.name}</span>
     </div>
@@ -166,7 +166,7 @@ const notConvincedBy = agent.persona.evidence_standard?.not_convinced_by ?? [];
             <div class="bg-[var(--color-bg)] rounded-lg p-4">
               <div class="flex items-center gap-2 mb-2">
                 <span class="text-sm font-semibold text-[var(--color-text-muted)]">vs.</span>
-                <a href={`/agents/${t.agent}`} class="text-sm font-semibold text-[var(--color-signal)] no-underline hover:text-[var(--color-signal-hover)]">{t.agent}</a>
+                <a href={`/0.11/agents/${t.agent}`} class="text-sm font-semibold text-[var(--color-signal)] no-underline hover:text-[var(--color-signal-hover)]">{t.agent}</a>
               </div>
               <p class="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">{t.dynamic}</p>
             </div>

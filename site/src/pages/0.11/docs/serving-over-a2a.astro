@@ -1,5 +1,5 @@
 ---
-import Docs from '../../layouts/Docs.astro';
+import Docs from '../../../layouts/Docs.astro';
 
 const sidebarLinks = [
   { id: 'overview', label: 'Overview' },
@@ -54,7 +54,7 @@ const sidebarLinks = [
   "capabilities": { "streaming": false, "pushNotifications": false },
   "skills": [ { "id": "summarize", "name": "summarize", "tags": [] } ]
 }`}</code></pre>
-    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">When signing is enabled, the card carries a detached JWS signature so a caller can verify your identity before connecting. See <a href="/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a>.</p>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-6">When signing is enabled, the card carries a detached JWS signature so a caller can verify your identity before connecting. See <a href="/0.11/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a>.</p>
   </section>
 
   <section id="json-rpc" class="mb-12">
@@ -86,7 +86,7 @@ const sidebarLinks = [
     <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mb-4">Each inbound message is routed to a single exposed skill. The caller selects one via <code>message.metadata.skillId</code>; an unknown id is rejected (it cannot introduce a new skill). The selected skill runs on the warm worker:</p>
     <ul class="mt-2 mb-4 space-y-2 text-[15px] text-[var(--color-text-secondary)] leading-relaxed list-disc list-inside">
       <li>Skills are discovered from <code>core/skills/&lt;id&gt;/skill.yaml</code>.</li>
-      <li>A skill with an <code>mcp_binding</code> resolves to a native MCP tool call &mdash; see <a href="/docs/mcp-toolsets" class="text-[var(--color-signal)] no-underline hover:underline">MCP Toolsets</a>.</li>
+      <li>A skill with an <code>mcp_binding</code> resolves to a native MCP tool call &mdash; see <a href="/0.11/docs/mcp-toolsets" class="text-[var(--color-signal)] no-underline hover:underline">MCP Toolsets</a>.</li>
       <li>The inbound text becomes the skill input; the skill output becomes a text Artifact on the Task.</li>
     </ul>
   </section>
@@ -126,7 +126,7 @@ AOS_A2A_SIGNING_JKU=https://me.example.com/.well-known/jwks.json</code></pre>
       <li><strong class="text-[var(--color-text)]">Limits on by default.</strong> Concurrency, rate, and budget guards apply to <code>message/send</code> even when unset.</li>
       <li><strong class="text-[var(--color-text)]">Signing fails closed.</strong> If <code>AOS_A2A_SIGNING_KEY</code> is set but unreadable, the server refuses to start rather than serve an unsigned card.</li>
     </ul>
-    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">The full model &mdash; signing, key discovery, SSRF egress, and ingress guards &mdash; is documented in <a href="/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a>.</p>
+    <p class="text-[15px] text-[var(--color-text-secondary)] leading-relaxed mt-4">The full model &mdash; signing, key discovery, SSRF egress, and ingress guards &mdash; is documented in <a href="/0.11/docs/agent-mesh-security" class="text-[var(--color-signal)] no-underline hover:underline">Agent Mesh Security</a>.</p>
   </section>
 
   <section id="calling-agents" class="mb-12">
@@ -147,12 +147,12 @@ AOS_A2A_SIGNING_JKU=https://me.example.com/.well-known/jwks.json</code></pre>
       <h2 class="text-2xl md:text-[28px] font-bold text-[var(--color-text)]">Next Steps</h2>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <a href="/docs/agent-mesh-security" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+      <a href="/0.11/docs/agent-mesh-security" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
         <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">Agent Mesh Security</h3>
         <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Signed Agent Cards, JWKS key discovery, SSRF egress, and ingress guards.</p>
         <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>
       </a>
-      <a href="/docs/mcp-toolsets" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
+      <a href="/0.11/docs/mcp-toolsets" class="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-5 no-underline card-hover block">
         <h3 class="text-[17px] font-semibold text-[var(--color-text)] mb-1.5">MCP Toolsets</h3>
         <p class="text-[13px] text-[var(--color-text-muted)] leading-relaxed mb-3">Bind skills to MCP server tools for native, no-LLM tool calls.</p>
         <span class="text-[var(--color-signal)] text-[14px] font-medium">&rarr;</span>

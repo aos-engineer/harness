@@ -45,6 +45,33 @@ jobs:
         env:
           AOS_E2E_HOOK: bundle
 
+  # The docs site deploys from main on its own, so a broken build or link must fail here, before merge.
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      - name: Install site dependencies
+        working-directory: site
+        run: bun install --frozen-lockfile
+
+      - name: Build the site
+        working-directory: site
+        run: bun run build
+
+      - name: Every link and redirect resolves, and every 1.0 doc is rendered
+        working-directory: site
+        run: bun run check:built
+
+      # The deploy builds this image, not the step above; a base-image or lockfile problem shows only here.
+      - name: Build the deploy image
+        run: docker build -f site/Dockerfile -t aos-site:ci .
+
   # What a release ships: one version across manifests, loadable packs, a marketplace entry that resolves.
   validate-configs:
     runs-on: ubuntu-latest

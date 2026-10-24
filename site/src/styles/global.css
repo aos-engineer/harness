@@ -839,3 +839,164 @@ pre code {
     padding-inline: 3rem;
   }
 }
+
+/* ---- 1.0 docs rendered from Markdown ----
+   The 0.11 pages style each element with utility classes; Markdown output has none, and the Tailwind
+   reset strips default spacing and list markers, so the rendered docs get their typography here. */
+.docs-prose {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.docs-prose h1 {
+  margin: 0 0 1rem;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.docs-prose h2 {
+  margin: 2.75rem 0 1rem;
+  padding-top: 2rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  color: var(--color-text);
+  font-weight: 700;
+  scroll-margin-top: 5rem;
+}
+
+.docs-prose h3 {
+  margin: 2rem 0 0.75rem;
+  color: var(--color-text);
+  font-size: 1.15rem;
+  font-weight: 650;
+  scroll-margin-top: 5rem;
+}
+
+.docs-prose h4 {
+  margin: 1.5rem 0 0.5rem;
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.docs-prose p,
+.docs-prose ul,
+.docs-prose ol,
+.docs-prose table,
+.docs-prose pre,
+.docs-prose blockquote {
+  margin: 0 0 1rem;
+}
+
+.docs-prose ul,
+.docs-prose ol {
+  padding-left: 1.4rem;
+}
+
+.docs-prose ul {
+  list-style: disc;
+}
+
+.docs-prose ol {
+  list-style: decimal;
+}
+
+.docs-prose li {
+  margin: 0.3rem 0;
+}
+
+.docs-prose li > ul,
+.docs-prose li > ol {
+  margin: 0.3rem 0 0;
+}
+
+.docs-prose strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.docs-prose a {
+  color: var(--color-signal);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.docs-prose a:hover {
+  color: var(--color-signal-hover);
+}
+
+.docs-prose :not(pre) > code {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.05rem 0.3rem;
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+.docs-prose pre {
+  overflow-x: auto;
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+/* Wide tables scroll inside their own box rather than widening the page on a phone. */
+.docs-prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+
+.docs-prose th,
+.docs-prose td {
+  border: 1px solid var(--color-border);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+/* A table cell is narrow; breaking a short identifier mid-word there reads worse than a wider column. */
+.docs-prose td code,
+.docs-prose th code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.docs-prose th {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.docs-prose blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: 1rem;
+  color: var(--color-text-muted);
+}
+
+.docs-prose hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.docs-source {
+  margin-top: 3rem;
+  font-size: 0.85rem;
+}
+
+.docs-source a {
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.site-version-banner {
+  max-width: 72rem;
+  margin: 1.25rem auto 0;
+  padding: 0 1rem;
+}

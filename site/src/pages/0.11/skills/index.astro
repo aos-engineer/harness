@@ -1,6 +1,6 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { loadAllSkills, loadAllAgents } from '../../lib/content';
+import Base from '../../../layouts/Base.astro';
+import { loadAllSkills, loadAllAgents } from '../../../lib/content';
 
 const skills = loadAllSkills();
 const agents = loadAllAgents();
@@ -82,7 +82,7 @@ const agentMap = new Map(agents.map(a => [a.id, a]));
                 {skill.compatible_agents.map((agentId: string) => {
                   const agent = agentMap.get(agentId);
                   return (
-                    <a href={`/agents/${agentId}`} class="badge badge-perspective no-underline hover:opacity-80 transition-opacity">
+                    <a href={`/0.11/agents/${agentId}`} class="badge badge-perspective no-underline hover:opacity-80 transition-opacity">
                       {agent?.name ?? agentId}
                     </a>
                   );
