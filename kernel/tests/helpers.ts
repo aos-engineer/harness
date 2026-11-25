@@ -29,8 +29,12 @@ export function writeFile(root: string, rel: string, content: string): string {
   return path;
 }
 
+/** What the reference pack freezes at build: committed with every test repo, so bounded runs can advance. */
+export const ORACLE_MANIFEST = "aos-oracle.txt";
+export const ORACLE_TEST = "tests/acceptance/readme.test.ts";
+
 /**
- * A repo on branch main with one commit. Its local config pins identity, turns signing off, and points
+ * A repo on branch main with one commit, which includes an oracle for the reference pack to freeze. Its local config pins identity, turns signing off, and points
  * hooksPath at an empty dir, so even code under test that runs git with the real environment stays hermetic.
  */
 export function tmpGitRepo(): string {
@@ -43,6 +47,8 @@ export function tmpGitRepo(): string {
   git(root, "config", "user.email", "aos-test@example.invalid");
   git(root, "config", "commit.gpgsign", "false");
   writeFile(root, "README.md", "# test\n");
+  writeFile(root, ORACLE_MANIFEST, "tests/acceptance/\n");
+  writeFile(root, ORACLE_TEST, "// the acceptance test the human approved\n");
   git(root, "add", "-A");
   git(root, "commit", "-qm", "init");
   return root;

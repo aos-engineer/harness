@@ -69,7 +69,12 @@ export function genEvents(seed: number, n: number): EventEnvelope[] {
     () => tasks.length === 0 ? factories[1]() : { type: "task.completed", actor: AGENT, data: { task: pick(tasks), evidence: evidence.filter(() => chance(0.3)) } },
     () => ({ type: "evidence.recorded", actor: HOOK, data: evidenceItem() }),
     () => ({ type: "gate.evaluated", actor: KERNEL, data: gateResult() }),
-    () => { const request = `r${requests.length + 1}`; requests.push(request); return { type: "approval.requested", actor: AGENT, data: { request, stage: pick(stages), summary: "please review" } }; },
+    () => {
+      const request = `r${requests.length + 1}`;
+      requests.push(request);
+      const oracle = int(2) === 0 ? { oracle: "sha256:" + "d".repeat(64) } : {};
+      return { type: "approval.requested", actor: AGENT, data: { request, stage: pick(stages), summary: "please review", ...oracle } };
+    },
     () => requests.length === 0 ? factories[5]() : { type: "approval.granted", actor: HUMAN, data: { request: pick(requests), stage: pick(stages), reason: chance(0.5) ? "fine" : null } },
     () => requests.length === 0 ? factories[5]() : { type: "approval.denied", actor: HUMAN, data: { request: pick(requests), stage: pick(stages), reason: "not yet" } },
     () => ({ type: "budget.charged", actor: KERNEL, data: { dimension: "iterations", amount: 1, gapKey: chance(0.2) ? null : `pending|command:test:${pick(["missing", "stale"])}` } }),
@@ -78,6 +83,14 @@ export function genEvents(seed: number, n: number): EventEnvelope[] {
     () => ({ type: "action.blocked", actor: HOOK, data: { action: pick([...ACTIONS, "write", "human-only", "aos-dir"] as const), tool: "Bash", reason: "gate pending" } }),
     () => ({ type: "action.allowed", actor: HOOK, data: { action: pick(ACTIONS), tool: "Bash", gate: chance(0.5) ? "verify" : null } }),
     () => { changes++; return { type: "worktree.changed", actor: HOOK, data: { path: `src/f${int(5)}.ts`, tool: "Edit" } }; },
+    () => ({
+      type: "oracle.pinned", actor: AGENT,
+      data: {
+        stage: pick(stages), manifest: "aos-oracle.txt", entries: ["tests/acceptance"],
+        files: { "aos-oracle.txt": "sha256:" + "a".repeat(64), [`tests/acceptance/t${int(3)}.test.ts`]: "sha256:" + "b".repeat(64) },
+        digest: "sha256:" + "c".repeat(64), weak: false,
+      },
+    }),
     () => ({ type: "session.bound", actor: HOOK, data: { host: "claude-code", session: pick(SESSIONS) } }),
     () => ({ type: "log.repaired", actor: KERNEL, data: { droppedBytes: int(100), droppedSha256: `sha256:${int(1e9)}` } }),
     () => unknownEvent("context.issued", { stage: pick(stages), bytes: int(4096) }),

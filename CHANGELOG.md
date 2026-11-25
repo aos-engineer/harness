@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Breaking
+
+- The reference pack's bounded tier now freezes an oracle when build begins. A repository needs an `aos-oracle.txt` listing at least one existing acceptance test before a bounded run can leave design.
+
+### Added
+
+- Packs can name an oracle manifest (`oracle.manifest`) and freeze it at a stage (`freeze_oracle_at`). An approval requested before the freeze records the oracle it shows; entering the freeze stage pins it; from then on file tools cannot write it and every gate fails while it differs from the pin. The stage before the freeze must have a human gate. Manifest entries are files, directories, or one JSON value (`package.json#/scripts/test`).
+- In a frozen stage, a command run counts only if it was its role's command exactly, with nothing added, and the oracle matched the pin when it ran. Observed command evidence in a pinned run records both (`exact`, `oracle`).
+- New event `oracle.pinned`, and `action.blocked` with action `oracle`.
+
 ## 1.0.0-next.0 (2026-10-19)
 
 The first 1.0 prerelease. AOS is no longer a separate orchestrator: it runs inside Claude Code as a plugin and gates what the agent may do on evidence it observes. This is a preview for early adopters; npm `latest` stays on 0.11 until 1.0 is stable.

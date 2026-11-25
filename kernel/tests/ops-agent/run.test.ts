@@ -127,7 +127,7 @@ describe("stageAdvance and gateCheck", () => {
     expect(stageAdvance(ctx, { runId })).toMatchObject({
       advanced: true, completed: false, stage: "build", instructions: pack.instructions["bounded/build"], message: null,
     });
-    expect(eventTypes(ctx, runId).slice(-2)).toEqual(["gate.evaluated", "stage.entered"]);
+    expect(eventTypes(ctx, runId).slice(-3)).toEqual(["gate.evaluated", "stage.entered", "oracle.pinned"]);
 
     const blocked = stageAdvance(ctx, { runId });
     expect(blocked).toMatchObject({ advanced: false, stage: "build" });

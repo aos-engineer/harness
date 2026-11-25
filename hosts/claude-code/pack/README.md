@@ -13,7 +13,7 @@ A run starts in a tier. The `classify` rules propose one from the brief, and a p
 | Tier | Stages | Gates | Human approvals |
 |---|---|---|---|
 | `spike` | frame, probe | The human approves the question and the probe before any file is written. Spike code can be committed, but never pushed or opened as a pull request. | 1 |
-| `bounded` | design, build, verify | The human approves a short design. Build passes on an observed test run at the current tree with every task done. Verify adds an approved code review recorded after the last edit. | 1 |
+| `bounded` | design, build, verify | The human approves a short design and the oracle that will judge it. Build passes on an observed test run at the current tree with every task done and the oracle unchanged since build began. Verify adds an approved code review recorded after the last edit. | 1 |
 
 Briefs that mention a database schema or schema change, a migration, authentication or authorization (OAuth, Auth0, SSO), a public API, or a new service classify as `architectural`. This version of the pack defines no architectural tier, so a run cannot start under it. Briefs that match no rule are `bounded`. The rules favor strong signals ("schema docs" and "the auth helper" stay bounded): a false architectural match stops work that should run, while a miss still gets a design approval, tests, and a review.
 
@@ -21,9 +21,9 @@ Briefs that mention a database schema or schema change, a migration, authenticat
 |---|---|---|---|
 | spike/frame | none | superpowers:brainstorming | reasoning |
 | spike/probe | anywhere except `.aos/` | none | fast |
-| bounded/design | `docs/specs/` only | superpowers:brainstorming | reasoning |
-| bounded/build | anywhere except `.aos/` | superpowers:test-driven-development | fast |
-| bounded/verify | anywhere except `.aos/` | superpowers:verification-before-completion, superpowers:requesting-code-review | reasoning |
+| bounded/design | `docs/specs/`, `aos-oracle.txt`, and what it lists | superpowers:brainstorming | reasoning |
+| bounded/build | anywhere except `.aos/` and the frozen oracle | superpowers:test-driven-development | fast |
+| bounded/verify | anywhere except `.aos/` and the frozen oracle | superpowers:verification-before-completion, superpowers:requesting-code-review | reasoning |
 
 | Action | spike | bounded |
 |---|---|---|
@@ -37,6 +37,7 @@ Briefs that mention a database schema or schema change, a migration, authenticat
 - **`writes`** is a stage's write scope for file-edit tools: `any` (anywhere except `.aos/`), or a list of path prefixes that end in `/`. An empty list allows no file writes. Shell commands are not scope-checked; the tree fingerprint still sees what they change, so evidence recorded before such a change goes stale.
 - **`actions`** names the consequential shell commands (commit, push, PR create, deploy) with regular expressions, and gives each tier a policy: `always`, `never`, `in_stages` (only in the listed stages), or `after_gate` (only once the named stage's gate has passed). Every action needs a policy for every tier the pack defines.
 - **`roles`** maps a role name to the commands that play it. A gate asks for "an observed `test` run that exited zero", and any listed test command counts. The command has to run by itself: a pipe, `|| true`, or a chained command masks the exit status, and a masked run does not count as a pass.
+- **`oracle`** names the repository file that lists the oracle: the acceptance tests a run is judged by, the config they run under, and the scripts the test role runs through (`package.json#/scripts/test` pins one JSON value without freezing the rest of the file). A tier's **`freeze_oracle_at`** names the stage where it freezes. Before that stage the listed files are writable in any stage; the gate that leads into it needs at least one listed file to exist, and an approval requested before it is void if the oracle changes afterwards. From that stage on, file tools cannot write the oracle, every gate fails while it differs from the pin, and a test run counts only if it ran the role's command exactly, with nothing added, against the pinned oracle. In this pack the bounded tier freezes it at build, so tests the agent writes during build go outside it.
 - **`classify`** rules run in order, matched case-insensitively against the brief. The first match wins.
 - **`budget.iterations`** limits blocked stops: each time the agent tries to stop with a gate still open and AOS sends it back to work, that is one iteration. Once the budget is spent, AOS lets the agent stop. Stage retries are not charged in this release.
 

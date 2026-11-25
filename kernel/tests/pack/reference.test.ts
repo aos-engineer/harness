@@ -153,3 +153,11 @@ test("the README says what the budget charges and when the data-only check misfi
   expect(readme).toMatch(/stage retries are not charged/i);
   expect(readme).toContain("exFAT");
 });
+
+test("bounded freezes the oracle in aos-oracle.txt when build begins; spike freezes nothing", () => {
+  const p = pack();
+  expect(p.oracle).toEqual({ manifest: "aos-oracle.txt" });
+  expect(p.tiers.bounded!.freezeOracleAt).toBe("build");
+  expect(Object.hasOwn(p.tiers.spike!, "freezeOracleAt")).toBe(false);
+  for (const stage of ["design", "build"]) expect(p.instructions[`bounded/${stage}`]).toContain("aos-oracle.txt");
+});

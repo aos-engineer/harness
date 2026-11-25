@@ -72,9 +72,11 @@ The reference pack's gates:
 |---|---|---|
 | spike/frame | human | approval |
 | spike/probe | rule | nothing |
-| bounded/design | human | approval |
-| bounded/build | rule | every task done; an observed passing `test` run at the current tree |
-| bounded/verify | rule | an observed passing `test` run and an approved review, both at the current tree |
+| bounded/design | human | approval; an oracle that exists and has not changed since approval was requested |
+| bounded/build | rule | every task done; an observed passing `test` run at the current tree; the oracle unchanged since build began |
+| bounded/verify | rule | an observed passing `test` run and an approved review, both at the current tree; the oracle unchanged since build began |
+
+The **oracle** is the set of files a run is judged by: the acceptance tests the human approves with the design, the config they run under, and the script the `test` role runs through. The repository lists it in `aos-oracle.txt`, and the bounded tier freezes it when build begins. From then on AOS refuses file-tool writes to it, every gate fails while it differs from what was pinned, and only a full test run made against the pinned oracle counts, so a gate cannot be passed by editing the tests instead of the code, or by running only the tests that pass. See [the oracle](packs.md#the-oracle) for the manifest format.
 
 ## Evidence and provenance
 

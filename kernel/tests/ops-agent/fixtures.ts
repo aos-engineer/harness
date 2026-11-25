@@ -5,6 +5,7 @@ import { openContext } from "../../src/ops/context.ts";
 import type { OpContext } from "../../src/ops/context.ts";
 import { projector } from "../../src/projection.ts";
 import { readLog } from "../../src/store/log.ts";
+import { currentOracle } from "../../src/tree/oracle.ts";
 import { appendEvents, loadState } from "../../src/store/store.ts";
 import type { Actor, EventDraft, EventEnvelope, EventType, RunLocation, RunState } from "../../src/types.ts";
 import { sha256Tag } from "../../src/util/hash.ts";
@@ -52,6 +53,8 @@ export function observeTests(ctx: OpContext, run: string, exitCode = 0): void {
     data: {
       id: ulid(), kind: "command", provenance: "observed", fingerprint, changes: s.changes, stage: s.current.stage, agent: null,
       role: "test", command: "bun test", exitCode, masked: false, outputSha256: sha256Tag(""), tail: "",
+      // The hook stamps a pinned run's evidence with the oracle it ran against.
+      ...(s.oracle === undefined ? {} : { exact: true, oracle: currentOracle(s)!.digest }),
     },
   }]);
 }

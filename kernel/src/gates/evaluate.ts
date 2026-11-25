@@ -1,7 +1,8 @@
 // Gate evaluation: a pure function of run state and the current tree. Each gap is phrased as an
 // instruction the agent (or the human) can act on, because hooks hand this text straight to them.
 import { stageDef } from "../projection.ts";
-import type { Gap, GapKind, GateResult, GateVerdict, Requirement, RunState, StoredEvidence, TreeState } from "../types.ts";
+import { oracleDiff, oracleFreeze } from "../tree/oracle.ts";
+import type { Gap, GapKind, GateResult, GateVerdict, OraclePin, Requirement, RunState, StoredEvidence, TreeState } from "../types.ts";
 import { PROVENANCE_RANK } from "../types.ts";
 
 const REVIEW_FEEDBACK_CHARS = 200;
@@ -18,8 +19,9 @@ export function evaluateGate(state: RunState, stage: string, tree: TreeState): G
       text: `The run is at ${current}; the ${stage} stage has not been reached. Pass the ${current} gate and call aos_stage_advance.`,
     });
   }
+  const pin = frozenPin(state, stage);
   for (const req of gate.requires) {
-    const gap = checkRequirement(state, req, tree);
+    const gap = checkRequirement(state, req, tree, pin);
     if (gap !== null) gaps.push(gap);
   }
   if (gate.tasks === "all") {
@@ -29,8 +31,9 @@ export function evaluateGate(state: RunState, stage: string, tree: TreeState): G
       }
     }
   }
+  gaps.push(...oracleGaps(state, stage, tree));
   if (gate.decider === "human") {
-    const gap = checkApproval(state, stage);
+    const gap = checkApproval(state, stage, tree);
     if (gap !== null) gaps.push(gap);
   }
   const verdict: GateVerdict = gaps.some((g) => g.kind === "failed") ? "fail" : gaps.length > 0 ? "pending" : "pass";
@@ -48,21 +51,34 @@ export function gapKey(result: GateResult): string {
   return result.verdict + "|" + result.gaps.map((g) => `${g.requirement}:${g.kind}:${g.who}`).sort().join(",");
 }
 
-function checkRequirement(state: RunState, req: Requirement, tree: TreeState): Gap | null {
+// From the freeze stage on, a command counts only if it was the role's command exactly, run against the oracle as
+// pinned. Arguments can narrow what a runner runs (one file, -t, -k), and a run against an edited oracle proves
+// nothing even once the edit is undone.
+function frozenPin(state: RunState, stage: string): OraclePin | null {
+  const freeze = oracleFreeze(state);
+  if (freeze === null || state.oracle === undefined) return null;
+  return state.stages.indexOf(stage) >= freeze.index ? state.oracle : null;
+}
+
+function checkRequirement(state: RunState, req: Requirement, tree: TreeState, pin: OraclePin | null): Gap | null {
   const label = requirementLabel(req);
   const gap = (kind: GapKind, text: string): Gap => ({ kind, who: "agent", requirement: label, text });
 
-  const candidates = state.evidence.filter((ev) => satisfiesKind(req, ev) && meetsProvenance(req, ev));
+  const matching = state.evidence.filter((ev) => satisfiesKind(req, ev) && meetsProvenance(req, ev));
+  const candidates = pin === null ? matching : matching.filter((ev) => ev.kind !== "command" || (ev.exact === true && ev.oracle === pin.digest));
   const newest = latest(candidates, evidenceSeq);
-  if (newest === null) return gap("missing", missingText(state, req));
+  if (newest === null) {
+    if (candidates.length === matching.length) return gap("missing", missingText(state, req));
+    // Runs exist but none counts against the frozen oracle. A masked last run has the more useful explanation.
+    const last = latest(matching, evidenceSeq)!;
+    return gap("missing", last.kind === "command" && last.masked ? maskedText(last.role) : frozenRunText(state, req));
+  }
   const decider = req.fresh ? latest(candidates.filter((ev) => ev.fingerprint === tree.fingerprint), evidenceSeq) : newest;
   if (decider === null) return gap("stale", staleText(req, state.changes - newest.changes));
 
   if (decider.kind === "command") {
     const role = quoted(decider.role);
-    if (decider.masked) {
-      return gap("missing", `The last ${role} run's exit status was hidden by a pipe or chain, so it does not count. Re-run it as its own command.`);
-    }
+    if (decider.masked) return gap("missing", maskedText(decider.role));
     if (decider.exitCode !== 0) {
       const ended = decider.exitCode === null ? "ended without an exit code" : `exited ${decider.exitCode}`;
       return gap("failed", `The last observed ${role} run ${ended}. Fix the failures and re-run it.`);
@@ -76,12 +92,17 @@ function checkRequirement(state: RunState, req: Requirement, tree: TreeState): G
   return null;
 }
 
-function checkApproval(state: RunState, stage: string): Gap | null {
+function checkApproval(state: RunState, stage: string, tree: TreeState): Gap | null {
   const gap = (kind: GapKind, who: Gap["who"], text: string): Gap => ({ kind, who, requirement: "approval", text });
   // Only requests made since the stage was last entered count, so re-entering a stage needs a new approval.
   const request = latest(state.approvals.filter((a) => a.stage === stage && a.requestedSeq > state.current.enteredSeq), (a) => a.requestedSeq);
   if (request === null) {
     return gap("missing", "agent", `Approval not requested. Present the ${stage} to the human, then call aos_request_approval.`);
+  }
+  // A request made before the freeze names the oracle the human is shown. If it changed since, an approval
+  // would let tests the human never saw be pinned.
+  if (request.oracle !== undefined && tree.oracle?.().digest !== request.oracle) {
+    return gap("missing", "agent", `The oracle changed after approval was requested, so the human has not seen it. Present the ${stage} again, then call aos_request_approval.`);
   }
   // Only a human decides. A decision logged by any other actor is treated as no decision at all, so
   // a forged grant cannot pass the gate and a forged denial cannot stand in for the human's answer.
@@ -95,6 +116,57 @@ function checkApproval(state: RunState, stage: string): Gap | null {
     return gap("failed", "agent", `The human denied approval${detail}. Revise, then request approval again.`);
   }
   return null;
+}
+
+const ORACLE_UNREAD = "AOS could not read the oracle, so it cannot tell whether the tests changed. Run aos doctor.";
+const LIST_MAX = 5;
+
+function oracleGaps(state: RunState, stage: string, tree: TreeState): Gap[] {
+  const freeze = oracleFreeze(state);
+  if (freeze === null) return [];
+  const gap = (kind: GapKind, requirement: string, text: string): Gap => ({ kind, who: "agent", requirement, text });
+  const index = state.stages.indexOf(stage);
+  if (index === freeze.index - 1) {
+    // The gate that leads into the freeze needs something to freeze.
+    const snapshot = tree.oracle?.();
+    if (snapshot === undefined) return [gap("failed", "oracle", ORACLE_UNREAD)];
+    const gaps: Gap[] = [];
+    if (snapshot.invalid.length > 0) {
+      gaps.push(gap("missing", "oracle:manifest", `${freeze.manifest} has lines AOS cannot use: ${listed(snapshot.invalid)}. Fix them.`));
+    }
+    if (snapshot.present === 0) {
+      gaps.push(gap("missing", "oracle:declared", `Nothing to freeze when ${freeze.stage} begins. List the acceptance tests, and the config and scripts they run through, in ${freeze.manifest}, one path per line, and make sure they exist.`));
+    }
+    return gaps;
+  }
+  // Earlier stages are the authoring window. A later stage the run has not reached already carries its own
+  // gap, and its oracle check applies once the pin exists.
+  if (index < freeze.index || state.current.index < freeze.index) return [];
+  const pin = state.oracle;
+  if (pin === undefined) {
+    return [gap("failed", "oracle", `The run reached ${freeze.stage} without pinning its oracle, so its tests cannot be trusted. Ask the human to cancel the run.`)];
+  }
+  const snapshot = tree.oracle?.();
+  if (snapshot === undefined) return [gap("failed", "oracle", ORACLE_UNREAD)];
+  const changed = oracleDiff(pin.files, snapshot.files);
+  if (changed.length === 0) return [];
+  return [gap("failed", "oracle", `The frozen oracle changed since ${pin.stage} began: ${listed(changed)}. Revert those changes. If the oracle itself is wrong, stop and tell the human; only a new run can change it.`)];
+}
+
+function maskedText(role: string): string {
+  return `The last ${quoted(role)} run's exit status was hidden by a pipe or chain, so it does not count. Re-run it as its own command.`;
+}
+
+// Only command evidence is filtered by the pin, so this is only reached for a command requirement.
+function frozenRunText(state: RunState, req: Requirement): string {
+  const role = req.kind === "command" ? req.role : req.kind;
+  const prefixes = req.kind === "command" ? (state.pack.roles[req.role] ?? []).join(", ") : "";
+  return `No ${quoted(role)} run since the oracle was frozen counts: only a full run against the frozen oracle does. Run one of: ${prefixes}, exactly as written with nothing added, and leave the oracle as it was frozen.`;
+}
+
+function listed(items: string[]): string {
+  const shown = items.slice(0, LIST_MAX).join(", ");
+  return items.length > LIST_MAX ? `${shown}, and ${items.length - LIST_MAX} more` : shown;
 }
 
 function satisfiesKind(req: Requirement, ev: StoredEvidence): boolean {

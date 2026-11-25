@@ -23,7 +23,10 @@ export type Requirement =
 export interface GateDef { decider: "rule" | "human"; requires: Requirement[]; tasks: "all" | "none" }
 export type ModelHint = "reasoning" | "fast" | "script";
 export interface StageDef { name: string; writes: "any" | string[]; gate: GateDef; bind: string[]; model: ModelHint | null }
-export interface TierDef { stages: StageDef[] }
+// freezeOracleAt and PackDocument.oracle are absent, not null, when unset, so packs and logs from before
+// oracles keep their exact shape.
+export interface TierDef { stages: StageDef[]; freezeOracleAt?: string }
+export interface OracleDef { manifest: string }  // repo-root file listing what the tier freezes
 export interface ClassifyRule { tier: Tier; any: string[] }
 export interface PackDocument {
   name: string; version: string;
@@ -32,6 +35,7 @@ export interface PackDocument {
   tiers: Partial<Record<Tier, TierDef>>;
   actions: Record<ActionName, ActionDef>;
   budget: { iterations: number };
+  oracle?: OracleDef;
 }
 export interface ResolvedPack extends PackDocument {
   integrity: string;                      // "sha256:<hex>" over the pack directory
@@ -41,7 +45,12 @@ export interface ResolvedPack extends PackDocument {
 // ---- Evidence ----
 export type EvidenceKind = "artifact" | "command" | "review" | "citation" | "skill"; // test-report and decision evidence come in a later release
 interface EvidenceBase { id: string; provenance: Provenance; fingerprint: string; changes: number; stage: string; agent: string | null }
-export interface CommandEvidence extends EvidenceBase { kind: "command"; role: string; command: string; exitCode: number | null; masked: boolean; outputSha256: string; tail: string }
+// exact and oracle are recorded once a run's oracle is pinned: whether the command was one of the role's
+// commands with nothing added, and the oracle's digest when it ran. A frozen stage counts only runs with both.
+export interface CommandEvidence extends EvidenceBase {
+  kind: "command"; role: string; command: string; exitCode: number | null; masked: boolean; outputSha256: string; tail: string;
+  exact?: boolean; oracle?: string;
+}
 export interface ArtifactEvidence extends EvidenceBase { kind: "artifact"; path: string; sha256: string }
 export interface ReviewEvidence extends EvidenceBase { kind: "review"; status: "approved" | "rejected" | "needs-revision"; feedback: string; reviewer: string }
 export interface CitationEvidence extends EvidenceBase { kind: "citation"; path: string; line: number; note: string }
@@ -54,12 +63,25 @@ export type GapKind = "missing" | "stale" | "failed";
 export interface Gap { kind: GapKind; who: "agent" | "human"; requirement: string; text: string }
 export type GateVerdict = "pending" | "pass" | "fail";
 export interface GateResult { stage: string; verdict: GateVerdict; gaps: Gap[]; fingerprint: string; weakFreshness: boolean }
-export interface TreeState { fingerprint: string; weak: boolean }
+export interface TreeState {
+  fingerprint: string; weak: boolean;
+  oracle?: () => OracleSnapshot;          // set when the run's tier freezes an oracle; computed on first call
+}
+export interface OracleSnapshot {
+  entries: string[];                      // the manifest's valid entries, or the pinned ones after the pin
+  invalid: string[];                      // manifest lines that were refused, with the reason
+  files: Record<string, string>;          // root-relative path (or file#/pointer) -> hash, or "absent"
+  present: number;                        // entries that exist, not counting the manifest
+  digest: string;
+  weak: boolean;                          // directories were walked without git's ignore rules
+}
+export interface OraclePin { stage: string; entries: string[]; files: Record<string, string>; digest: string; weak: boolean; seq: number }
 
 // ---- Run state (projection) ----
 export interface TaskState { id: string; stage: string; title: string; done: boolean; evidence: string[] }
 export interface ApprovalState {
   request: string; stage: string; summary: string; requestedSeq: number;
+  oracle?: string;                                    // the oracle digest when the request was made before the freeze
   decision: null | { granted: boolean; reason: string | null; actor: Actor; seq: number };
 }
 export type RunStatus = "active" | "completed" | "cancelled";
@@ -69,6 +91,7 @@ export interface RunState {
   stages: string[];                                   // stage names for the tier, in order
   current: { stage: string; index: number; enteredSeq: number };
   tasks: TaskState[]; evidence: StoredEvidence[]; approvals: ApprovalState[];
+  oracle?: OraclePin;                                 // set when the run enters its tier's freeze stage
   lastGate: Record<string, GateResult>;
   budget: { iterations: { used: number; limit: number; warned: boolean; exceeded: boolean } };
   changes: number;                                    // count of worktree.changed events
@@ -88,15 +111,16 @@ export interface EventDataMap {
   "task.completed": { task: string; evidence: string[] };
   "evidence.recorded": Evidence;
   "gate.evaluated": GateResult;
-  "approval.requested": { request: string; stage: string; summary: string };
+  "approval.requested": { request: string; stage: string; summary: string; oracle?: string };
   "approval.granted": { request: string; stage: string; reason: string | null };
   "approval.denied": { request: string; stage: string; reason: string };
   "budget.charged": { dimension: "iterations"; amount: number; gapKey: string | null };
   "budget.warning": { dimension: "iterations"; used: number; limit: number };
   "budget.exceeded": { dimension: "iterations"; used: number; limit: number };
-  "action.blocked": { action: ActionName | "write" | "human-only" | "aos-dir"; tool: string; reason: string };
+  "action.blocked": { action: ActionName | "write" | "oracle" | "human-only" | "aos-dir"; tool: string; reason: string };
   "action.allowed": { action: ActionName; tool: string; gate: string | null };
   "worktree.changed": { path: string; tool: string };
+  "oracle.pinned": { stage: string; manifest: string; entries: string[]; files: Record<string, string>; digest: string; weak: boolean };
   "session.bound": { host: string; session: string };
   "log.repaired": { droppedBytes: number; droppedSha256: string };
 }

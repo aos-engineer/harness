@@ -56,6 +56,19 @@
         "iterations": { "type": "integer", "minimum": 1 }
       }
     },
+    "oracle": {
+      "description": "The repository file that lists the oracle: the tests and config a run's checks are judged by. A tier that sets freeze_oracle_at freezes the manifest and everything it lists when that stage begins.",
+      "type": "object",
+      "required": ["manifest"],
+      "additionalProperties": false,
+      "properties": {
+        "manifest": {
+          "description": "A file path relative to the repository root, such as aos-oracle.txt. It cannot be under .aos/ or .git/.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "tiers": {
       "type": "object",
       "minProperties": 1,
@@ -97,7 +110,11 @@
       "required": ["stages"],
       "additionalProperties": false,
       "properties": {
-        "stages": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/stage" } }
+        "stages": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/stage" } },
+        "freeze_oracle_at": {
+          "description": "The stage at which the oracle is pinned. Before it the oracle may be written in any stage; from it on, writes to the oracle are refused and every gate fails while the oracle differs from the pin. Cannot be the tier's first stage, and needs the top-level oracle block.",
+          "$ref": "#/definitions/name"
+        }
       }
     },
     "stage": {

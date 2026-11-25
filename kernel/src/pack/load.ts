@@ -12,6 +12,7 @@ import type {
 import { PackError } from "../util/errors.ts";
 import { integrityOf, readPack, type PackEntry } from "./files.ts";
 import { loadAjv } from "../util/ajv.ts";
+import { foldName } from "../util/fold.ts";
 
 // pack.yaml as the schema admits it, before defaults are filled in.
 type RawRequirement =
@@ -22,10 +23,11 @@ interface RawGate { decider: GateDef["decider"]; tasks?: GateDef["tasks"]; requi
 interface RawStage { name: string; writes: StageDef["writes"]; gate: RawGate; bind?: string[]; model?: ModelHint | null }
 interface RawPack {
   name: string; version: string;
+  oracle?: { manifest: string };
   roles: Record<string, string[]>;
   classify: { rules: ClassifyRule[]; default: Tier };
   budget: { iterations: number };
-  tiers: Partial<Record<Tier, { stages: RawStage[] }>>;
+  tiers: Partial<Record<Tier, { stages: RawStage[]; freeze_oracle_at?: string }>>;
   actions: Record<ActionName, ActionDef>;
 }
 
@@ -142,6 +144,26 @@ function semanticIssues(pack: RawPack, byPath: Map<string, PackEntry>): string[]
   const tiers = Object.keys(pack.tiers) as Tier[];
   const stageNames = (tier: Tier): string[] => pack.tiers[tier]?.stages.map((s) => s.name) ?? [];
 
+  if (pack.oracle !== undefined && !isPlainRepoFile(pack.oracle.manifest)) {
+    issues.push("oracle.manifest: must be a file path relative to the repository root, with / separators, no empty, \".\", or \"..\" segment, and not under .aos/ or .git/");
+  }
+  for (const tier of tiers) {
+    const freeze = pack.tiers[tier]!.freeze_oracle_at;
+    if (freeze !== undefined) {
+      const at = `tiers.${tier}.freeze_oracle_at`;
+      const index = stageNames(tier).indexOf(freeze);
+      if (index < 0) issues.push(`${at}: "${freeze}" names no stage in tier "${tier}"`);
+      // The stages before the freeze are where the oracle is written and approved; freezing at the first
+      // stage would pin whatever happened to be on disk when the run started.
+      else if (index === 0) issues.push(`${at}: "${freeze}" is the first stage of tier "${tier}"; the oracle must be frozen at a later stage`);
+      // Only a human gate records the oracle the human was shown. After a rule gate, the stage before the freeze
+      // could rewrite tests nobody approved and still get them pinned.
+      else if (pack.tiers[tier]!.stages[index - 1]!.gate.decider !== "human") {
+        issues.push(`${at}: the stage before "${freeze}" needs a human gate, so the human approves the oracle that gets frozen`);
+      }
+      if (pack.oracle === undefined) issues.push(`${at}: needs the top-level oracle block that names the manifest`);
+    }
+  }
   for (const tier of tiers) {
     const seen = new Set<string>();
     pack.tiers[tier]!.stages.forEach((stage, i) => {
@@ -205,7 +227,8 @@ function readInstructions(pack: RawPack, byPath: Map<string, PackEntry>): Record
 function resolveDefaults(pack: RawPack, instructions: Record<string, string>, integrity: string): ResolvedPack {
   const tiers: Partial<Record<Tier, TierDef>> = {};
   for (const tier of Object.keys(pack.tiers) as Tier[]) {
-    tiers[tier] = { stages: pack.tiers[tier]!.stages.map(resolveStage) };
+    const raw = pack.tiers[tier]!;
+    tiers[tier] = { stages: raw.stages.map(resolveStage), ...(raw.freeze_oracle_at === undefined ? {} : { freezeOracleAt: raw.freeze_oracle_at }) };
   }
   return {
     name: pack.name,
@@ -215,9 +238,18 @@ function resolveDefaults(pack: RawPack, instructions: Record<string, string>, in
     tiers,
     actions: pack.actions,
     budget: pack.budget,
+    ...(pack.oracle === undefined ? {} : { oracle: { manifest: pack.oracle.manifest } }),
     integrity,
     instructions,
   };
+}
+
+function isPlainRepoFile(path: string): boolean {
+  if (path.startsWith("/") || path.includes("\\") || path.includes("#")) return false;
+  const segments = path.split("/");
+  if (segments.some((s) => s === "" || s === "." || s === "..")) return false;
+  const top = foldName(segments[0]!);
+  return top !== ".aos" && top !== ".git";
 }
 
 function resolveStage(stage: RawStage): StageDef {

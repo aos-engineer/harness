@@ -11,15 +11,18 @@
 //
 // It runs in a throwaway shallow clone of this checkout, so the fingerprint scenario hashes a tree the
 // size of this repository without writing .aos/ into the checkout. Two reference rows separate process
-// startup and module loading from the hook's own work. Every timed call is checked against the decision
+// startup and module loading from the hook's own work. The last three scenarios carry the run to verify through
+// the real operations, with this repository's tests as its frozen oracle, so a push re-hashes them on every
+// call, and a recorded test run is stamped with the oracle's digest. Every timed call is checked against the decision
 // its scenario expects; a call that printed something else, exited non-zero, or logged a hook error
 // measured some other path, so it counts as an error, and a scenario with errors does not count.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bindSession, openContext, runStart } from "@aos-harness/kernel";
+import { approve, bindSession, evidenceRecord, humanActor, openContext, requestApproval, runStart, stageAdvance } from "@aos-harness/kernel";
+import type { OpContext } from "@aos-harness/kernel";
 
 const CHECKOUT = join(import.meta.dirname, "..");
 const BIN = process.argv.includes("--bundle")
@@ -33,6 +36,10 @@ const WARMUP = 2;
 // is also what the user's own permission prompt depends on.
 interface Expected { describe: string; matches: (stdout: string) => boolean }
 const SILENT_ALLOW: Expected = { describe: "an allow (empty stdout)", matches: (stdout) => stdout === "" };
+const denies = (fragment: string): Expected => ({
+  describe: `a deny that mentions ${JSON.stringify(fragment)}`,
+  matches: (stdout) => stdout.includes('"permissionDecision":"deny"') && stdout.includes(fragment),
+});
 
 interface Scenario { name: string; argv: string[]; stdin: string; expect: Expected }
 interface Row { scenario: string; n: number; p50: number; p95: number; max: number; errors: number; unexpected: number; hookErrors: number }
@@ -101,6 +108,34 @@ function measure(s: Scenario, repo: string, env: NodeJS.ProcessEnv, n: number): 
   };
 }
 
+// The oracle: this repository's tests and the script the test role runs through. The run reaches verify
+// the way a session does: an approved design, then test runs the observer hook records.
+const ORACLE = "kernel/tests/\npackage.json#/scripts/test\n";
+
+function frozenScenarios(ctx: OpContext, runId: string, repo: string, session: string, env: NodeJS.ProcessEnv, test: Record<string, unknown>): Scenario[] {
+  writeFileSync(join(repo, "aos-oracle.txt"), ORACLE);
+  const observe = () => spawnSync(process.execPath, [BIN, "post-tool-use"], { cwd: repo, env, input: payload(repo, session, "PostToolUse", test), encoding: "utf8" });
+  const advance = (to: string) => {
+    const r = stageAdvance(ctx, { runId });
+    if (!r.advanced || r.stage !== to) throw new Error(`the run did not reach ${to}: ${r.message ?? r.stage}`);
+  };
+  requestApproval(ctx, { runId, summary: "The benchmark design and the oracle that judges it" });
+  approve({ root: ctx.root, run: runId }, { actor: humanActor(), reason: null });
+  advance("build");
+  observe();
+  advance("verify");
+  observe();
+  evidenceRecord(ctx, { runId, kind: "review", status: "approved", feedback: "Benchmark review.", reviewer: "bench" });
+
+  const frozen = { tool_name: "Write", tool_input: { file_path: join(repo, "kernel/tests/helpers.ts"), content: "" } };
+  const push = { tool_name: "Bash", tool_input: { command: "git push", description: "Push the branch" } };
+  return [
+    { name: "5. frozen PreToolUse Write to an oracle file", argv: [BIN, "pre-tool-use"], stdin: payload(repo, session, "PreToolUse", frozen), expect: denies("part of the oracle frozen") },
+    { name: "6. frozen PreToolUse Bash git push (oracle re-hash)", argv: [BIN, "pre-tool-use"], stdin: payload(repo, session, "PreToolUse", push), expect: SILENT_ALLOW },
+    { name: "7. frozen PostToolUse Bash bun test (fingerprint, oracle)", argv: [BIN, "post-tool-use"], stdin: payload(repo, session, "PostToolUse", test), expect: SILENT_ALLOW },
+  ];
+}
+
 function main(): void {
   const n = parseN(process.argv.slice(2));
   const dir = mkdtempSync(join(tmpdir(), "aos-bench-"));
@@ -137,9 +172,12 @@ function main(): void {
 
     const env = childEnv(repo);
     const rows = scenarios.map((s) => measure(s, repo, env, n));
-    const files = spawnSync("git", ["ls-files"], { cwd: repo, encoding: "utf8" }).stdout.split("\n").filter((l) => l !== "").length;
+    rows.push(...frozenScenarios(ctx, runId, repo, bound, env, test).map((s) => measure(s, repo, env, n)));
+    const count = (args: string[]) => spawnSync("git", ["ls-files", ...args], { cwd: repo, encoding: "utf8" }).stdout.split("\n").filter((l) => l !== "").length;
+    const files = count([]);
+    const oracleFiles = count(["kernel/tests"]);
 
-    console.log(`Hook latency (${BIN.endsWith(".js") ? "bundle" : "sources"}), n=${n} per scenario after ${WARMUP} warm-up runs, bun ${Bun.version}, ${process.platform}/${process.arch}, clone of ${files} tracked files`);
+    console.log(`Hook latency (${BIN.endsWith(".js") ? "bundle" : "sources"}), n=${n} per scenario after ${WARMUP} warm-up runs, bun ${Bun.version}, ${process.platform}/${process.arch}, clone of ${files} tracked files, an oracle of ${oracleFiles}`);
     console.log("");
     const width = Math.max(...rows.map((r) => r.scenario.length));
     console.log(`${"scenario".padEnd(width)}  ${"p50 ms".padStart(8)}  ${"p95 ms".padStart(8)}  ${"max ms".padStart(8)}  errors`);
@@ -152,7 +190,7 @@ function main(): void {
     console.log("");
     if (failed.length > 0) console.log(`Unexpected output or hook errors, so these timings are of some other path and do not count: ${failed.join("; ")}`);
     console.log(missed.length === 0 ? `${failed.length > 0 ? "Every other scenario" : "Every scenario"} meets the p95 < 100 ms target.` : `p95 at or over 100 ms: ${missed.join("; ")}`);
-    console.log(JSON.stringify({ bench: "aos-hook", n, warmup: WARMUP, bun: Bun.version, platform: process.platform, arch: process.arch, trackedFiles: files, rows }));
+    console.log(JSON.stringify({ bench: "aos-hook", n, warmup: WARMUP, bun: Bun.version, platform: process.platform, arch: process.arch, trackedFiles: files, oracleFiles, rows }));
   } catch (err) {
     console.error(`benchmark failed: ${err instanceof Error ? err.message : String(err)}`);
   } finally {

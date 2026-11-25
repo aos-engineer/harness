@@ -29,6 +29,8 @@ const actions: Record<ActionName, ActionDef> = {
 };
 
 // The usual agent commit: a heredoc message inside a substitution, apostrophe and all.
+const roleOnly = (hit: ReturnType<typeof matchRole>) => (hit === null ? null : { role: hit.role, masked: hit.masked });
+
 const heredocCommit = (body: string) => `git commit -m "$(cat <<'EOF'\nfix: x\n\n${body}\nEOF\n)"`;
 
 test.each([
@@ -50,7 +52,7 @@ test.each([
   ['bash -c "bun test;"', { role: "test", masked: false }],
   ["bun test &", { role: "test", masked: true }],
   ["bun test <<EOF | tail\nx\nEOF", { role: "test", masked: true }],
-])("matchRole(%j)", (cmd, want) => expect(matchRole(cmd, roles)).toEqual(want));
+])("matchRole(%j)", (cmd, want) => expect(roleOnly(matchRole(cmd, roles))).toEqual(want));
 
 test.each([
   // Grouping, keywords, and transparent wrappers do not hide a test run
@@ -65,12 +67,20 @@ test.each([
   ["x=$(bun test)", { role: "test", masked: true }],
   // xargs and watch run the command on their own terms, so they stay opaque
   ["xargs bun test", null], ["watch bun test", null],
-])("matchRole unwraps(%j)", (cmd, want) => expect(matchRole(cmd, roles)).toEqual(want));
+])("matchRole unwraps(%j)", (cmd, want) => expect(roleOnly(matchRole(cmd, roles))).toEqual(want));
+
+// A frozen oracle trusts only a run of the role's command with nothing added, since arguments narrow what runs.
+test.each([
+  ["bun test", true], ["cd kernel && bun test", true], ["time bun test", true], ["FOO=1 bun test", true],
+  ["bun test ./kernel", false], ["bun test -t widget", false], ["bun test --bail", false],
+  // A redirection is part of the command as matched, so it counts as something added
+  ["bun test > out.log", false], ["bun test 2>&1", false],
+])("matchRole exact(%j)", (cmd, exact) => expect(matchRole(cmd, roles)?.exact).toBe(exact));
 
 test("matchRole checks roles in pack order, not leaf order", () => {
   const lintFirst = { lint: ["bun run lint"], ...roles };
-  expect(matchRole("bun test && bun run lint", lintFirst)).toEqual({ role: "lint", masked: false });
-  expect(matchRole("bun run lint && bun test", { ...roles, lint: ["bun run lint"] })).toEqual({ role: "test", masked: false });
+  expect(roleOnly(matchRole("bun test && bun run lint", lintFirst))).toEqual({ role: "lint", masked: false });
+  expect(roleOnly(matchRole("bun run lint && bun test", { ...roles, lint: ["bun run lint"] }))).toEqual({ role: "test", masked: false });
 });
 
 test.each<[string, ActionName | null]>([

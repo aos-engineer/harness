@@ -31,6 +31,7 @@ export * from "./shell/split.ts";
 export * from "./shell/match.ts";
 export * from "./shell/redact.ts";
 export * from "./tree/fingerprint.ts";
+export * from "./tree/oracle.ts";
 
 // Operations for agents (MCP) and humans (CLI)
 export * from "./ops/context.ts";

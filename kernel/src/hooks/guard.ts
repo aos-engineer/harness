@@ -5,6 +5,8 @@ import { evaluateGate } from "../gates/evaluate.ts";
 import { formatGate } from "../gates/format.ts";
 import { stageDef } from "../projection.ts";
 import { matchAction, matchHumanOnly, mentionsAosDir } from "../shell/match.ts";
+import { oracleCovers, oracleFreeze, readManifest } from "../tree/oracle.ts";
+import { TreeError } from "../util/errors.ts";
 import { foldName } from "../util/fold.ts";
 import type { ActionName, EventDataMap, HookDecision, HookTool } from "../types.ts";
 import { allow, type HookContext } from "./context.ts";
@@ -36,6 +38,8 @@ function guardWrite(ctx: HookContext, tool: HookTool): HookDecision {
   if (AOS_PATH.test(foldName(rel))) return deny(ctx, tool, "aos-dir", AOS_DIR_TEXT);
   // A completed run keeps guarding actions, but its stages are over, so their write scopes no longer apply.
   if (state.status !== "active") return allow();
+  const oracle = guardOracle(ctx, tool, rel);
+  if (oracle !== null) return oracle;
   const { writes } = stageDef(state);
   if (writes === "any" || writes.some((prefix) => rel.startsWith(prefix))) return allow();
   const stage = state.current.stage;
@@ -43,6 +47,35 @@ function guardWrite(ctx: HookContext, tool: HookTool): HookDecision {
     ? `AOS: stage "${stage}" allows no file writes. Get its approval first (aos_request_approval).`
     : `AOS: stage "${stage}" allows writes only under ${writes.join(", ")}. Pass its gate with aos_stage_advance first.`;
   return deny(ctx, tool, "write", reason);
+}
+
+// Before the freeze stage the oracle is being written, so its files are writable whatever the stage's
+// scope says. From the freeze on they are refused. A pointer entry pins one value inside a file the agent
+// still needs to edit (package.json), so it never blocks a write; the gate compares the value instead.
+// Shell writes are not seen here; the gate's re-hash catches them.
+function guardOracle(ctx: HookContext, tool: HookTool, rel: string): HookDecision | null {
+  const { state } = ctx;
+  const freeze = oracleFreeze(state);
+  if (freeze === null) return null;
+  const entries = state.oracle?.entries ?? declaredEntries(state.root, freeze.manifest);
+  const covered = oracleCovers(rel, freeze.manifest, entries);
+  if (covered === null) return null;
+  if (state.oracle !== undefined) {
+    if (covered === "pointer") return null;
+    return deny(ctx, tool, "oracle", `AOS: ${rel} is part of the oracle frozen when ${state.oracle.stage} began. Leave it unchanged. If it is wrong, stop and tell the human.`);
+  }
+  return state.current.index < freeze.index ? allow() : null;
+}
+
+// The guard must not fail open on a manifest it cannot read: it falls back to the stage's own write scope. No
+// gate passes without reading the manifest itself.
+function declaredEntries(root: string, manifest: string): string[] {
+  try {
+    return readManifest(root, manifest).entries;
+  } catch (e) {
+    if (e instanceof TreeError) return [];
+    throw e;
+  }
 }
 
 function guardBash(ctx: HookContext, tool: HookTool): HookDecision {
