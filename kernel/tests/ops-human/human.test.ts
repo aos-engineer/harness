@@ -11,7 +11,8 @@ import { appendEvents, createRun, loadState } from "../../src/store/store.ts";
 import * as store from "../../src/store/store.ts";
 import type { Actor, EventEnvelope, RunLocation, RunState } from "../../src/types.ts";
 import { ulid } from "../../src/util/ulid.ts";
-import { tmpDir } from "../helpers.ts";
+import { withOracle } from "../../src/tree/oracle.ts";
+import { ORACLE_MANIFEST, ORACLE_TEST, tmpDir, writeFile } from "../helpers.ts";
 import { mutateLine } from "../store/fixtures.ts";
 
 const PACK_DIR = join(import.meta.dirname, "../../../packs/feature-delivery");
@@ -19,8 +20,10 @@ const PACK = loadPack(PACK_DIR);
 const AGENT: Actor = { kind: "agent", id: "mcp:aos_request_approval", agent: null };
 const HOOK: Actor = { kind: "hook", id: "claude-code:PostToolUse", agent: null };
 const KERNEL: Actor = { kind: "kernel", id: "aos", agent: null };
-// Gate evaluation only needs a tree name here; freshness is not under test.
+// Gate evaluation only needs a tree name here; freshness is not under test. The reference pack's design gate
+// also reads the oracle, which each test root carries.
 const TREE = { fingerprint: "counter:0", weak: true };
+const tree = () => withOracle(state(), TREE);
 
 let root: string;
 let run: string;
@@ -28,6 +31,8 @@ let loc: RunLocation;
 
 beforeEach(() => {
   root = tmpDir("aos-human-");
+  writeFile(root, ORACLE_MANIFEST, "tests/acceptance/\n");
+  writeFile(root, ORACLE_TEST, "");
   run = ulid();
   loc = { root, run };
   createRun(loc, {
@@ -125,7 +130,7 @@ describe("pendingApproval", () => {
     appendEvents(loc, [{ type: "approval.granted", actor: AGENT, data: { request: id, stage: "design", reason: "self-approved" } }], projector);
     expect(pendingApproval(state())?.request).toBe(id);
     approve(loc, { actor: humanActor(), reason: null, request: id });
-    expect(evaluateGate(state(), "design", TREE).verdict).toBe("pass");
+    expect(evaluateGate(state(), "design", tree()).verdict).toBe("pass");
   });
 
   test("ignores requests made before the stage was last entered", () => {
@@ -157,7 +162,7 @@ describe("approve", () => {
   test("passes the human gate it was asked for", () => {
     request();
     approve(loc, { actor: humanActor(), reason: "looks right" });
-    expect(evaluateGate(state(), "design", TREE).verdict).toBe("pass");
+    expect(evaluateGate(state(), "design", tree()).verdict).toBe("pass");
   });
 
   test("non-human actors cannot approve, and nothing is logged", () => {
@@ -206,7 +211,7 @@ describe("deny", () => {
     const id = request();
     expect(deny(loc, { actor: humanActor(), reason: "split the widget in two" })).toEqual({ request: id, stage: "design" });
     expect(lastEvent()).toMatchObject({ type: "approval.denied", actor: { kind: "human" }, data: { request: id, reason: "split the widget in two" } });
-    expect(evaluateGate(state(), "design", TREE).verdict).toBe("fail");
+    expect(evaluateGate(state(), "design", tree()).verdict).toBe("fail");
   });
 
   test("non-human actors cannot deny", () => {

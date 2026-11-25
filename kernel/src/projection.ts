@@ -74,8 +74,9 @@ function reduce(state: RunState, e: EventEnvelope): RunState {
     case "gate.evaluated":
       return { ...state, lastGate: { ...state.lastGate, [e.data.stage]: { ...e.data, gaps: e.data.gaps.map((g) => ({ ...g })) } } };
     case "approval.requested": {
-      const { request, stage, summary } = e.data;
-      return { ...state, approvals: [...state.approvals, { request, stage, summary, requestedSeq: e.seq, decision: null }] };
+      const { request, stage, summary, oracle } = e.data;
+      const approval = { request, stage, summary, requestedSeq: e.seq, decision: null, ...(oracle === undefined ? {} : { oracle }) };
+      return { ...state, approvals: [...state.approvals, approval] };
     }
     case "approval.granted":
     case "approval.denied": {
@@ -92,6 +93,10 @@ function reduce(state: RunState, e: EventEnvelope): RunState {
       return { ...state, budget: { iterations: { ...state.budget.iterations, exceeded: true } } };
     case "worktree.changed":
       return { ...state, changes: state.changes + 1 };
+    case "oracle.pinned": {
+      const { stage, entries, files, digest, weak } = e.data;
+      return { ...state, oracle: { stage, entries: [...entries], files: { ...files }, digest, weak, seq: e.seq } };
+    }
     case "session.bound": {
       const { host, session } = e.data;
       if (state.sessions.some((s) => s.host === host && s.session === session)) return state;

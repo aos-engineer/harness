@@ -6,14 +6,18 @@ import { ACTION_PRIORITY, type ActionDef, type ActionName } from "../types.ts";
 import { foldName } from "../util/fold.ts";
 import { type Leaf, walk } from "./leaves.ts";
 
-/** The first role (in pack order) one of whose prefixes starts a leaf command, and whether its exit status is masked. */
-export function matchRole(cmd: string, roles: Record<string, string[]>): { role: string; masked: boolean } | null {
+/**
+ * The first role (in pack order) one of whose prefixes starts a leaf command, whether its exit status is
+ * masked, and whether the leaf is the prefix exactly. Arguments can narrow what a test runner runs, so a
+ * frozen oracle only trusts an exact run.
+ */
+export function matchRole(cmd: string, roles: Record<string, string[]>): { role: string; masked: boolean; exact: boolean } | null {
   const leaves = walk(cmd).leaves;
   for (const [role, prefixes] of Object.entries(roles)) {
     for (const prefix of prefixes) {
       for (const leaf of leaves) {
         if (leaf.command === prefix || leaf.command.startsWith(prefix + " ")) {
-          return { role, masked: leaf.masked };
+          return { role, masked: leaf.masked, exact: leaf.command === prefix };
         }
       }
     }

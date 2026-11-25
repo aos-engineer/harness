@@ -3,6 +3,7 @@
 import { projector } from "../projection.ts";
 import { appendEvents } from "../store/store.ts";
 import { treeFingerprint } from "../tree/fingerprint.ts";
+import { withOracle } from "../tree/oracle.ts";
 import type { Actor, EventDraft, HookDecision, HookInput, RunLocation, RunState, TreeState } from "../types.ts";
 import type { HookDeps } from "./handle.ts";
 
@@ -24,7 +25,7 @@ export function hookContext(input: HookInput, loc: RunLocation, state: RunState,
     state,
     actor: hookActor(input),
     tree: () => {
-      tree ??= fingerprint(state.root, { git: state.git, changes: state.changes });
+      tree ??= withOracle(state, fingerprint(state.root, { git: state.git, changes: state.changes }));
       return tree;
     },
     append: (drafts) => appendEvents(loc, drafts, projector).file.state,

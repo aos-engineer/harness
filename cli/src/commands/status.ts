@@ -1,7 +1,7 @@
 // aos status: read-only, so it needs no terminal. The list reads each run's snapshot, which is cheap; a
 // single run's summary replays and verifies the whole log first, so it never presents a tampered run as
 // healthy.
-import { evaluateGate, listRuns, loadState, projector, readLog, renderSummary, RunNotFoundError, treeFingerprint, verifyChain } from "@aos-harness/kernel";
+import { evaluateGate, listRuns, loadState, projector, readLog, renderSummary, RunNotFoundError, treeFingerprint, verifyChain, withOracle } from "@aos-harness/kernel";
 import type { RunLocation, RunState } from "@aos-harness/kernel";
 import type { CliIO, CommandFn } from "../io.ts";
 import { parseFlags, printable, resolveRoot, UsageError } from "./shared.ts";
@@ -78,7 +78,7 @@ function showOne(io: CliIO, loc: RunLocation, json: boolean): number {
   const { state } = loadState(loc, projector);
   if (state.status !== "active") return showEnded(io, loc, state, json);
   // The tree is read where the run was found, which is where the agent's hooks read it too.
-  const tree = treeFingerprint(loc.root, { git: state.git, changes: state.changes });
+  const tree = withOracle(state, treeFingerprint(loc.root, { git: state.git, changes: state.changes }));
   const gate = evaluateGate(state, state.current.stage, tree);
   if (json) {
     const { used, limit } = state.budget.iterations;

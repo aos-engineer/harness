@@ -3,6 +3,7 @@
 import { existsSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { loadPack } from "../../src/pack/load.ts";
+import { currentOracle, oracleFreeze } from "../../src/tree/oracle.ts";
 import { projector } from "../../src/projection.ts";
 import { readLog } from "../../src/store/log.ts";
 import { runPaths } from "../../src/store/paths.ts";
@@ -140,6 +141,12 @@ export function at(loc: RunLocation, stage: string): void {
   const index = s.stages.indexOf(stage);
   if (index < 0) throw new Error(`stage ${stage} is not in the ${s.tier} tier`);
   append(loc, { type: "stage.entered", actor: SETUP, data: { stage, index } });
+  // A real advance pins the oracle when it enters the freeze stage, so a jump to or past it pins too.
+  const freeze = oracleFreeze(s);
+  if (freeze !== null && index >= freeze.index && s.oracle === undefined) {
+    const { entries, files, digest, weak } = currentOracle(state(loc))!;
+    append(loc, { type: "oracle.pinned", actor: SETUP, data: { stage: freeze.stage, manifest: freeze.manifest, entries, files, digest, weak } });
+  }
 }
 
 function evidenceBase(loc: RunLocation): { id: string; fingerprint: string; changes: number; stage: string; agent: null } {
@@ -156,8 +163,14 @@ export function testRun(loc: RunLocation, exitCode: number | null): void {
   const data: CommandEvidence = {
     ...evidenceBase(loc), kind: "command", role: "test", command: "bun test", exitCode, masked: false,
     outputSha256: "sha256:" + "0".repeat(64), tail: "", provenance: "observed",
+    // The hook stamps a pinned run's evidence with the oracle it ran against.
+    ...stamp(state(loc)),
   };
   record(loc, data);
+}
+
+function stamp(s: RunState): { exact?: boolean; oracle?: string } {
+  return s.oracle === undefined ? {} : { exact: true, oracle: currentOracle(s)!.digest };
 }
 
 /** An approved review at the current tree. */

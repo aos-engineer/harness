@@ -55,7 +55,7 @@ test("the generator is deterministic per seed and covers every event type", () =
     "task.completed": true, "evidence.recorded": true, "gate.evaluated": true, "approval.requested": true,
     "approval.granted": true, "approval.denied": true, "budget.charged": true, "budget.warning": true,
     "budget.exceeded": true, "action.blocked": true, "action.allowed": true, "worktree.changed": true,
-    "session.bound": true, "log.repaired": true,
+    "session.bound": true, "log.repaired": true, "oracle.pinned": true,
   };
   for (const type of Object.keys(all)) expect([...seen]).toContain(type);
   expect([...seen]).toContain("context.issued");

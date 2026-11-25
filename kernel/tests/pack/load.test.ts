@@ -314,3 +314,56 @@ test("loadPack works under Node", () => {
   expect(r.stderr).toBe("");
   expect(JSON.parse(r.stdout)).toEqual({ instructions: ["bounded/build"], integrity: packIntegrity(fx("valid")) });
 });
+
+describe("oracle", () => {
+  const ORACLE = "oracle:\n  manifest: aos-oracle.txt\n\n";
+  // The valid fixture with a design stage ahead of build, so the tier has a later stage to freeze at.
+  function twoStage(top: string, freeze: string | null, decider = "human"): string {
+    const dir = validWith(
+      "tiers:\n  bounded:\n    stages:\n      - name: build",
+      `${top}tiers:\n  bounded:\n${freeze === null ? "" : `    freeze_oracle_at: ${freeze}\n`}    stages:\n      - name: design\n        writes: []\n        gate: { decider: ${decider} }\n      - name: build`,
+    );
+    writeFileSync(join(dir, "stages/bounded/design.md"), "# design\n");
+    return dir;
+  }
+
+  test("a tier freezes at a later stage, against the manifest the pack names", () => {
+    const pack = loadPack(twoStage(ORACLE, "build"));
+    expect(pack.oracle).toEqual({ manifest: "aos-oracle.txt" });
+    expect(pack.tiers.bounded?.freezeOracleAt).toBe("build");
+  });
+
+  test("a pack without an oracle keeps its exact shape", () => {
+    const pack = loadPack(copyFixture("valid"));
+    expect(Object.hasOwn(pack, "oracle")).toBe(false);
+    expect(Object.hasOwn(pack.tiers.bounded!, "freezeOracleAt")).toBe(false);
+  });
+
+  test("freeze_oracle_at must name a stage of its tier after the first", () => {
+    expect(issuesOf(twoStage(ORACLE, "ship"))).toContain('tiers.bounded.freeze_oracle_at: "ship" names no stage in tier "bounded"');
+    expect(issuesOf(twoStage(ORACLE, "design"))).toContain(
+      'tiers.bounded.freeze_oracle_at: "design" is the first stage of tier "bounded"; the oracle must be frozen at a later stage',
+    );
+  });
+
+  test("the stage before the freeze needs a human gate, so the human approves what gets pinned", () => {
+    expect(issuesOf(twoStage(ORACLE, "build", "rule"))).toContain(
+      'tiers.bounded.freeze_oracle_at: the stage before "build" needs a human gate, so the human approves the oracle that gets frozen',
+    );
+  });
+
+  test("freezing needs the oracle block", () => {
+    expect(issuesOf(twoStage("", "build"))).toContain("tiers.bounded.freeze_oracle_at: needs the top-level oracle block that names the manifest");
+  });
+
+  test("the manifest is a plain file inside the repository, outside .aos/ and .git/", () => {
+    for (const bad of ["/etc/oracle", "../oracle.txt", ".aos/oracle", ".GIT/oracle", "a//b", "x.json#/a"]) {
+      const issues = issuesOf(twoStage(`oracle:\n  manifest: '${bad}'\n\n`, "build"));
+      expect(issues.some((i) => i.startsWith("oracle.manifest: must be a file path"))).toBe(true);
+    }
+  });
+
+  test("the oracle block is closed to unknown fields", () => {
+    expect(issuesOf(twoStage("oracle:\n  manifest: aos-oracle.txt\n  paths: [tests/]\n\n", "build"))).toContain('oracle: must NOT have additional properties: "paths"');
+  });
+});

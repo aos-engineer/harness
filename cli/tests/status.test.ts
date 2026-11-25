@@ -120,7 +120,8 @@ describe("aos status <run>", () => {
     const s = JSON.parse(io.stdout);
     expect(s).toMatchObject({ run, status: "active", tier: "bounded", stage: "design", stages: ["design", "build", "verify"], iterations: { used: 0, limit: 20 } });
     expect(s.gate).toMatchObject({ stage: "design", verdict: "pending" });
-    expect(s.gate.gaps.map((g: { requirement: string }) => g.requirement)).toEqual(["approval"]);
+    // The test root has no aos-oracle.txt, so the design gate also asks for one.
+    expect(s.gate.gaps.map((g: { requirement: string }) => g.requirement)).toEqual(["oracle:declared", "approval"]);
   });
 
   test("a tampered log is reported, not summarized", async () => {

@@ -19,6 +19,11 @@ classify:
 budget:
   iterations: 20
 
+# The tests a bounded run is judged by. The design stage writes them and the human approves them; when build
+# begins they freeze, so a gate can only pass on the tests the human saw.
+oracle:
+  manifest: aos-oracle.txt
+
 tiers:
   spike:
     stages:
@@ -32,6 +37,7 @@ tiers:
         model: fast
         gate: { decider: rule }
   bounded:
+    freeze_oracle_at: build
     stages:
       - name: design
         writes: ["docs/specs/"]

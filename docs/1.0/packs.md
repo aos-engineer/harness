@@ -52,7 +52,7 @@ The authoritative schema is [`kernel/schema/pack.schema.json`](../../kernel/sche
 
 ### Top level
 
-All seven keys are required, and no others are allowed.
+Seven keys are required and one is optional; no others are allowed.
 
 | Key | Type | Meaning |
 |---|---|---|
@@ -63,10 +63,11 @@ All seven keys are required, and no others are allowed.
 | `budget` | object | `iterations`: an integer of at least 1. See [Budget](#budget). |
 | `tiers` | object | At least one of `spike`, `bounded`, `architectural`, each with its stages. |
 | `actions` | object | Exactly `commit`, `push`, `pr_create`, and `deploy`, each with patterns and per-tier policies. See [Actions](#actions). |
+| `oracle` | object, optional | `manifest`: the repository file that lists the oracle. See [The oracle](#the-oracle). |
 
 ### Tiers and stages
 
-Each tier is `{ stages: [...] }` with at least one stage, run in the order listed.
+Each tier is `{ stages: [...] }` with at least one stage, run in the order listed. A tier may also set `freeze_oracle_at`, the stage at which its oracle freezes; see [The oracle](#the-oracle).
 
 | Stage field | Required | Default | Meaning |
 |---|---|---|---|
@@ -140,7 +141,9 @@ The schema catches shape errors. The loader then checks what a schema cannot exp
 - every action has a policy for every tier the pack defines;
 - every `in_stages` and `after_gate` policy names a stage in that same tier;
 - every action pattern and classify pattern compiles as a regular expression (classify patterns with the case-insensitive flag they run with);
-- `classify.default` names a tier the pack defines.
+- `classify.default` names a tier the pack defines;
+- every `freeze_oracle_at` names a stage of its tier other than the first, the stage before it has a human gate (only a human gate records the oracle the human approved), and the pack has an `oracle` block;
+- `oracle.manifest` is a plain relative file path, outside `.aos/` and `.git/`.
 
 A classify rule may name a tier the pack does not define. That is deliberate: it is how the reference pack refuses architectural work in this release (see below).
 
@@ -199,6 +202,8 @@ A role match after the tool call becomes observed command evidence with its exit
 | `["docs/specs/", "notes/"]` | Only under these prefixes, relative to the repository root. |
 | `[]` | No file writes at all. |
 
+In a tier that freezes an oracle, the oracle overrides the scope: before the freeze stage its files are writable in any stage, and from the freeze stage on they are not writable in any stage.
+
 Each prefix must end in `/`, use forward slashes, and cannot be absolute, start at `.aos/`, or contain an empty, `.`, or `..` segment. A path matches when its root-relative form starts with the prefix; both sides are compared as physical paths, so a symlinked spelling of the same directory cannot slip past.
 
 A few rules hold whatever the scope says:
@@ -216,6 +221,52 @@ Each `stages/<tier>/<stage>.md` is plain markdown for the agent. `aos_run_start`
 
 `budget.iterations` caps how many times the Stop hook sends the agent back to work. Each blocked stop charges one iteration. From four fifths of the budget on, the block message shows the count, and once the budget is used, AOS lets the agent stop and lists the open gaps instead. The budget does not block tool calls, and this release has no command to extend it. The reference pack sets 20.
 
+## The oracle
+
+A gate that passes on "the tests passed" is only as good as the tests. The oracle is the set of files a run is judged by: acceptance tests, the config they run under, and the script the `test` role runs through. The pack names a manifest that lists it, and a tier freezes it at a stage:
+
+```yaml
+oracle:
+  manifest: aos-oracle.txt
+
+tiers:
+  bounded:
+    freeze_oracle_at: build
+    stages: [...]
+```
+
+The manifest lives in the repository, so the team reviews it like any other file. One entry per line; blank lines and lines starting with `#` are ignored:
+
+```text
+# Acceptance tests the human approves with the design
+tests/acceptance/
+e2e/
+playwright.config.ts
+# The script `bun run test` runs, without freezing the rest of package.json
+package.json#/scripts/test
+```
+
+| Entry | Frozen |
+|---|---|
+| a file path | that file |
+| a directory, with or without a trailing `/` | every file under it that git would put in the tree: tracked files and untracked files that are not ignored |
+| `file.json#/pointer` | one JSON value inside the file, as an RFC 6901 pointer. The rest of the file stays editable. |
+
+Entries must be relative to the repository root and cannot reach `.aos/` or `.git/`. The manifest is always part of its own oracle.
+
+How a run uses it:
+
+1. **Before the freeze stage** the manifest and everything it lists are writable through file tools in any stage, whatever that stage's write scope says, because this is where the oracle gets written. So an entry also widens what those stages may write: read the manifest before you approve.
+2. **The gate leading into the freeze stage** needs at least one listed file to exist (a pointer entry pins how tests run, not what they check, so it does not count), and reports any manifest line it cannot use. That includes a symbolic link, which would protect neither itself nor its target, and a directory that lists no files, which usually means a wrong letter case or files git ignores.
+3. **An approval requested before the freeze** records the oracle's digest. If the oracle changes after the request, the approval no longer counts and the agent must request it again, so you approve the tests that will be frozen.
+4. **Entering the freeze stage** records `oracle.pinned` with a hash per file, in the same append as the stage change.
+5. **From the freeze stage on**, file tools cannot write the oracle while the run is active (a pointer entry's file stays writable), and every gate fails while the oracle differs from the pin. The gap names each changed, added, or removed file. Because `after_gate` actions evaluate those gates live, push and PR create are blocked too, even after the run completes.
+6. **A command run counts in a frozen stage** only if it was one of its role's commands exactly as the pack lists it, with nothing added (no file, no `-t` or `-k` filter, no redirection), and only if the oracle matched the pin when it ran. Arguments can narrow what a test runner runs, and a run against an edited oracle proves nothing, even once the edit is undone and the tree looks unchanged. Put what the full run covers in config or a script, and list that in the oracle.
+
+Shell commands can still write the oracle; the gate's re-hash catches what they change. Outside git, directories are walked without ignore rules, skipping `.git/`, `.aos/`, and `node_modules/`, and the snapshot is marked weak. A manifest may list at most 10,000 files.
+
+There is no way to change a frozen oracle in this release. If it is wrong, the agent should stop and tell you; cancel the run with `aos run cancel`, and the next run's design stage can change it.
+
 ## The reference pack
 
 [`packs/feature-delivery`](../../packs/feature-delivery/) defines two tiers:
@@ -223,7 +274,7 @@ Each `stages/<tier>/<stage>.md` is plain markdown for the agent. `aos_run_start`
 | Tier | Stages | Gates |
 |---|---|---|
 | `spike` | frame, probe | frame is a human gate with no file writes; probe writes anywhere and has a rule gate with no requirements. Commit is always allowed; push, PR create, and deploy never are. |
-| `bounded` | design, build, verify | design writes only under `docs/specs/` and needs your approval; build needs every task done and a fresh observed test run; verify needs a fresh observed test run and a fresh approved review. Commit is allowed in build and verify; push and PR create after the verify gate passes; deploy never. |
+| `bounded` | design, build, verify | design writes only under `docs/specs/` and the oracle, needs an oracle, and needs your approval; the oracle freezes when build begins; build needs every task done, a fresh observed test run, and an unchanged oracle; verify needs a fresh observed test run, a fresh approved review, and an unchanged oracle. Commit is allowed in build and verify; push and PR create after the verify gate passes; deploy never. |
 
 Its [README](../../packs/feature-delivery/README.md) has the full tables.
 

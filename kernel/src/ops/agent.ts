@@ -12,6 +12,7 @@ import { projector, stageDef } from "../projection.ts";
 import { writeArtifact } from "../store/artifacts.ts";
 import { appendEvents, createRun, loadState } from "../store/store.ts";
 import { spawnGit } from "../tree/git.ts";
+import { currentOracle, oracleFreeze, withOracle } from "../tree/oracle.ts";
 import type { EventDraft, Evidence, GateResult, ResolvedPack, RunLocation, RunState, RunStatus, Tier, TreeState } from "../types.ts";
 import { TIER_RANK } from "../types.ts";
 import { OpError, RunNotFoundError } from "../util/errors.ts";
@@ -129,8 +130,18 @@ export function stageAdvance(ctx: OpContext, p: { runId: string }): StageAdvance
         result: { advanced: true, completed: true, gate, stage, instructions: null, message: null },
       };
     }
+    const drafts: EventDraft[] = [evaluated, { type: "stage.entered", actor, data: { stage: next, index } }];
+    // The pin lands in the same append as the move, at the tree the passing gate was evaluated against, so
+    // no edit can slip in between the approval check and what gets frozen.
+    const freeze = oracleFreeze(state);
+    if (freeze !== null && freeze.index === index) {
+      const snapshot = tree.oracle?.();
+      if (snapshot === undefined) throw new OpError("refused", "AOS could not read the oracle to pin it. Run aos doctor.");
+      const { entries, files, digest, weak } = snapshot;
+      drafts.push({ type: "oracle.pinned", actor, data: { stage: next, manifest: freeze.manifest, entries, files, digest, weak } });
+    }
     return {
-      drafts: [evaluated, { type: "stage.entered", actor, data: { stage: next, index } }], still,
+      drafts, still,
       result: { advanced: true, completed: false, gate, stage: next, instructions: instructionsFor(state.pack, state.tier, next), message: null },
     };
   });
@@ -238,8 +249,14 @@ export function requestApproval(ctx: OpContext, p: { runId: string; summary: str
     }
     const summary = text(p.summary, "summary", MAX_SUMMARY_CHARS);
     const request = ulid();
+    // Before the freeze, the request records which oracle the human is being shown.
+    const freeze = oracleFreeze(state);
+    const oracle = freeze !== null && state.current.index < freeze.index ? currentOracle(state)?.digest : undefined;
     return {
-      drafts: [{ type: "approval.requested", actor: agentActor("aos_request_approval"), data: { request, stage, summary } }],
+      drafts: [{
+        type: "approval.requested", actor: agentActor("aos_request_approval"),
+        data: { request, stage, summary, ...(oracle === undefined ? {} : { oracle }) },
+      }],
       // A request for a stage the run has already left would wait on an approval nothing can use.
       still: (locked) => sameStage(locked, state),
       result: {
@@ -319,7 +336,7 @@ function notFound<T>(fn: () => T): T {
 
 // The run's own git setting decides freshness, so a context opened differently cannot change what counts.
 function treeOf(ctx: OpContext, state: RunState): TreeState {
-  return ctx.tree(state.root, { git: state.git, changes: state.changes });
+  return withOracle(state, ctx.tree(state.root, { git: state.git, changes: state.changes }));
 }
 
 function evaluate(ctx: OpContext, state: RunState): { gate: GateResult; tree: TreeState } {

@@ -45,9 +45,18 @@ function observeCommand(ctx: HookContext, tool: HookTool): HookDecision {
     // A pipe or chain reports some other command's status, so a masked run never carries one.
     exitCode: hit.masked ? null : exitCode,
     ...captureOutput(result?.output ?? ""),
+    ...frozen(ctx, hit.exact),
   };
   record(ctx, evidence);
   return allow(hit.masked ? MASKED_TEXT : null);
+}
+
+// Freshness cannot see an ignored file, or anything outside git, so a run made while the oracle differed from
+// the pin could look current once the edit is undone. The digest it ran against travels with the evidence.
+function frozen(ctx: HookContext, exact: boolean): { exact: boolean; oracle?: string } | Record<string, never> {
+  if (ctx.state.oracle === undefined) return {};
+  const digest = ctx.tree().oracle?.().digest;
+  return digest === undefined ? { exact } : { exact, oracle: digest };
 }
 
 function observeWrite(ctx: HookContext, tool: HookTool): HookDecision {
